@@ -83,8 +83,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
-
-      - name: Log initial free space (C: and D:)
+          
+      - name: "Log initial free space (C: and D:)"
         shell: powershell
         run: |
           Get-PSDrive C, D | Select-Object Name, Free
