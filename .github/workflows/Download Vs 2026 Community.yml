@@ -1,0 +1,315 @@
+name: Visual Studio 2026 Community Offline Layout
+
+on:
+  workflow_dispatch:
+    inputs:
+      workload_web:
+        description: 'ASP.NET and web development'
+        type: boolean
+        default: false
+      workload_azure:
+        description: 'Azure and AI development'
+        type: boolean
+        default: false
+      workload_python:
+        description: 'Python development'
+        type: boolean
+        default: false
+      workload_node:
+        description: 'Node.js development'
+        type: boolean
+        default: false
+      workload_maui:
+        description: '.NET Multi-platform App UI development'
+        type: boolean
+        default: false
+      workload_desktop_net:
+        description: '.NET desktop development'
+        type: boolean
+        default: false
+      workload_desktop_cpp:
+        description: 'Desktop development with C++'
+        type: boolean
+        default: false
+      workload_winui:
+        description: 'WinUI application development'
+        type: boolean
+        default: false
+      workload_cpp_mobile:
+        description: 'Mobile development with C++ (Out of support)'
+        type: boolean
+        default: false
+      workload_unity:
+        description: 'Game development with Unity'
+        type: boolean
+        default: false
+      workload_cpp_game:
+        description: 'Game development with C++'
+        type: boolean
+        default: false
+      workload_data:
+        description: 'Data storage and processing'
+        type: boolean
+        default: false
+      workload_data_science:
+        description: 'Data science and analytical applications'
+        type: boolean
+        default: false
+      workload_office:
+        description: 'Microsoft 365 development'
+        type: boolean
+        default: false
+      workload_vs_extension:
+        description: 'Visual Studio extension development'
+        type: boolean
+        default: false
+      workload_linux_cpp:
+        description: 'Linux, Mac, and embedded development with C++'
+        type: boolean
+        default: false
+      include_android_sdk:
+        description: 'Include Android SDK setup (recommended with .NET MAUI)'
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 360
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      # ────────────────── 1. Maximum disk space reclaim ──────────────────
+      - name: Maximize build disk space
+        uses: rtjohnso/maximize-build-space@v1
+        with:
+          root-reserve-mb: 1024
+          temp-reserve-mb: 1024
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+
+      # ───── 2. Additional aggressive cleanup (removes Windows Update cache, etc.) ─────
+      - name: Aggressive Windows cleanup
+        shell: powershell
+        run: |
+          Write-Host "=== Removing Windows Update cache, temp, and other large junk ==="
+          Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Windows\SoftwareDistribution\Download\*" -ErrorAction SilentlyContinue
+          Start-Service -Name wuauserv -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Windows\Temp\*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Windows\Logs\*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\ProgramData\Microsoft\Windows\WER\*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\WindowsApps\Deleted\*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\ProgramData\Package Cache\*" -ErrorAction SilentlyContinue
+          Write-Host "Free space after aggressive cleanup:"
+          Get-PSDrive C | Select-Object Free
+
+      # ───── 3. Download the VS bootstrapper ─────
+      - name: Download Visual Studio 2026 Community Bootstrapper
+        shell: powershell
+        run: |
+          $url = "https://aka.ms/vs/18/stable/vs_community.exe"
+          $output = "vs_Community.exe"
+          Write-Host "Downloading bootstrapper from: $url"
+          Invoke-WebRequest -Uri $url -OutFile $output -ErrorAction Stop
+          $size = (Get-Item $output).Length
+          Write-Host "Bootstrapper downloaded: $size bytes"
+          if ($size -lt 1000000) {
+            Write-Error "Bootstrapper file is too small ($size bytes). Download may have failed."
+            exit 1
+          }
+          Write-Host "Bootstrapper verified OK."
+
+      # ───── 4. Cache key (unchanged) ─────
+      - name: Determine cache key
+        id: cache-key
+        shell: powershell
+        run: |
+          $key = "vs-layout-v4-" +
+            "web-${{ inputs.workload_web }}" +
+            "-azure-${{ inputs.workload_azure }}" +
+            "-python-${{ inputs.workload_python }}" +
+            "-node-${{ inputs.workload_node }}" +
+            "-maui-${{ inputs.workload_maui }}" +
+            "-desktopnet-${{ inputs.workload_desktop_net }}" +
+            "-desktopcpp-${{ inputs.workload_desktop_cpp }}" +
+            "-winui-${{ inputs.workload_winui }}" +
+            "-cppmobile-${{ inputs.workload_cpp_mobile }}" +
+            "-unity-${{ inputs.workload_unity }}" +
+            "-cppgame-${{ inputs.workload_cpp_game }}" +
+            "-data-${{ inputs.workload_data }}" +
+            "-datascience-${{ inputs.workload_data_science }}" +
+            "-office-${{ inputs.workload_office }}" +
+            "-vsext-${{ inputs.workload_vs_extension }}" +
+            "-linuxcpp-${{ inputs.workload_linux_cpp }}" +
+            "-androidsdk-${{ inputs.include_android_sdk }}"
+          Write-Host "Cache key: $key"
+          echo "key=$key" >> $env:GITHUB_OUTPUT
+
+      - name: Restore cached layout
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}\vs_layout
+          key: ${{ steps.cache-key.outputs.key }}
+
+      # ───── 5. Create offline layout (unchanged) ─────
+      - name: Create offline layout
+        id: layout
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        shell: powershell
+        timeout-minutes: 300
+        run: |
+          $layoutDir = "${{ github.workspace }}\vs_layout"
+          New-Item -ItemType Directory -Force -Path $layoutDir | Out-Null
+
+          $addArgs = @()
+          if ('${{ inputs.workload_web }}' -eq 'true')        { $addArgs += '--add Microsoft.VisualStudio.Workload.NetWeb' }
+          if ('${{ inputs.workload_azure }}' -eq 'true')      { $addArgs += '--add Microsoft.VisualStudio.Workload.Azure' }
+          if ('${{ inputs.workload_python }}' -eq 'true')     { $addArgs += '--add Microsoft.VisualStudio.Workload.Python' }
+          if ('${{ inputs.workload_node }}' -eq 'true')       { $addArgs += '--add Microsoft.VisualStudio.Workload.Node' }
+          if ('${{ inputs.workload_maui }}' -eq 'true')       { $addArgs += '--add Microsoft.VisualStudio.Workload.NetCrossPlat' }
+          if ('${{ inputs.workload_desktop_net }}' -eq 'true'){ $addArgs += '--add Microsoft.VisualStudio.Workload.ManagedDesktop' }
+          if ('${{ inputs.workload_desktop_cpp }}' -eq 'true'){ $addArgs += '--add Microsoft.VisualStudio.Workload.NativeDesktop' }
+          if ('${{ inputs.workload_winui }}' -eq 'true')      { $addArgs += '--add Microsoft.VisualStudio.Workload.Universal' }
+          if ('${{ inputs.workload_cpp_mobile }}' -eq 'true') { $addArgs += '--add Microsoft.VisualStudio.Workload.NativeMobile' }
+          if ('${{ inputs.workload_unity }}' -eq 'true')      { $addArgs += '--add Microsoft.VisualStudio.Workload.ManagedGame' }
+          if ('${{ inputs.workload_cpp_game }}' -eq 'true')   { $addArgs += '--add Microsoft.VisualStudio.Workload.NativeGame' }
+          if ('${{ inputs.workload_data }}' -eq 'true')       { $addArgs += '--add Microsoft.VisualStudio.Workload.Data' }
+          if ('${{ inputs.workload_data_science }}' -eq 'true'){ $addArgs += '--add Microsoft.VisualStudio.Workload.DataScience' }
+          if ('${{ inputs.workload_office }}' -eq 'true')     { $addArgs += '--add Microsoft.VisualStudio.Workload.Office' }
+          if ('${{ inputs.workload_vs_extension }}' -eq 'true'){ $addArgs += '--add Microsoft.VisualStudio.Workload.VisualStudioExtension' }
+          if ('${{ inputs.workload_linux_cpp }}' -eq 'true')  { $addArgs += '--add Microsoft.VisualStudio.Workload.NativeCrossPlat' }
+
+          if ('${{ inputs.include_android_sdk }}' -eq 'true') {
+            $addArgs += '--add Microsoft.VisualStudio.Component.Android.SDK.MAUI'
+            $addArgs += '--add Microsoft.VisualStudio.Component.Android.SDK'
+          }
+
+          if ($addArgs.Count -eq 0) {
+            Write-Error "No workload selected! Please select at least one workload."
+            exit 1
+          }
+
+          Write-Host "=== Starting offline layout creation ==="
+          Write-Host "Layout directory: $layoutDir"
+          Write-Host "Workloads: $($addArgs -join ' ')"
+
+          $cmdOutput = & .\vs_Community.exe --layout $layoutDir --lang en-US $addArgs --quiet --wait --norestart 2>&1
+          Write-Host "Bootstrapper exited with LASTEXITCODE: $LASTEXITCODE"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "=== BOOTSTRAPPER OUTPUT ==="
+            $cmdOutput | ForEach-Object { Write-Host $_ }
+            Write-Error "Layout creation failed with exit code $LASTEXITCODE."
+            exit $LASTEXITCODE
+          }
+          Write-Host "Offline layout created successfully."
+          echo "layout-created=true" >> $env:GITHUB_OUTPUT
+
+      # ───── 6. Package layout into a zip file (WITHOUT doubling disk usage) ─────
+      - name: Package layout into a zip file
+        if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
+        shell: powershell
+        run: |
+          $zipPath = "$env:RUNNER_TEMP\VsCommunity2026Layout.zip"
+          $layoutDir = "${{ github.workspace }}\vs_layout"
+          Write-Host "Creating zip with compaction (moving files)..."
+          # Use the .NET Framework's ZipFile to create the archive, then delete each file that was added.
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
+          Get-ChildItem -Path $layoutDir -Recurse -File | ForEach-Object {
+            $relativePath = $_.FullName.Substring($layoutDir.Length + 1)
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $relativePath, 'Optimal')
+            Remove-Item -Path $_.FullName -Force
+          }
+          $archive.Dispose()
+          Write-Host "Zip created and layout folder cleared."
+          Write-Host "Zip size: $((Get-Item $zipPath).Length / 1MB) MB"
+          echo "ZIP_PATH=$zipPath" >> $env:GITHUB_ENV
+
+      # ───── 7. Install Python requests module ─────
+      - name: Install Python requests module
+        if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
+        shell: pwsh
+        run: |
+          python -m pip install requests --quiet
+          Write-Host "Python requests module installed."
+
+      # ───── 8. Split zip and upload chunks ─────
+      - name: Split zip and upload chunks
+        if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -c @"
+          import os, base64, requests, sys, time
+          from pathlib import Path
+          token = os.environ['GITHUB_TOKEN']
+          repo = os.environ['GITHUB_REPOSITORY']
+          branch = os.environ['GITHUB_REF_NAME']
+          zip_path = os.environ.get('ZIP_PATH') or os.path.join(os.environ['RUNNER_TEMP'], 'VsCommunity2026Layout.zip')
+          chunks_dir = 'vs_2026_community_offline'
+          chunk_size_mb = 20
+          chunk_size = chunk_size_mb * 1024 * 1024
+          print(f'Chunking {zip_path} into {chunk_size_mb} MB parts...')
+          Path(chunks_dir).mkdir(exist_ok=True)
+          with open(zip_path, 'rb') as f:
+              idx = 0
+              while True:
+                  data = f.read(chunk_size)
+                  if not data: break
+                  chunk_name = f'VsCommunity2026Layout.part{idx:04d}'
+                  chunk_path = os.path.join(chunks_dir, chunk_name)
+                  with open(chunk_path, 'wb') as cf:
+                      cf.write(data)
+                  idx += 1
+          total_chunks = idx
+          print(f'Created {total_chunks} chunks.')
+          bat_content = '@echo off\r\ncopy /b VsCommunity2026Layout.part* VsCommunity2026Layout.zip\r\necho Done.\r\npause\r\n'
+          bat_path = os.path.join(chunks_dir, 'reassemble.bat')
+          with open(bat_path, 'w') as bat:
+              bat.write(bat_content)
+          headers = {'Authorization': f'token {token}'}
+          api_base = f'https://api.github.com/repos/{repo}/contents'
+          def upload(path, content_bytes):
+              api_path = path.replace('\\', '/')
+              encoded = base64.b64encode(content_bytes).decode('utf-8')
+              api_url = f'{api_base}/{api_path}'
+              resp = requests.get(api_url, headers=headers)
+              sha = resp.json().get('sha') if resp.status_code == 200 else None
+              payload = {'message': f'Upload {os.path.basename(path)}', 'content': encoded, 'branch': branch}
+              if sha: payload['sha'] = sha
+              for attempt in range(3):
+                  r = requests.put(api_url, headers=headers, json=payload)
+                  if r.status_code in (200, 201):
+                      print(f'[OK] Uploaded {os.path.basename(path)}')
+                      return
+                  if attempt == 2:
+                      print(f'[FAIL] Upload failed for {os.path.basename(path)}: {r.status_code}')
+                      sys.exit(1)
+                  time.sleep(10)
+          for i in range(total_chunks):
+              chunk_name = f'VsCommunity2026Layout.part{i:04d}'
+              chunk_path = os.path.join(chunks_dir, chunk_name)
+              with open(chunk_path, 'rb') as f:
+                  upload(chunk_path, f.read())
+          with open(bat_path, 'rb') as f:
+              upload(bat_path, f.read())
+          print('All chunks + reassemble.bat uploaded successfully to folder: vs_2026_community_offline')
+          "@
+
+      # ───── 9. Save layout cache (only if it still exists) ─────
+      - name: Save layout cache
+        if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}\vs_layout
+          key: ${{ steps.cache-key.outputs.key }}
