@@ -35,6 +35,10 @@ on:
         description: 'WinUI application development'
         type: boolean
         default: false
+      workload_cpp_mobile:
+        description: 'Mobile development with C++ (Out of support)'
+        type: boolean
+        default: false
       workload_unity:
         description: 'Game development with Unity'
         type: boolean
@@ -61,6 +65,10 @@ on:
         default: false
       workload_linux_cpp:
         description: 'Linux, Mac, and embedded development with C++'
+        type: boolean
+        default: false
+      include_android_sdk:
+        description: 'Include Android SDK setup'
         type: boolean
         default: false
 
@@ -132,13 +140,15 @@ jobs:
             "-desktopnet-${{ inputs.workload_desktop_net }}" +
             "-desktopcpp-${{ inputs.workload_desktop_cpp }}" +
             "-winui-${{ inputs.workload_winui }}" +
+            "-cppmobile-${{ inputs.workload_cpp_mobile }}" +
             "-unity-${{ inputs.workload_unity }}" +
             "-cppgame-${{ inputs.workload_cpp_game }}" +
             "-data-${{ inputs.workload_data }}" +
             "-datascience-${{ inputs.workload_data_science }}" +
             "-office-${{ inputs.workload_office }}" +
             "-vsext-${{ inputs.workload_vs_extension }}" +
-            "-linuxcpp-${{ inputs.workload_linux_cpp }}"
+            "-linuxcpp-${{ inputs.workload_linux_cpp }}" +
+            "-androidsdk-${{ inputs.include_android_sdk }}"
           "key=$key" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Restore cached layout
@@ -157,7 +167,7 @@ jobs:
           $layoutDir = "${{ github.workspace }}\vs_layout"
           New-Item -ItemType Directory -Force -Path $layoutDir | Out-Null
 
-          # Precise Workload IDs for Visual Studio 2026 Community
+          # Workload IDs for Visual Studio 2026 Community
           $addArgs = @()
           if ('${{ inputs.workload_web }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetWeb' }
           if ('${{ inputs.workload_azure }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Azure' }
@@ -167,6 +177,7 @@ jobs:
           if ('${{ inputs.workload_desktop_net }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedDesktop' }
           if ('${{ inputs.workload_desktop_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeDesktop' }
           if ('${{ inputs.workload_winui }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Universal' }
+          if ('${{ inputs.workload_cpp_mobile }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeMobile' }
           if ('${{ inputs.workload_unity }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedGame' }
           if ('${{ inputs.workload_cpp_game }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeGame' }
           if ('${{ inputs.workload_data }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Data' }
@@ -174,6 +185,10 @@ jobs:
           if ('${{ inputs.workload_office }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Office' }
           if ('${{ inputs.workload_vs_extension }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.VisualStudioExtension' }
           if ('${{ inputs.workload_linux_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeCrossPlat' }
+          if ('${{ inputs.include_android_sdk }}' -eq 'true') {
+            $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Component.Android.SDK.MAUI'
+            $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Component.Android.SDK'
+          }
 
           if ($addArgs.Count -eq 0) { Write-Error "No workload selected!"; exit 1 }
 
@@ -207,7 +222,7 @@ jobs:
           Write-Host "Zip size: $((Get-Item "$env:RUNNER_TEMP\VsCommunity2026Layout.zip").Length / 1MB) MB"
           echo "ZIP_PATH=$env:RUNNER_TEMP\VsCommunity2026Layout.zip" >> $env:GITHUB_ENV
 
-      - name: Split zip and upload chunks
+      - name: Split zip and upload chunks (with robust retries)
         if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
         shell: powershell
         env:
@@ -225,13 +240,16 @@ jobs:
             $idx++
           }
           $stream.Close()
+          $totalChunks = $idx
+          Write-Host "Total chunks to upload: $totalChunks"
           "@echo off`r`ncopy /b VsCommunity2026Layout.part* VsCommunity2026Layout.zip`r`necho Done." | Out-File "$chunks\reassemble.bat" -Encoding ASCII
           $token = $env:GITHUB_TOKEN
           $repo = $env:GITHUB_REPOSITORY
           $branch = $env:GITHUB_REF_NAME
           $base = "https://api.github.com/repos/$repo/contents"
           $headers = @{ Authorization = "Bearer $token" }
-          for ($i=0; $i -lt $idx; $i++) {
+          $maxRetries = 3
+          for ($i=0; $i -lt $totalChunks; $i++) {
             $f = "$chunks\VsCommunity2026Layout.part{0:D4}" -f $i
             $bytes = [System.IO.File]::ReadAllBytes($f)
             $enc = [Convert]::ToBase64String($bytes)
@@ -239,17 +257,37 @@ jobs:
             $sha = try { (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $null }
             $body = @{message="Upload $([System.IO.Path]::GetFileName($f))"; content=$enc; branch=$branch}
             if ($sha) { $body.sha = $sha }
-            Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType "application/json"
-            Write-Host "[OK] Uploaded $([System.IO.Path]::GetFileName($f))"
+            $success = $false
+            for ($retry=0; $retry -lt $maxRetries; $retry++) {
+              try {
+                Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType "application/json"
+                Write-Host "[OK] Uploaded chunk $($i+1) of $totalChunks"
+                $success = $true
+                break
+              } catch {
+                if ($retry -lt $maxRetries-1) {
+                  Write-Host "Retry $($retry+1) in 10 seconds..."
+                  Start-Sleep -Seconds 10
+                } else {
+                  Write-Error "Failed to upload chunk $f after $maxRetries attempts"
+                  exit 1
+                }
+              }
+            }
+            if (-not $success) { exit 1 }
+            # brief pause between chunks to avoid overloading GitHub API
+            Start-Sleep -Milliseconds 500
           }
-          $bytes = [System.IO.File]::ReadAllBytes("$chunks\reassemble.bat")
+          # Upload reassemble.bat
+          $batPath = "$chunks\reassemble.bat"
+          $bytes = [System.IO.File]::ReadAllBytes($batPath)
           $enc = [Convert]::ToBase64String($bytes)
           $url = "$base/$chunks/reassemble.bat"
           $sha = try { (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $null }
           $body = @{message="Upload reassemble.bat"; content=$enc; branch=$branch}
           if ($sha) { $body.sha = $sha }
           Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType "application/json"
-          Write-Host "All chunks uploaded to $chunks"
+          Write-Host "All chunks plus reassemble.bat uploaded successfully to folder: $chunks"
 
       - name: Save layout cache
         if: steps.layout.outputs.layout-created == 'true'
