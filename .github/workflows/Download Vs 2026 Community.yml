@@ -133,12 +133,7 @@ jobs:
           $url = "https://aka.ms/vs/18/stable/vs_community.exe"
           $output = "vs_Community.exe"
           Write-Host "Downloading bootstrapper from: $url"
-          try {
-            Invoke-WebRequest -Uri $url -OutFile $output -ErrorAction Stop
-          } catch {
-            Write-Error "Failed to download bootstrapper from $url"
-            throw
-          }
+          Invoke-WebRequest -Uri $url -OutFile $output -ErrorAction Stop
           $size = (Get-Item $output).Length
           Write-Host "Bootstrapper downloaded: $size bytes"
           if ($size -lt 1000000) {
@@ -153,7 +148,7 @@ jobs:
         id: cache-key
         shell: powershell
         run: |
-          $key = "vs-layout-v4-" +
+          $key = "vs-layout-v5-" +
             "web-${{ inputs.workload_web }}" +
             "-azure-${{ inputs.workload_azure }}" +
             "-python-${{ inputs.workload_python }}" +
@@ -222,27 +217,22 @@ jobs:
           Write-Host "Layout directory: $layoutDir"
           Write-Host "Workloads: $($addArgs -join ' ')"
 
-          $logFile = "$env:TEMP\vs_layout_console.log"
-          $errFile = "$env:TEMP\vs_layout_console_err.log"
+          $cliArgs = @(
+            '--layout', $layoutDir,
+            '--lang', 'en-US'
+          ) + $addArgs + @('--quiet', '--wait', '--norestart')
 
-          # Build argument string safely
-          $argString = "--layout `"$layoutDir`" --lang en-US " + ($addArgs -join ' ') + " --quiet --wait --norestart"
-          Write-Host "Running: vs_Community.exe $argString"
-          $process = Start-Process -FilePath ".\vs_Community.exe" -ArgumentList $argString -PassThru -Wait -NoNewWindow -RedirectStandardOutput $logFile -RedirectStandardError $errFile
+          $process = Start-Process -FilePath ".\vs_Community.exe" `
+            -ArgumentList $cliArgs `
+            -PassThru -Wait -NoNewWindow -RedirectStandardOutput "$env:TEMP\vs_layout_stdout.log" -RedirectStandardError "$env:TEMP\vs_layout_stderr.log"
 
           Write-Host "Bootstrapper exited with code: $($process.ExitCode)"
 
-          if (Test-Path $logFile) {
-            Write-Host "=== BOOTSTRAPPER STDOUT ==="
-            Get-Content $logFile | ForEach-Object { Write-Host $_ }
-          }
-          if (Test-Path $errFile) {
-            Write-Host "=== BOOTSTRAPPER STDERR ==="
-            Get-Content $errFile | ForEach-Object { Write-Host $_ }
-          }
+          Get-Content "$env:TEMP\vs_layout_stdout.log" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
+          Get-Content "$env:TEMP\vs_layout_stderr.log" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
 
           if ($process.ExitCode -ne 0) {
-            Write-Error "Layout creation failed with exit code $($process.ExitCode). See output above."
+            Write-Error "Layout creation failed with exit code $($process.ExitCode)."
             exit $process.ExitCode
           }
 
@@ -272,75 +262,95 @@ jobs:
           Get-PSDrive C, D | Select-Object Name, Free
           echo "ZIP_PATH=$zipPath" >> $env:GITHUB_ENV
 
-      - name: Install Python requests module
+      - name: Split zip and upload chunks (PowerShell)
         if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
-        shell: pwsh
-        run: |
-          python -m pip install requests --quiet
-          Write-Host "Python requests module installed."
-
-      - name: Split zip and upload chunks
-        if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
-        shell: pwsh
+        shell: powershell
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python -c @"
-          import os, base64, requests, sys, time
-          from pathlib import Path
-          token = os.environ['GITHUB_TOKEN']
-          repo = os.environ['GITHUB_REPOSITORY']
-          branch = os.environ['GITHUB_REF_NAME']
-          zip_path = os.environ.get('ZIP_PATH') or os.path.join(os.environ['RUNNER_TEMP'], 'VsCommunity2026Layout.zip')
-          chunks_dir = 'vs_2026_community_offline'
-          chunk_size_mb = 20
-          chunk_size = chunk_size_mb * 1024 * 1024
-          print(f'Chunking {zip_path} into {chunk_size_mb} MB parts...')
-          Path(chunks_dir).mkdir(exist_ok=True)
-          with open(zip_path, 'rb') as f:
-              idx = 0
-              while True:
-                  data = f.read(chunk_size)
-                  if not data: break
-                  chunk_name = f'VsCommunity2026Layout.part{idx:04d}'
-                  chunk_path = os.path.join(chunks_dir, chunk_name)
-                  with open(chunk_path, 'wb') as cf:
-                      cf.write(data)
-                  idx += 1
-          total_chunks = idx
-          print(f'Created {total_chunks} chunks.')
-          bat_content = '@echo off\r\ncopy /b VsCommunity2026Layout.part* VsCommunity2026Layout.zip\r\necho Done.\r\npause\r\n'
-          bat_path = os.path.join(chunks_dir, 'reassemble.bat')
-          with open(bat_path, 'w') as bat:
-              bat.write(bat_content)
-          headers = {'Authorization': f'token {token}'}
-          api_base = f'https://api.github.com/repos/{repo}/contents'
-          def upload(path, content_bytes):
-              api_path = path.replace('\\', '/')
-              encoded = base64.b64encode(content_bytes).decode('utf-8')
-              api_url = f'{api_base}/{api_path}'
-              resp = requests.get(api_url, headers=headers)
-              sha = resp.json().get('sha') if resp.status_code == 200 else None
-              payload = {'message': f'Upload {os.path.basename(path)}', 'content': encoded, 'branch': branch}
-              if sha: payload['sha'] = sha
-              for attempt in range(3):
-                  r = requests.put(api_url, headers=headers, json=payload)
-                  if r.status_code in (200, 201):
-                      print(f'[OK] Uploaded {os.path.basename(path)}')
-                      return
-                  if attempt == 2:
-                      print(f'[FAIL] Upload failed for {os.path.basename(path)}: {r.status_code}')
-                      sys.exit(1)
-                  time.sleep(10)
-          for i in range(total_chunks):
-              chunk_name = f'VsCommunity2026Layout.part{i:04d}'
-              chunk_path = os.path.join(chunks_dir, chunk_name)
-              with open(chunk_path, 'rb') as f:
-                  upload(chunk_path, f.read())
-          with open(bat_path, 'rb') as f:
-              upload(bat_path, f.read())
-          print('All chunks + reassemble.bat uploaded successfully to folder: vs_2026_community_offline')
-          "@
+          $ErrorActionPreference = "Stop"
+          $zipPath = $env:ZIP_PATH
+          if (-not $zipPath) { $zipPath = "$env:RUNNER_TEMP\VsCommunity2026Layout.zip" }
+          $chunksDir = "vs_2026_community_offline"
+          $chunkSizeMB = 20
+          $chunkSize = $chunkSizeMB * 1MB
+          $token = $env:GITHUB_TOKEN
+          $repo = $env:GITHUB_REPOSITORY
+          $branch = $env:GITHUB_REF_NAME
+
+          Write-Host "Chunking $zipPath into $chunkSizeMB MB parts..."
+          if (-not (Test-Path $chunksDir)) { New-Item -ItemType Directory -Path $chunksDir | Out-Null }
+
+          $buffer = New-Object byte[] $chunkSize
+          $stream = [System.IO.File]::OpenRead($zipPath)
+          $idx = 0
+          while ($true) {
+            $bytesRead = $stream.Read($buffer, 0, $buffer.Length)
+            if ($bytesRead -le 0) { break }
+            $chunkName = "VsCommunity2026Layout.part{0:D4}" -f $idx
+            $chunkPath = Join-Path $chunksDir $chunkName
+            [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($bytesRead-1)])
+            $idx++
+          }
+          $stream.Close()
+          Write-Host "Created $idx chunks."
+
+          # Create reassemble.bat
+          $batContent = "@echo off`r`ncopy /b VsCommunity2026Layout.part* VsCommunity2026Layout.zip`r`necho Done.`r`npause`r`n"
+          $batPath = Join-Path $chunksDir "reassemble.bat"
+          [System.IO.File]::WriteAllText($batPath, $batContent)
+
+          $headers = @{
+            Authorization = "Bearer $token"
+          }
+          $apiBase = "https://api.github.com/repos/$repo/contents"
+
+          function Upload-File($path, [byte[]]$contentBytes) {
+            $apiPath = $path -replace '\\', '/'
+            $encoded = [Convert]::ToBase64String($contentBytes)
+            # Check if file exists
+            $checkUrl = "$apiBase/$apiPath"
+            try {
+              $existing = Invoke-RestMethod -Uri $checkUrl -Headers $headers -ErrorAction SilentlyContinue
+              $sha = $existing.sha
+            } catch {
+              $sha = $null
+            }
+            $body = @{
+              message = "Upload $(Split-Path $path -Leaf)"
+              content = $encoded
+              branch  = $branch
+            }
+            if ($sha) { $body['sha'] = $sha }
+            $json = $body | ConvertTo-Json -Compress
+            for ($attempt = 0; $attempt -lt 3; $attempt++) {
+              try {
+                $result = Invoke-RestMethod -Uri "$apiBase/$apiPath" -Method Put -Headers $headers -Body $json -ContentType "application/json"
+                Write-Host "[OK] Uploaded $(Split-Path $path -Leaf)"
+                return
+              } catch {
+                if ($attempt -eq 2) {
+                  Write-Error "Failed to upload $(Split-Path $path -Leaf): $_"
+                  exit 1
+                }
+                Start-Sleep -Seconds 10
+              }
+            }
+          }
+
+          # Upload all chunks
+          for ($i = 0; $i -lt $idx; $i++) {
+            $chunkName = "VsCommunity2026Layout.part{0:D4}" -f $i
+            $chunkPath = Join-Path $chunksDir $chunkName
+            $fileBytes = [System.IO.File]::ReadAllBytes($chunkPath)
+            Upload-File -path $chunkPath -contentBytes $fileBytes
+          }
+
+          # Upload reassemble.bat
+          $batBytes = [System.IO.File]::ReadAllBytes($batPath)
+          Upload-File -path $batPath -contentBytes $batBytes
+
+          Write-Host "All chunks + reassemble.bat uploaded successfully to folder: $chunksDir"
 
       - name: Save layout cache (if still exists)
         if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
