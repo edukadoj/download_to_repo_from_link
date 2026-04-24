@@ -116,12 +116,10 @@ jobs:
           Remove-Item -Recurse -Force "C:\Program Files\Microsoft SDKs" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\Program Files\Docker" -ErrorAction SilentlyContinue
 
-          # Unneeded .NET SDKs (keep 8.0, 9.0, 10.0 only)
           Get-ChildItem "C:\Program Files\dotnet\sdk" -Directory -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -notlike "8.0*" -and $_.Name -notlike "9.0*" -and $_.Name -notlike "10.0*" } |
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
-          # Temporary folders
           Remove-Item -Recurse -Force "$env:TEMP\*" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\Windows\Temp\*" -ErrorAction SilentlyContinue
 
@@ -226,9 +224,11 @@ jobs:
 
           $logFile = "$env:TEMP\vs_layout_console.log"
           $errFile = "$env:TEMP\vs_layout_console_err.log"
-          $process = Start-Process -FilePath ".\vs_Community.exe" `
-            -ArgumentList "--layout `"$layoutDir`" --lang en-US $($addArgs -join ' ') --quiet --wait --norestart" `
-            -PassThru -Wait -NoNewWindow -RedirectStandardOutput $logFile -RedirectStandardError $errFile
+
+          # Build argument string safely
+          $argString = "--layout `"$layoutDir`" --lang en-US " + ($addArgs -join ' ') + " --quiet --wait --norestart"
+          Write-Host "Running: vs_Community.exe $argString"
+          $process = Start-Process -FilePath ".\vs_Community.exe" -ArgumentList $argString -PassThru -Wait -NoNewWindow -RedirectStandardOutput $logFile -RedirectStandardError $errFile
 
           Write-Host "Bootstrapper exited with code: $($process.ExitCode)"
 
