@@ -150,6 +150,7 @@ jobs:
           $layoutDir = "${{ github.workspace }}\vs_layout"
           New-Item -ItemType Directory -Force -Path $layoutDir | Out-Null
 
+          # CORRECTED Workload IDs
           $addArgs = @()
           if ('${{ inputs.workload_web }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetWeb' }
           if ('${{ inputs.workload_azure }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Azure' }
@@ -167,6 +168,8 @@ jobs:
           if ('${{ inputs.workload_office }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Office' }
           if ('${{ inputs.workload_vs_extension }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.VisualStudioExtension' }
           if ('${{ inputs.workload_linux_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeCrossPlat' }
+
+          # Android SDK components (if selected)
           if ('${{ inputs.include_android_sdk }}' -eq 'true') {
             $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Component.Android.SDK.MAUI'
             $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Component.Android.SDK'
