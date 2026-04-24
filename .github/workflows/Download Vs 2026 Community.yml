@@ -1,4 +1,4 @@
-name: Visual Studio 2026 Community Offline Layout
+name: Visual Studio 2026 Community Offline Layout (Public)
 
 on:
   workflow_dispatch:
@@ -84,6 +84,13 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
 
+      # Show free space right after checkout
+      - name: Log free space (post-checkout)
+        shell: powershell
+        run: |
+          Write-Host "Free space after checkout:"
+          Get-PSDrive C | Select-Object Free
+
       - name: Clean up old chunk folder
         shell: powershell
         run: |
@@ -95,10 +102,15 @@ jobs:
             Write-Host "No old chunk folder found."
           }
 
-      - name: Free disk space on runner
+      # Ultra-aggressive disk cleanup with before/after logging
+      - name: Free disk space on runner (ultra aggressive)
         shell: powershell
         run: |
-          Write-Host "=== Starting aggressive disk cleanup ==="
+          Write-Host "=== Free space BEFORE cleanup ==="
+          Get-PSDrive C | Select-Object Free
+
+          Write-Host "=== Starting ultra-aggressive disk cleanup ==="
+          # Large pre-installed software
           Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2022" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2019" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\Program Files (x86)\Microsoft Visual Studio\*" -ErrorAction SilentlyContinue
@@ -106,11 +118,32 @@ jobs:
           Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Android" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\Program Files\Microsoft SDKs" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\Program Files\Docker" -ErrorAction SilentlyContinue
+
+          # Unneeded .NET SDKs – keep only 8.0/9.0/10.0
           Get-ChildItem "C:\Program Files\dotnet\sdk" -Directory -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -notlike "8.0*" -and $_.Name -notlike "9.0*" -and $_.Name -notlike "10.0*" } |
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
+          # System temporary files
           Remove-Item -Recurse -Force "$env:TEMP\*" -ErrorAction SilentlyContinue
-          Write-Host "Free space after cleanup:"
+          Remove-Item -Recurse -Force "C:\Windows\Temp\*" -ErrorAction SilentlyContinue
+
+          # Windows Update cache
+          Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Windows\SoftwareDistribution\Download\*" -ErrorAction SilentlyContinue
+          Start-Service -Name wuauserv -ErrorAction SilentlyContinue
+
+          # Windows Installer cache
+          Remove-Item -Recurse -Force "C:\Windows\Installer\*" -ErrorAction SilentlyContinue
+
+          # Windows error reporting and logs
+          Remove-Item -Recurse -Force "C:\ProgramData\Microsoft\Windows\WER\*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Windows\Logs\*" -ErrorAction SilentlyContinue
+
+          # Package Cache
+          Remove-Item -Recurse -Force "C:\ProgramData\Package Cache\*" -ErrorAction SilentlyContinue
+
+          Write-Host "=== Free space AFTER cleanup ==="
           Get-PSDrive C | Select-Object Free
           Write-Host "=== Disk cleanup completed ==="
 
@@ -133,6 +166,8 @@ jobs:
             exit 1
           }
           Write-Host "Bootstrapper verified OK."
+          Write-Host "Free space after bootstrapper download:"
+          Get-PSDrive C | Select-Object Free
 
       - name: Determine cache key
         id: cache-key
@@ -216,15 +251,17 @@ jobs:
             exit $LASTEXITCODE
           }
           Write-Host "Offline layout created successfully."
+          Write-Host "Free space after layout creation:"
+          Get-PSDrive C | Select-Object Free
           echo "layout-created=true" >> $env:GITHUB_OUTPUT
 
-      - name: Package layout into a zip file
+      - name: Package layout into a zip file (with compaction)
         if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
         shell: powershell
         run: |
           $zipPath = "$env:RUNNER_TEMP\VsCommunity2026Layout.zip"
           $layoutDir = "${{ github.workspace }}\vs_layout"
-          Write-Host "Creating zip with compaction (moving files)..."
+          Write-Host "Creating zip with immediate file deletion..."
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $archive = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
           Get-ChildItem -Path $layoutDir -Recurse -File | ForEach-Object {
@@ -235,6 +272,8 @@ jobs:
           $archive.Dispose()
           Write-Host "Zip created and layout folder cleared."
           Write-Host "Zip size: $((Get-Item $zipPath).Length / 1MB) MB"
+          Write-Host "Free space after zip creation:"
+          Get-PSDrive C | Select-Object Free
           echo "ZIP_PATH=$zipPath" >> $env:GITHUB_ENV
 
       - name: Install Python requests module
@@ -307,7 +346,7 @@ jobs:
           print('All chunks + reassemble.bat uploaded successfully to folder: vs_2026_community_offline')
           "@
 
-      - name: Save layout cache
+      - name: Save layout cache (if still exists)
         if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
         uses: actions/cache/save@v4
         with:
