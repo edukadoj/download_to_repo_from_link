@@ -1,4 +1,4 @@
-name: Visual Studio 2026 Community Offline Layout (Public)
+name: Visual Studio 2026 Community Offline Layout
 
 on:
   workflow_dispatch:
@@ -84,12 +84,11 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
 
-      # Show free space right after checkout
-      - name: Log free space (post-checkout)
+      - name: Log initial free space (C: and D:)
         shell: powershell
         run: |
-          Write-Host "Free space after checkout:"
-          Get-PSDrive C | Select-Object Free
+          Write-Host "Initial free space:"
+          Get-PSDrive C, D | Select-Object Name, Free
 
       - name: Clean up old chunk folder
         shell: powershell
@@ -102,15 +101,13 @@ jobs:
             Write-Host "No old chunk folder found."
           }
 
-      # Ultra-aggressive disk cleanup with before/after logging
-      - name: Free disk space on runner (ultra aggressive)
+      - name: Free disk space on runner (focused cleanup)
         shell: powershell
         run: |
           Write-Host "=== Free space BEFORE cleanup ==="
-          Get-PSDrive C | Select-Object Free
+          Get-PSDrive C, D | Select-Object Name, Free
 
-          Write-Host "=== Starting ultra-aggressive disk cleanup ==="
-          # Large pre-installed software
+          Write-Host "=== Removing large pre-installed software ==="
           Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2022" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2019" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\Program Files (x86)\Microsoft Visual Studio\*" -ErrorAction SilentlyContinue
@@ -119,32 +116,17 @@ jobs:
           Remove-Item -Recurse -Force "C:\Program Files\Microsoft SDKs" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\Program Files\Docker" -ErrorAction SilentlyContinue
 
-          # Unneeded .NET SDKs – keep only 8.0/9.0/10.0
+          # Unneeded .NET SDKs (keep 8.0, 9.0, 10.0 only)
           Get-ChildItem "C:\Program Files\dotnet\sdk" -Directory -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -notlike "8.0*" -and $_.Name -notlike "9.0*" -and $_.Name -notlike "10.0*" } |
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
-          # System temporary files
+          # Temporary folders
           Remove-Item -Recurse -Force "$env:TEMP\*" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "C:\Windows\Temp\*" -ErrorAction SilentlyContinue
 
-          # Windows Update cache
-          Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Windows\SoftwareDistribution\Download\*" -ErrorAction SilentlyContinue
-          Start-Service -Name wuauserv -ErrorAction SilentlyContinue
-
-          # Windows Installer cache
-          Remove-Item -Recurse -Force "C:\Windows\Installer\*" -ErrorAction SilentlyContinue
-
-          # Windows error reporting and logs
-          Remove-Item -Recurse -Force "C:\ProgramData\Microsoft\Windows\WER\*" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Windows\Logs\*" -ErrorAction SilentlyContinue
-
-          # Package Cache
-          Remove-Item -Recurse -Force "C:\ProgramData\Package Cache\*" -ErrorAction SilentlyContinue
-
           Write-Host "=== Free space AFTER cleanup ==="
-          Get-PSDrive C | Select-Object Free
+          Get-PSDrive C, D | Select-Object Name, Free
           Write-Host "=== Disk cleanup completed ==="
 
       - name: Download Visual Studio 2026 Community Bootstrapper
@@ -167,7 +149,7 @@ jobs:
           }
           Write-Host "Bootstrapper verified OK."
           Write-Host "Free space after bootstrapper download:"
-          Get-PSDrive C | Select-Object Free
+          Get-PSDrive C, D | Select-Object Name, Free
 
       - name: Determine cache key
         id: cache-key
@@ -242,17 +224,31 @@ jobs:
           Write-Host "Layout directory: $layoutDir"
           Write-Host "Workloads: $($addArgs -join ' ')"
 
-          $cmdOutput = & .\vs_Community.exe --layout $layoutDir --lang en-US $addArgs --quiet --wait --norestart 2>&1
-          Write-Host "Bootstrapper exited with LASTEXITCODE: $LASTEXITCODE"
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "=== BOOTSTRAPPER OUTPUT ==="
-            $cmdOutput | ForEach-Object { Write-Host $_ }
-            Write-Error "Layout creation failed with exit code $LASTEXITCODE."
-            exit $LASTEXITCODE
+          $logFile = "$env:TEMP\vs_layout_console.log"
+          $errFile = "$env:TEMP\vs_layout_console_err.log"
+          $process = Start-Process -FilePath ".\vs_Community.exe" `
+            -ArgumentList "--layout `"$layoutDir`" --lang en-US $($addArgs -join ' ') --quiet --wait --norestart" `
+            -PassThru -Wait -NoNewWindow -RedirectStandardOutput $logFile -RedirectStandardError $errFile
+
+          Write-Host "Bootstrapper exited with code: $($process.ExitCode)"
+
+          if (Test-Path $logFile) {
+            Write-Host "=== BOOTSTRAPPER STDOUT ==="
+            Get-Content $logFile | ForEach-Object { Write-Host $_ }
           }
+          if (Test-Path $errFile) {
+            Write-Host "=== BOOTSTRAPPER STDERR ==="
+            Get-Content $errFile | ForEach-Object { Write-Host $_ }
+          }
+
+          if ($process.ExitCode -ne 0) {
+            Write-Error "Layout creation failed with exit code $($process.ExitCode). See output above."
+            exit $process.ExitCode
+          }
+
           Write-Host "Offline layout created successfully."
           Write-Host "Free space after layout creation:"
-          Get-PSDrive C | Select-Object Free
+          Get-PSDrive C, D | Select-Object Name, Free
           echo "layout-created=true" >> $env:GITHUB_OUTPUT
 
       - name: Package layout into a zip file (with compaction)
@@ -273,7 +269,7 @@ jobs:
           Write-Host "Zip created and layout folder cleared."
           Write-Host "Zip size: $((Get-Item $zipPath).Length / 1MB) MB"
           Write-Host "Free space after zip creation:"
-          Get-PSDrive C | Select-Object Free
+          Get-PSDrive C, D | Select-Object Name, Free
           echo "ZIP_PATH=$zipPath" >> $env:GITHUB_ENV
 
       - name: Install Python requests module
