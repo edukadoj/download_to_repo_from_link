@@ -83,7 +83,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
-          
+
       - name: "Log initial free space (C: and D:)"
         shell: powershell
         run: |
@@ -185,8 +185,9 @@ jobs:
           Get-Content "$env:TEMP\vs_stderr.log" -ErrorAction SilentlyContinue | Write-Host
 
           if ($process.ExitCode -ne 0) { Write-Error "Layout failed with code $($process.ExitCode)"; exit $process.ExitCode }
+
           Write-Host "Layout created."
-          exit 0
+          "layout-created=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Package layout into zip
         if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
