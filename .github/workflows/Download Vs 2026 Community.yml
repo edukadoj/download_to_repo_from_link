@@ -133,7 +133,12 @@ jobs:
           $url = "https://aka.ms/vs/18/stable/vs_community.exe"
           $output = "vs_Community.exe"
           Write-Host "Downloading bootstrapper from: $url"
-          Invoke-WebRequest -Uri $url -OutFile $output -ErrorAction Stop
+          try {
+            Invoke-WebRequest -Uri $url -OutFile $output -ErrorAction Stop
+          } catch {
+            Write-Error "Failed to download bootstrapper from $url"
+            throw
+          }
           $size = (Get-Item $output).Length
           Write-Host "Bootstrapper downloaded: $size bytes"
           if ($size -lt 1000000) {
@@ -146,7 +151,7 @@ jobs:
 
       - name: Determine cache key
         id: cache-key
-        shell: powershell
+        shell: pwsh
         run: |
           $key = "vs-layout-v5-" +
             "web-${{ inputs.workload_web }}" +
@@ -167,7 +172,7 @@ jobs:
             "-linuxcpp-${{ inputs.workload_linux_cpp }}" +
             "-androidsdk-${{ inputs.include_android_sdk }}"
           Write-Host "Cache key: $key"
-          echo "key=$key" >> $env:GITHUB_OUTPUT
+          "key=$key" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Restore cached layout
         id: cache-restore
@@ -179,33 +184,34 @@ jobs:
       - name: Create offline layout
         id: layout
         if: steps.cache-restore.outputs.cache-hit != 'true'
-        shell: powershell
+        shell: pwsh
         timeout-minutes: 300
         run: |
           $layoutDir = "${{ github.workspace }}\vs_layout"
           New-Item -ItemType Directory -Force -Path $layoutDir | Out-Null
 
+          # Build argument array – each arg is a separate element
           $addArgs = @()
-          if ('${{ inputs.workload_web }}' -eq 'true')        { $addArgs += '--add Microsoft.VisualStudio.Workload.NetWeb' }
-          if ('${{ inputs.workload_azure }}' -eq 'true')      { $addArgs += '--add Microsoft.VisualStudio.Workload.Azure' }
-          if ('${{ inputs.workload_python }}' -eq 'true')     { $addArgs += '--add Microsoft.VisualStudio.Workload.Python' }
-          if ('${{ inputs.workload_node }}' -eq 'true')       { $addArgs += '--add Microsoft.VisualStudio.Workload.Node' }
-          if ('${{ inputs.workload_maui }}' -eq 'true')       { $addArgs += '--add Microsoft.VisualStudio.Workload.NetCrossPlat' }
-          if ('${{ inputs.workload_desktop_net }}' -eq 'true'){ $addArgs += '--add Microsoft.VisualStudio.Workload.ManagedDesktop' }
-          if ('${{ inputs.workload_desktop_cpp }}' -eq 'true'){ $addArgs += '--add Microsoft.VisualStudio.Workload.NativeDesktop' }
-          if ('${{ inputs.workload_winui }}' -eq 'true')      { $addArgs += '--add Microsoft.VisualStudio.Workload.Universal' }
-          if ('${{ inputs.workload_cpp_mobile }}' -eq 'true') { $addArgs += '--add Microsoft.VisualStudio.Workload.NativeMobile' }
-          if ('${{ inputs.workload_unity }}' -eq 'true')      { $addArgs += '--add Microsoft.VisualStudio.Workload.ManagedGame' }
-          if ('${{ inputs.workload_cpp_game }}' -eq 'true')   { $addArgs += '--add Microsoft.VisualStudio.Workload.NativeGame' }
-          if ('${{ inputs.workload_data }}' -eq 'true')       { $addArgs += '--add Microsoft.VisualStudio.Workload.Data' }
-          if ('${{ inputs.workload_data_science }}' -eq 'true'){ $addArgs += '--add Microsoft.VisualStudio.Workload.DataScience' }
-          if ('${{ inputs.workload_office }}' -eq 'true')     { $addArgs += '--add Microsoft.VisualStudio.Workload.Office' }
-          if ('${{ inputs.workload_vs_extension }}' -eq 'true'){ $addArgs += '--add Microsoft.VisualStudio.Workload.VisualStudioExtension' }
-          if ('${{ inputs.workload_linux_cpp }}' -eq 'true')  { $addArgs += '--add Microsoft.VisualStudio.Workload.NativeCrossPlat' }
+          if ('${{ inputs.workload_web }}' -eq 'true')        { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetWeb' }
+          if ('${{ inputs.workload_azure }}' -eq 'true')      { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Azure' }
+          if ('${{ inputs.workload_python }}' -eq 'true')     { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Python' }
+          if ('${{ inputs.workload_node }}' -eq 'true')       { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Node' }
+          if ('${{ inputs.workload_maui }}' -eq 'true')       { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetCrossPlat' }
+          if ('${{ inputs.workload_desktop_net }}' -eq 'true'){ $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedDesktop' }
+          if ('${{ inputs.workload_desktop_cpp }}' -eq 'true'){ $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeDesktop' }
+          if ('${{ inputs.workload_winui }}' -eq 'true')      { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Universal' }
+          if ('${{ inputs.workload_cpp_mobile }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeMobile' }
+          if ('${{ inputs.workload_unity }}' -eq 'true')      { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedGame' }
+          if ('${{ inputs.workload_cpp_game }}' -eq 'true')   { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeGame' }
+          if ('${{ inputs.workload_data }}' -eq 'true')       { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Data' }
+          if ('${{ inputs.workload_data_science }}' -eq 'true'){ $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.DataScience' }
+          if ('${{ inputs.workload_office }}' -eq 'true')     { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Office' }
+          if ('${{ inputs.workload_vs_extension }}' -eq 'true'){ $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.VisualStudioExtension' }
+          if ('${{ inputs.workload_linux_cpp }}' -eq 'true')  { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeCrossPlat' }
 
           if ('${{ inputs.include_android_sdk }}' -eq 'true') {
-            $addArgs += '--add Microsoft.VisualStudio.Component.Android.SDK.MAUI'
-            $addArgs += '--add Microsoft.VisualStudio.Component.Android.SDK'
+            $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Component.Android.SDK.MAUI'
+            $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Component.Android.SDK'
           }
 
           if ($addArgs.Count -eq 0) {
@@ -217,10 +223,7 @@ jobs:
           Write-Host "Layout directory: $layoutDir"
           Write-Host "Workloads: $($addArgs -join ' ')"
 
-          $cliArgs = @(
-            '--layout', $layoutDir,
-            '--lang', 'en-US'
-          ) + $addArgs + @('--quiet', '--wait', '--norestart')
+          $cliArgs = @('--layout', $layoutDir, '--lang', 'en-US') + $addArgs + @('--quiet', '--wait', '--norestart')
 
           $process = Start-Process -FilePath ".\vs_Community.exe" `
             -ArgumentList $cliArgs `
@@ -239,7 +242,7 @@ jobs:
           Write-Host "Offline layout created successfully."
           Write-Host "Free space after layout creation:"
           Get-PSDrive C, D | Select-Object Name, Free
-          echo "layout-created=true" >> $env:GITHUB_OUTPUT
+          "layout-created=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Package layout into a zip file (with compaction)
         if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
@@ -352,8 +355,8 @@ jobs:
 
           Write-Host "All chunks + reassemble.bat uploaded successfully to folder: $chunksDir"
 
-      - name: Save layout cache (if still exists)
-        if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
+      - name: Save layout cache (only if new layout was created)
+        if: steps.layout.outputs.layout-created == 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ github.workspace }}\vs_layout
