@@ -81,8 +81,8 @@ jobs:
             Add-Content -Path $logFile -Value $msg
           }
 
-          # Read URLs from the file created in the previous step
-          $urls = Get-Content url_list.txt | Where-Object { $_ -and $_ -ne '' }
+          # Read URLs from file – force array with @()
+          $urls = @(Get-Content url_list.txt | Where-Object { $_ -and $_ -ne '' })
           if ($urls.Count -eq 0) {
             Write-Log "No URLs provided. Exiting."
             exit 1
