@@ -1,4 +1,4 @@
-name: YouTube Download
+name: YouTube Download (self‑learning proxies)
 
 on:
   workflow_dispatch:
@@ -10,19 +10,19 @@ on:
       youtube_url2:
         description: 'YouTube URL #2 (optional)'
         required: false
-        default: 'https://www.youtube.com/watch?v=NP_ufm36bOQ'
+        default: ''
       youtube_url3:
         description: 'YouTube URL #3 (optional)'
         required: false
-        default: 'https://www.youtube.com/watch?v=j0qDPdSZm1Q'
+        default: ''
       youtube_url4:
         description: 'YouTube URL #4 (optional)'
         required: false
-        default: 'https://www.youtube.com/watch?v=RTJpJkfHclM'
+        default: ''
       youtube_url5:
         description: 'YouTube URL #5 (optional)'
         required: false
-        default: 'https://www.youtube.com/watch?v=RTJpJkfHclM'
+        default: ''
       quality:
         description: 'Video quality'
         required: true
@@ -74,11 +74,9 @@ jobs:
       - name: Create example proxylist.txt if missing
         run: |
           if [ ! -f proxylist.txt ]; then
-            echo "# Add your HTTP/HTTPS/SOCKS proxies below, one per line." > proxylist.txt
-            echo "# Example: http://user:pass@12.34.56.78:8080" >> proxylist.txt
-            echo "# Only lines containing proxy URLs are used." >> proxylist.txt
+            echo "" > proxylist.txt
             git add proxylist.txt
-            git commit -m "Add example proxy list" || true
+            git commit -m "Create empty proxy list" || true
             git pull --rebase
             git push || true
           fi
@@ -91,17 +89,13 @@ jobs:
           curl -fsSL https://deno.land/install.sh | sh
           echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
-      - name: Download all videos (live console output + log)
+      - name: Download all videos (auto‑learn proxies)
         id: download
         run: |
-          # Send all output to both the console and download.log
           exec > >(tee -a download.log) 2>&1
 
-          echo "=== YouTube Download Log ==="
+          echo "=== YouTube Download (self‑learning proxies) ==="
           echo "Date: $(date)"
-          echo "Quality: ${{ github.event.inputs.quality }}"
-          echo "Subtitles: ${{ github.event.inputs.sub_lang }}"
-          echo "Folder: ${{ github.event.inputs.folder_name }}"
           echo ""
 
           # ---- Quality format ----
@@ -114,7 +108,6 @@ jobs:
             *)     FORMAT='best' ;;
           esac
 
-          # ---- Subtitle arguments ----
           SUB_LANG="${{ github.event.inputs.sub_lang }}"
           if [ "$SUB_LANG" = "none" ]; then
             SUB_ARGS=""
@@ -122,19 +115,40 @@ jobs:
             SUB_ARGS="--write-auto-subs --sub-lang ${SUB_LANG%% *} --convert-subs srt"
           fi
 
-          # ---- Download function with 10‑minute timeout ----
-          try_download() {
-            local extra_args="$1"
-            timeout 600 yt-dlp --no-playlist --format "$FORMAT" --output "video.%(ext)s" \
-              $SUB_ARGS \
-              --js-runtimes deno \
-              --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-              $extra_args \
-              "$url"
-            return $?
+          # ---- Proxy management ----
+          PROXY_FILE="proxylist.txt"
+          move_proxy_to_file() {
+            # Only add if not already in file
+            if ! grep -qFx "$1" "$PROXY_FILE"; then
+              echo "$1" >> "$PROXY_FILE"
+              echo "✅ Added working proxy to $PROXY_FILE"
+            fi
+          }
+          remove_proxy_from_file() {
+            sed -i "\|^$1\$|d" "$PROXY_FILE"
+            echo "🗑️ Removed dead proxy from $PROXY_FILE"
           }
 
-          WORKING_PROXY=""
+          # ---- Download test function ----
+          try_download() {
+            local proxy_arg="$1"
+            local proxy_display="$2"
+            local logfile="/tmp/ytdlp_output_$$.log"
+            echo "[TEST] $proxy_display"
+            timeout 120 yt-dlp --no-playlist --format "$FORMAT" --output "video.%(ext)s" \
+              $SUB_ARGS \
+              --js-runtimes deno \
+              --retries 0 \
+              --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+              $proxy_arg \
+              "$url" > "$logfile" 2>&1
+            local exit_code=$?
+            cat "$logfile"
+            rm -f "$logfile"
+            return $exit_code
+          }
+
+          # ---- Main loop over URLs ----
           VIDEO_COUNT=0
           DOWNLOADED_ANY=0
 
@@ -148,83 +162,89 @@ jobs:
             echo "--- Processing URL #$VIDEO_COUNT: $url ---"
             SUCCESS=0
 
-            # Attempt 1: Direct
-            echo "Attempting direct download..."
-            if try_download ""; then
+            # ---------- 1. Direct ----------
+            echo "Attempting direct download ..."
+            if try_download "" "Direct"; then
               echo "Direct success"
               SUCCESS=1
             fi
 
-            # Attempt 2: Known working proxy (if any)
-            if [ $SUCCESS -eq 0 ] && [ -n "$WORKING_PROXY" ]; then
-              echo "Attempting with known working proxy: $WORKING_PROXY"
-              if try_download "--proxy $WORKING_PROXY"; then
-                echo "Proxy success (reuse)"
-                SUCCESS=1
-              fi
+            # ---------- 2. Use proxies from proxylist.txt ----------
+            if [ $SUCCESS -eq 0 ] && [ -f "$PROXY_FILE" ] && [ -s "$PROXY_FILE" ]; then
+              echo "Trying proxies from $PROXY_FILE ..."
+              # Make a copy to iterate, we'll modify the original based on results
+              cp "$PROXY_FILE" "${PROXY_FILE}.tmp"
+              while IFS= read -r proxy; do
+                [ -z "$proxy" ] && continue
+                # Validate proxy format
+                if ! echo "$proxy" | grep -qE '^(http|socks4|socks5)://|^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+'; then
+                  echo "Skipping invalid proxy line: $proxy"
+                  remove_proxy_from_file "$proxy"
+                  continue
+                fi
+                if try_download "--proxy $proxy" "Proxy: $proxy"; then
+                  echo "✅ Working proxy found: $proxy"
+                  SUCCESS=1
+                  # Keep it in file (already there, maybe move to top? no need)
+                  break
+                else
+                  # Check if it was a bot check (the specific error)
+                  if grep -q "Sign in to confirm you" "${logfile}"; then
+                    echo "❌ Bot check – proxy $proxy is blocked by YouTube. Removing."
+                  else
+                    echo "❌ Proxy $proxy failed (timeout/refused). Removing."
+                  fi
+                  remove_proxy_from_file "$proxy"
+                fi
+              done < "${PROXY_FILE}.tmp"
+              rm -f "${PROXY_FILE}.tmp"
             fi
 
-            # Attempt 3: Local proxylist.txt
+            # ---------- 3. Fetch and test fresh public proxies ----------
             if [ $SUCCESS -eq 0 ]; then
-              echo "Attempting local proxies..."
-              sed -i 's/\r$//; /^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]]*$//' proxylist.txt
-              while IFS= read -r proxy; do
-                if [ -n "$proxy" ] && echo "$proxy" | grep -qE '^(http|socks4|socks5)://|^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+'; then
-                  echo "Trying local proxy: $proxy"
-                  if try_download "--proxy $proxy"; then
-                    echo "Local proxy success ($proxy)"
-                    WORKING_PROXY="$proxy"
+              echo "No working proxy in $PROXY_FILE. Searching public proxies..."
+              # Combine a couple of reliable free lists
+              FRESH_PROXIES=$(curl -s --max-time 15 \
+                "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt" 2>/dev/null; \
+                curl -s --max-time 15 \
+                "https://raw.githubusercontent.com/proxygenerator1/ProxyGenerator/main/Lists/most-stable.txt" 2>/dev/null)
+              if [ -n "$FRESH_PROXIES" ]; then
+                # Remove duplicates, filter valid lines, limit to 20
+                echo "$FRESH_PROXIES" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+$' | sort -u | head -n 20 > fresh_list.txt
+                echo "Testing up to $(wc -l < fresh_list.txt) fresh proxies..."
+                while IFS= read -r proxy; do
+                  [ -z "$proxy" ] && continue
+                  if try_download "--proxy $proxy" "Public proxy: $proxy"; then
+                    echo "✅ Fresh proxy works: $proxy"
+                    move_proxy_to_file "$proxy"
                     SUCCESS=1
                     break
+                  else
+                    echo "❌ Fresh proxy $proxy failed."
                   fi
-                fi
-              done < proxylist.txt
-            fi
-
-            # Attempt 4: Public proxies
-            if [ $SUCCESS -eq 0 ]; then
-              echo "Attempting public proxies..."
-              PUBLIC_LIST=$(curl -s "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt" | head -n 15)
-              if [ -n "$PUBLIC_LIST" ]; then
-                while IFS= read -r proxy; do
-                  if [ -n "$proxy" ] && echo "$proxy" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+'; then
-                    echo "Trying public proxy: $proxy"
-                    if try_download "--proxy $proxy"; then
-                      echo "Public proxy success ($proxy)"
-                      WORKING_PROXY="$proxy"
-                      SUCCESS=1
-                      break
-                    fi
-                  fi
-                done <<< "$PUBLIC_LIST"
+                done < fresh_list.txt
+                rm -f fresh_list.txt
+              else
+                echo "Could not fetch any public proxies."
               fi
             fi
 
-            # Attempt 5: Third‑party services (time‑limited)
+            # ---------- 4. Third‑party fallback ----------
             if [ $SUCCESS -eq 0 ]; then
-              echo "Attempting third‑party services..."
+              echo "All proxy attempts failed. Trying vixy.net..."
               VID=$(echo "$url" | sed -n 's/.*v=\([^&]*\).*/\1/p')
-              # y2mate
-              ANALYZE=$(curl -s --max-time 30 -X POST "https://www.y2mate.com/mates/analyzeV2/ajax" \
-                -H "Content-Type: application/x-www-form-urlencoded" \
-                -d "k_query=https://www.youtube.com/watch?v=$VID&k_page=home&hl=en&q_auto=0")
-              DL_URL=$(echo "$ANALYZE" | jq -r '.links.mp4["18"].url // .links.mp4["22"].url // .links.mp4["136"].url // empty')
+              DL_URL=$(curl -s --max-time 30 \
+                "https://vixy.net/api/convert?url=https%3A//www.youtube.com/watch%3Fv%3D$VID%26format%3Dmp4" |
+                jq -r '.download_url // empty')
               if [ -n "$DL_URL" ]; then
-                echo "y2mate URL: $DL_URL"
-                curl -L --max-time 60 -o video.mp4 "$DL_URL" && SUCCESS=1 || echo "y2mate download failed"
-              fi
-              # savefrom.net
-              if [ $SUCCESS -eq 0 ]; then
-                DL_URL=$(curl -s --max-time 30 "https://savefrom.net/api/convert" \
-                  -H "Content-Type: application/x-www-form-urlencoded" \
-                  -d "sf_url=https://www.youtube.com/watch?v=$VID" | jq -r '.list[0].download[0].url // empty')
-                if [ -n "$DL_URL" ]; then
-                  echo "savefrom.net URL: $DL_URL"
-                  curl -L --max-time 60 -o video.mp4 "$DL_URL" && SUCCESS=1 || echo "savefrom.net download failed"
-                fi
+                echo "vixy URL: $DL_URL"
+                curl -L --max-time 120 -o video.mp4 "$DL_URL" && SUCCESS=1 || echo "vixy download failed"
+              else
+                echo "vixy returned no URL."
               fi
             fi
 
+            # ---------- After each URL ----------
             if [ $SUCCESS -eq 1 ]; then
               DOWNLOADED_ANY=1
               VIDEO_FILE=$(ls video.* 2>/dev/null | grep -v '\.part$' | head -n1)
@@ -242,15 +262,21 @@ jobs:
                 echo "Subtitle saved as $SUB_NEW_NAME"
               fi
             else
-              echo "WARNING: Failed to download URL #$VIDEO_COUNT – skipping."
+              echo "WARNING: Could not download URL #$VIDEO_COUNT – skipping."
             fi
           done
 
           if [ $DOWNLOADED_ANY -eq 0 ]; then
-            echo "No videos were downloaded. All URLs failed or were skipped."
+            echo "No videos were downloaded."
           else
-            echo "Download phase completed successfully."
+            echo "Download phase completed."
           fi
+
+          # Commit any changes to proxylist.txt
+          echo "Committing updated proxy list ..."
+          git add "$PROXY_FILE"
+          git commit -m "Update proxy list after run" || true
+          git push || true
         shell: /usr/bin/bash {0}
 
       - name: Commit download.log (always)
@@ -281,7 +307,6 @@ jobs:
             Add-Content -Path $logFile -Value $msg
           }
 
-          # Read lists (force array)
           $videoList = @(Get-Content video_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
           $subList = @(Get-Content sub_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
 
