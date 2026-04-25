@@ -1392,3 +1392,4 @@ ERROR: [youtube] RTJpJkfHclM: Unable to download API page: timed out (caused by 
 Attempting third‑party services...
 WARNING: Failed to download URL #5 – skipping.
 No videos were downloaded. All URLs failed or were skipped.
+No video files to upload. Exiting.
