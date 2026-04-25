@@ -54,6 +54,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+          FILE_URL_1: ${{ github.event.inputs.file_url1 }}
+          FILE_URL_2: ${{ github.event.inputs.file_url2 }}
+          FILE_URL_3: ${{ github.event.inputs.file_url3 }}
+          FILE_URL_4: ${{ github.event.inputs.file_url4 }}
+          FILE_URL_5: ${{ github.event.inputs.file_url5 }}
         run: |
           $ErrorActionPreference = "Stop"
           $token = $env:GITHUB_TOKEN
@@ -69,13 +74,13 @@ jobs:
             Add-Content -Path $logFile -Value $msg
           }
 
-          # Collect URLs – use direct expression syntax
+          # Collect URLs from environment variables
           $urls = @(
-            "${{ github.event.inputs.file_url1 }}",
-            "${{ github.event.inputs.file_url2 }}",
-            "${{ github.event.inputs.file_url3 }}",
-            "${{ github.event.inputs.file_url4 }}",
-            "${{ github.event.inputs.file_url5 }}"
+            $env:FILE_URL_1,
+            $env:FILE_URL_2,
+            $env:FILE_URL_3,
+            $env:FILE_URL_4,
+            $env:FILE_URL_5
           ) | Where-Object { $_ -and $_ -ne '' }
 
           if ($urls.Count -eq 0) {
