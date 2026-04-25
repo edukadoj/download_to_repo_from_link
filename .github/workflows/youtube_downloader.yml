@@ -3,10 +3,26 @@ name: YouTube Download
 on:
   workflow_dispatch:
     inputs:
-      youtube_url:
-        description: 'YouTube video URL'
+      youtube_url1:
+        description: 'YouTube URL #1 (required)'
         required: true
         default: 'https://www.youtube.com/watch?v=5AgUnQGYOn8'
+      youtube_url2:
+        description: 'YouTube URL #2 (optional)'
+        required: false
+        default: ''
+      youtube_url3:
+        description: 'YouTube URL #3 (optional)'
+        required: false
+        default: ''
+      youtube_url4:
+        description: 'YouTube URL #4 (optional)'
+        required: false
+        default: ''
+      youtube_url5:
+        description: 'YouTube URL #5 (optional)'
+        required: false
+        default: ''
       quality:
         description: 'Video quality'
         required: true
@@ -28,7 +44,7 @@ on:
           - 'fa (Persian)'
           - 'none'
       folder_name:
-        description: 'Folder to store chunks (default: YouTube Download)'
+        description: 'Folder to store videos & subtitles'
         required: false
         default: 'YouTube Download'
 
@@ -46,7 +62,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f video.* download.log proxy_list.tmp
+          rm -f video.* download.log proxy_list.tmp video_list.txt sub_list.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -74,14 +90,13 @@ jobs:
           curl -fsSL https://deno.land/install.sh | sh
           echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
-      - name: Download video (robust proxy fallback)
+      - name: Download all videos
         id: download
         continue-on-error: true
         run: |
           {
             echo "=== YouTube Download Log ==="
             echo "Date: $(date)"
-            echo "URL: ${{ github.event.inputs.youtube_url }}"
             echo "Quality: ${{ github.event.inputs.quality }}"
             echo "Subtitles: ${{ github.event.inputs.sub_lang }}"
             echo "Folder: ${{ github.event.inputs.folder_name }}"
@@ -105,7 +120,7 @@ jobs:
               SUB_ARGS="--write-auto-subs --sub-lang ${SUB_LANG%% *} --convert-subs srt"
             fi
 
-            # ---- Helper: attempt download with yt-dlp ----
+            # ---- Download function ----
             try_download() {
               local extra_args="$1"
               yt-dlp --no-playlist --format "$FORMAT" --output "video.%(ext)s" \
@@ -113,72 +128,131 @@ jobs:
                 --js-runtimes deno \
                 --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
                 $extra_args \
-                "${{ github.event.inputs.youtube_url }}" 2>&1
+                "$url" 2>&1
+              return $?   # return yt-dlp exit code
             }
 
-            # ---- 1. Direct ----
-            echo "--- Attempt 1: Direct ---"
-            try_download "" && echo "Direct success" && exit 0
+            # ---- Proxy helper ----
+            WORKING_PROXY=""
+            VIDEO_COUNT=0
 
-            # ---- 2. Use local proxylist.txt if it contains valid proxies ----
-            echo ""
-            echo "--- Attempt 2: Local proxylist.txt ---"
-            sed -i 's/\r$//; /^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]]*$//' proxylist.txt
-            local_proxies=$(cat proxylist.txt 2>/dev/null)
-            if [ -n "$local_proxies" ]; then
-              echo "Found local proxies:"
-              echo "$local_proxies"
-              while IFS= read -r proxy; do
-                if [ -n "$proxy" ] && echo "$proxy" | grep -qE '^(http|socks4|socks5)://|^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+'; then
-                  echo "Trying local proxy: $proxy"
-                  try_download "--proxy $proxy" && echo "Local proxy success ($proxy)" && exit 0
+            # Process all URLs (1-5)
+            for url in "${{ github.event.inputs.youtube_url1 }}" \
+                        "${{ github.event.inputs.youtube_url2 }}" \
+                        "${{ github.event.inputs.youtube_url3 }}" \
+                        "${{ github.event.inputs.youtube_url4 }}" \
+                        "${{ github.event.inputs.youtube_url5 }}"; do
+              [ -z "$url" ] && continue
+              VIDEO_COUNT=$((VIDEO_COUNT+1))
+              echo "--- Processing URL #$VIDEO_COUNT: $url ---"
+
+              SUCCESS=0
+              # Attempt 1: Direct
+              if [ $SUCCESS -eq 0 ]; then
+                echo "Attempting direct download..."
+                if try_download ""; then
+                  echo "Direct success"
+                  SUCCESS=1
                 fi
-              done <<< "$local_proxies"
-            fi
-            echo "No working local proxy found."
+              fi
 
-            # ---- 3. Fallback to public proxy list ----
-            echo ""
-            echo "--- Attempt 3: Public proxy list ---"
-            PUBLIC_LIST=$(curl -s "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt" | head -n 15)
-            if [ -n "$PUBLIC_LIST" ]; then
-              echo "Fetched public proxies:"
-              echo "$PUBLIC_LIST"
-              while IFS= read -r proxy; do
-                if [ -n "$proxy" ] && echo "$proxy" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+'; then
-                  echo "Trying public proxy: $proxy"
-                  try_download "--proxy $proxy" && echo "Public proxy success ($proxy)" && exit 0
+              # Attempt 2: Known working proxy (if any)
+              if [ $SUCCESS -eq 0 ] && [ -n "$WORKING_PROXY" ]; then
+                echo "Attempting with known working proxy: $WORKING_PROXY"
+                if try_download "--proxy $WORKING_PROXY"; then
+                  echo "Proxy success (reuse)"
+                  SUCCESS=1
                 fi
-              done <<< "$PUBLIC_LIST"
-            else
-              echo "Could not fetch public proxy list."
+              fi
+
+              # Attempt 3: Local proxylist.txt
+              if [ $SUCCESS -eq 0 ]; then
+                echo "Attempting local proxies..."
+                sed -i 's/\r$//; /^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]]*$//' proxylist.txt
+                while IFS= read -r proxy; do
+                  if [ -n "$proxy" ] && echo "$proxy" | grep -qE '^(http|socks4|socks5)://|^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+'; then
+                    echo "Trying local proxy: $proxy"
+                    if try_download "--proxy $proxy"; then
+                      echo "Local proxy success ($proxy)"
+                      WORKING_PROXY="$proxy"
+                      SUCCESS=1
+                      break
+                    fi
+                  fi
+                done < proxylist.txt
+              fi
+
+              # Attempt 4: Public proxies
+              if [ $SUCCESS -eq 0 ]; then
+                echo "Attempting public proxies..."
+                PUBLIC_LIST=$(curl -s "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt" | head -n 15)
+                if [ -n "$PUBLIC_LIST" ]; then
+                  while IFS= read -r proxy; do
+                    if [ -n "$proxy" ] && echo "$proxy" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+'; then
+                      echo "Trying public proxy: $proxy"
+                      if try_download "--proxy $proxy"; then
+                        echo "Public proxy success ($proxy)"
+                        WORKING_PROXY="$proxy"
+                        SUCCESS=1
+                        break
+                      fi
+                    fi
+                  done <<< "$PUBLIC_LIST"
+                fi
+              fi
+
+              # Attempt 5: Third‑party services
+              if [ $SUCCESS -eq 0 ]; then
+                echo "Attempting third‑party services..."
+                VID=$(echo "$url" | sed -n 's/.*v=\([^&]*\).*/\1/p')
+                # y2mate
+                ANALYZE=$(curl -s -X POST "https://www.y2mate.com/mates/analyzeV2/ajax" \
+                  -H "Content-Type: application/x-www-form-urlencoded" \
+                  -d "k_query=https://www.youtube.com/watch?v=$VID&k_page=home&hl=en&q_auto=0")
+                DL_URL=$(echo "$ANALYZE" | jq -r '.links.mp4["18"].url // .links.mp4["22"].url // .links.mp4["136"].url // empty')
+                if [ -n "$DL_URL" ]; then
+                  echo "y2mate URL: $DL_URL"
+                  curl -L -o video.mp4 "$DL_URL" && SUCCESS=1
+                fi
+                # savefrom.net
+                if [ $SUCCESS -eq 0 ]; then
+                  DL_URL=$(curl -s "https://savefrom.net/api/convert" \
+                    -H "Content-Type: application/x-www-form-urlencoded" \
+                    -d "sf_url=https://www.youtube.com/watch?v=$VID" | jq -r '.list[0].download[0].url // empty')
+                  if [ -n "$DL_URL" ]; then
+                    echo "savefrom.net URL: $DL_URL"
+                    curl -L -o video.mp4 "$DL_URL" && SUCCESS=1
+                  fi
+                fi
+              fi
+
+              if [ $SUCCESS -eq 1 ]; then
+                # Rename video to avoid clashes
+                VIDEO_EXT="${VIDEO_FILE##*.}"
+                NEW_NAME="video_${VIDEO_COUNT}.${VIDEO_EXT}"
+                mv video.* "$NEW_NAME"
+                echo "Renamed to $NEW_NAME"
+                echo "$NEW_NAME" >> video_list.txt
+
+                # Move subtitle if present
+                SUB_FILE=$(ls video.*.srt 2>/dev/null | head -n1)
+                if [ -n "$SUB_FILE" ]; then
+                  SUB_NEW_NAME="video_${VIDEO_COUNT}.en.srt"
+                  mv "$SUB_FILE" "$SUB_NEW_NAME"
+                  echo "$SUB_NEW_NAME" >> sub_list.txt
+                  echo "Subtitle saved as $SUB_NEW_NAME"
+                fi
+              else
+                echo "ERROR: Failed to download URL #$VIDEO_COUNT"
+                exit 1
+              fi
+            done
+
+            if [ $VIDEO_COUNT -eq 0 ]; then
+              echo "No URLs provided!"
+              exit 1
             fi
-
-            # ---- 4. Third‑party services ----
-            echo ""
-            echo "--- Attempt 4: Third‑party services ---"
-            VID=$(echo "${{ github.event.inputs.youtube_url }}" | sed -n 's/.*v=\([^&]*\).*/\1/p')
-
-            # y2mate
-            ANALYZE=$(curl -s -X POST "https://www.y2mate.com/mates/analyzeV2/ajax" \
-              -H "Content-Type: application/x-www-form-urlencoded" \
-              -d "k_query=https://www.youtube.com/watch?v=$VID&k_page=home&hl=en&q_auto=0")
-            DL_URL=$(echo "$ANALYZE" | jq -r '.links.mp4["18"].url // .links.mp4["22"].url // .links.mp4["136"].url // empty')
-            if [ -n "$DL_URL" ]; then
-              echo "y2mate URL: $DL_URL"
-              curl -L -o video.mp4 "$DL_URL" && echo "y2mate success" && exit 0
-            fi
-
-            # savefrom.net
-            DL_URL=$(curl -s "https://savefrom.net/api/convert" \
-              -H "Content-Type: application/x-www-form-urlencoded" \
-              -d "sf_url=https://www.youtube.com/watch?v=$VID" | jq -r '.list[0].download[0].url // empty')
-            if [ -n "$DL_URL" ]; then
-              echo "savefrom.net URL: $DL_URL"
-              curl -L -o video.mp4 "$DL_URL" && echo "savefrom.net success" && exit 0
-            fi
-
-            echo "All download methods failed."
+            echo "All downloads completed successfully."
           } > download.log 2>&1
 
       - name: Commit download.log (always)
@@ -195,34 +269,13 @@ jobs:
           echo "Download failed – see download.log in repository."
           exit 1
 
-      - name: Locate video and subtitle files
-        if: success()
-        run: |
-          VIDEO_FILE=$(ls video.* 2>/dev/null | grep -v '\.part$' | head -n1)
-          if [ -z "$VIDEO_FILE" ]; then
-            echo "No video file found."
-            exit 1
-          fi
-          echo "VIDEO_FILE=$VIDEO_FILE" >> $GITHUB_ENV
-          echo "Video: $VIDEO_FILE" >> download.log
-
-          SUB_FILE=$(ls video.*.srt 2>/dev/null | head -n1)
-          if [ -n "$SUB_FILE" ]; then
-            echo "SUB_FILE=$SUB_FILE" >> $GITHUB_ENV
-            echo "Subtitle file: $SUB_FILE" >> download.log
-          else
-            echo "No subtitle file downloaded." >> download.log
-          fi
-
-      - name: Split and upload everything (robust PowerShell chunker)
+      - name: Split and upload everything
         if: success()
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
         run: |
-          $videoFile = $env:VIDEO_FILE
-          $subFile = $env:SUB_FILE
           $token = $env:GITHUB_TOKEN
           $repo = $env:GITHUB_REPOSITORY
           $branch = $env:GITHUB_REF_NAME
@@ -236,46 +289,22 @@ jobs:
             Add-Content -Path $logFile -Value $msg
           }
 
-          if (-not (Test-Path $videoFile)) {
-            Write-Log "Video file missing: $videoFile"
+          # Read lists
+          $videoList = Get-Content video_list.txt | Where-Object { $_ -ne "" }
+          $subList = if (Test-Path sub_list.txt) { Get-Content sub_list.txt | Where-Object { $_ -ne "" } } else { @() }
+
+          if ($videoList.Count -eq 0) {
+            Write-Log "No video files found. Aborting."
             exit 1
           }
 
-          # --- Split into chunks ---
-          $fileStream = [System.IO.File]::OpenRead($videoFile)
-          $partIdx = 0
-          $buffer = New-Object byte[] $chunkSize
+          # Create output folder
           New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
-          $chunkFiles = [System.Collections.Generic.List[hashtable]]::new()
 
-          while (($n = $fileStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-            $chunkName = "{0}.part{1:D4}" -f [System.IO.Path]::GetFileName($videoFile), $partIdx
-            $chunkPath = Join-Path $chunksDir $chunkName
-            [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
-            $chunkFiles.Add(@{ Path = $chunkPath; Name = $chunkName; Size = $n })
-            $partIdx++
-          }
-          $fileStream.Close()
-          $totalChunks = $chunkFiles.Count
-          Write-Log "Split into $totalChunks chunks."
+          # Track files for reassemble.bat
+          $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
 
-          # --- reassemble.bat ---
-          $batPath = Join-Path $chunksDir "reassemble.bat"
-          $baseName = [System.IO.Path]::GetFileNameWithoutExtension($videoFile)
-          $ext = [System.IO.Path]::GetExtension($videoFile)
-          @"
-          @echo off
-          echo Reassembling $baseName$ext...
-          copy /b $baseName$ext.part* $baseName$ext
-          echo Done. Output file: $baseName$ext
-          echo.
-          echo Press any key to delete the part files...
-          pause >nul
-          del $baseName$ext.part*
-          pause
-          "@ | Out-File -FilePath $batPath -Encoding ASCII
-
-          # --- Upload helper ---
+          # Upload helper
           $headers = @{ Authorization = "Bearer $token" }
           $apiBase = "https://api.github.com/repos/$repo/contents"
           $maxRetries = 3
@@ -306,29 +335,93 @@ jobs:
             }
           }
 
-          # --- Upload all chunks ---
-          for ($i = 0; $i -lt $totalChunks; $i++) {
-            $chunk = $chunkFiles[$i]
-            $sizeMB = [math]::Round($chunk.Size / 1MB, 1)
-            Write-Log "Uploading $($chunk.Name) ($sizeMB MB)..."
-            Upload-File -localPath $chunk.Path -remotePath "$chunksDir/$($chunk.Name)"
-            Start-Sleep -Milliseconds 500
+          # Process each video
+          for ($i = 0; $i -lt $videoList.Count; $i++) {
+            $videoFile = $videoList[$i]
+            $subFile = if ($i -lt $subList.Count) { $subList[$i] } else { $null }
+
+            if (-not (Test-Path $videoFile)) {
+              Write-Log "Video file missing: $videoFile"
+              exit 1
+            }
+
+            $fileSize = (Get-Item $videoFile).Length
+            $fileName = [System.IO.Path]::GetFileName($videoFile)
+            Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
+
+            if ($fileSize -lt $chunkSize) {
+              # Small file – upload directly
+              Write-Log "File smaller than chunk size; uploading directly."
+              Upload-File -localPath $videoFile -remotePath "$chunksDir/$fileName"
+              $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+            } else {
+              # Split and upload chunks
+              Write-Log "Splitting into chunks..."
+              $baseName = $fileName
+              $stream = [System.IO.File]::OpenRead($videoFile)
+              $partIdx = 0
+              $buffer = New-Object byte[] $chunkSize
+
+              while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                $chunkName = "{0}.part{1:D4}" -f $baseName, $partIdx
+                $chunkPath = Join-Path $chunksDir $chunkName
+                [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
+                Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)"
+                Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
+                Remove-Item $chunkPath -Force
+                $partIdx++
+                Start-Sleep -Milliseconds 500
+              }
+              $stream.Close()
+              $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
+            }
           }
 
-          # --- Upload reassemble.bat ---
+          # Upload subtitle files (unchunked)
+          if ($subList.Count -gt 0) {
+            foreach ($sub in $subList) {
+              if (Test-Path $sub) {
+                $subName = [System.IO.Path]::GetFileName($sub)
+                Write-Log "Uploading subtitle: $subName"
+                Upload-File -localPath $sub -remotePath "$chunksDir/$subName"
+              }
+            }
+          }
+
+          # Generate reassemble.bat
+          Write-Log "Creating reassemble.bat..."
+          $batPath = Join-Path $chunksDir "reassemble.bat"
+          $batLines = @"
+          @echo off
+          setlocal enabledelayedexpansion
+          echo ========================================
+          echo  Reassembling all downloaded files...
+          echo ========================================
+          "@ -split "`n"
+          foreach ($fi in $fileInfos) {
+            $name = $fi.Name
+            if ($fi.HasChunks) {
+              $batLines += "echo --- Rebuilding $name ---"
+              $batLines += "copy /b $name.part* $name"
+              $batLines += "if %errorlevel% equ 0 ("
+              $batLines += "    echo Successfully created $name"
+              $batLines += "    del $name.part*"
+              $batLines += "    echo Deleted temporary parts for $name"
+              $batLines += ") else ("
+              $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
+              $batLines += ")"
+            } else {
+              $batLines += "echo $name was downloaded as a single file (no chunks)."
+            }
+          }
+          $batLines += "echo ========================================"
+          $batLines += "echo All done! Press any key to exit."
+          $batLines += "pause >nul"
+          $batLines | Out-File -FilePath $batPath -Encoding ASCII
           Write-Log "Uploading reassemble.bat..."
           Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
 
-          # --- Upload subtitle (if any) ---
-          if ($subFile -and (Test-Path $subFile)) {
-            $subName = Split-Path $subFile -Leaf
-            Write-Log "Uploading subtitle: $subName"
-            Upload-File -localPath $subFile -remotePath "$chunksDir/$subName"
-          } else {
-            Write-Log "No subtitle file to upload."
-          }
-
-          Write-Log "✅ All done. Video chunks and subtitles are in the '$chunksDir' folder."
+          Write-Log "✅ All files uploaded. Check the '$chunksDir' folder."
 
       - name: Final log commit (always)
         if: always()
