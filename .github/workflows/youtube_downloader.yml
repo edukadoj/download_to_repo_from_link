@@ -6,23 +6,23 @@ on:
       youtube_url1:
         description: 'YouTube URL #1 (required)'
         required: true
-        default: 'https://www.youtube.com/watch?v=5AgUnQGYOn8'
+        default: 'https://www.youtube.com/watch?v=OCbPPnyD7rk'
       youtube_url2:
         description: 'YouTube URL #2 (optional)'
         required: false
-        default: ''
+        default: 'https://www.youtube.com/watch?v=NP_ufm36bOQ'
       youtube_url3:
         description: 'YouTube URL #3 (optional)'
         required: false
-        default: ''
+        default: 'https://www.youtube.com/watch?v=j0qDPdSZm1Q'
       youtube_url4:
         description: 'YouTube URL #4 (optional)'
         required: false
-        default: ''
+        default: 'https://www.youtube.com/watch?v=RTJpJkfHclM'
       youtube_url5:
         description: 'YouTube URL #5 (optional)'
         required: false
-        default: ''
+        default: 'https://www.youtube.com/watch?v=RTJpJkfHclM'
       quality:
         description: 'Video quality'
         required: true
@@ -51,6 +51,7 @@ on:
 jobs:
   download-and-chunk:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     permissions:
       contents: write
     steps:
@@ -90,7 +91,7 @@ jobs:
           curl -fsSL https://deno.land/install.sh | sh
           echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
-      - name: Download all videos
+      - name: Download all videos (with timeouts)
         id: download
         run: |
           {
@@ -119,10 +120,10 @@ jobs:
               SUB_ARGS="--write-auto-subs --sub-lang ${SUB_LANG%% *} --convert-subs srt"
             fi
 
-            # ---- Download function (no set -e inside) ----
+            # ---- Download function with 10‑minute timeout ----
             try_download() {
               local extra_args="$1"
-              yt-dlp --no-playlist --format "$FORMAT" --output "video.%(ext)s" \
+              timeout 600 yt-dlp --no-playlist --format "$FORMAT" --output "video.%(ext)s" \
                 $SUB_ARGS \
                 --js-runtimes deno \
                 --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
@@ -197,27 +198,27 @@ jobs:
                 fi
               fi
 
-              # Attempt 5: Third‑party services
+              # Attempt 5: Third‑party services (time‑limited)
               if [ $SUCCESS -eq 0 ]; then
                 echo "Attempting third‑party services..."
                 VID=$(echo "$url" | sed -n 's/.*v=\([^&]*\).*/\1/p')
                 # y2mate
-                ANALYZE=$(curl -s -X POST "https://www.y2mate.com/mates/analyzeV2/ajax" \
+                ANALYZE=$(curl -s --max-time 30 -X POST "https://www.y2mate.com/mates/analyzeV2/ajax" \
                   -H "Content-Type: application/x-www-form-urlencoded" \
                   -d "k_query=https://www.youtube.com/watch?v=$VID&k_page=home&hl=en&q_auto=0")
                 DL_URL=$(echo "$ANALYZE" | jq -r '.links.mp4["18"].url // .links.mp4["22"].url // .links.mp4["136"].url // empty')
                 if [ -n "$DL_URL" ]; then
                   echo "y2mate URL: $DL_URL"
-                  curl -L -o video.mp4 "$DL_URL" && SUCCESS=1 || echo "y2mate download failed"
+                  curl -L --max-time 60 -o video.mp4 "$DL_URL" && SUCCESS=1 || echo "y2mate download failed"
                 fi
                 # savefrom.net
                 if [ $SUCCESS -eq 0 ]; then
-                  DL_URL=$(curl -s "https://savefrom.net/api/convert" \
+                  DL_URL=$(curl -s --max-time 30 "https://savefrom.net/api/convert" \
                     -H "Content-Type: application/x-www-form-urlencoded" \
                     -d "sf_url=https://www.youtube.com/watch?v=$VID" | jq -r '.list[0].download[0].url // empty')
                   if [ -n "$DL_URL" ]; then
                     echo "savefrom.net URL: $DL_URL"
-                    curl -L -o video.mp4 "$DL_URL" && SUCCESS=1 || echo "savefrom.net download failed"
+                    curl -L --max-time 60 -o video.mp4 "$DL_URL" && SUCCESS=1 || echo "savefrom.net download failed"
                   fi
                 fi
               fi
@@ -249,7 +250,6 @@ jobs:
               echo "Download phase completed successfully."
             fi
           } > download.log 2>&1
-        # Important: do NOT use set -e in the shell, we handle errors ourselves
         shell: /usr/bin/bash {0}
 
       - name: Commit download.log (always)
@@ -280,7 +280,7 @@ jobs:
             Add-Content -Path $logFile -Value $msg
           }
 
-          # Read lists
+          # Read lists (force array)
           $videoList = @(Get-Content video_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
           $subList = @(Get-Content sub_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
 
@@ -370,7 +370,7 @@ jobs:
                 $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
               }
             }
-            Remove-Item $videoFile -Force  # clean up original video after processing
+            Remove-Item $videoFile -Force
           }
 
           # Upload subtitle files
