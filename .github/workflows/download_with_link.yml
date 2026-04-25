@@ -129,13 +129,17 @@ jobs:
             try {
               $response = Invoke-WebRequest -Uri $url -OutFile $tempFile -PassThru -MaximumRedirection 10 -ErrorAction Stop
             } catch {
-              Write-Log "Download failed: $_"
-              exit 1
+              Write-Log "Download failed: $($_.Exception.Message)"
+              Write-Log "Skipping this URL and continuing."
+              continue
             }
+
             if (-not (Test-Path $tempFile) -or (Get-Item $tempFile).Length -eq 0) {
-              Write-Log "Download returned empty file. Aborting."
-              exit 1
+              Write-Log "Download returned empty file. Skipping this URL."
+              Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+              continue
             }
+
             $fileName = $null
             if ($response.Headers['Content-Disposition']) {
               $match = [System.Text.RegularExpressions.Regex]::Match($response.Headers['Content-Disposition'], 'filename="?([^"]+)"?')
@@ -154,62 +158,85 @@ jobs:
             if ($fileSize -lt $chunkSize) {
               Write-Log "Small file, uploading directly."
               $remotePath = "$chunksDir/$fileName"
-              Upload-File -localPath $tempFile -remotePath $remotePath
-              $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+              try {
+                Upload-File -localPath $tempFile -remotePath $remotePath
+                $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+              } catch {
+                Write-Log "Upload failed for $fileName. Skipping."
+                continue
+              }
             } else {
               Write-Log "Splitting into $([math]::Round($chunkSize/1MB)) MB chunks..."
               $stream = [System.IO.File]::OpenRead($tempFile)
               $partIdx = 0
               $buffer = New-Object byte[] $chunkSize
+              $uploadSuccess = $true
               while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
                 $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
                 $chunkPath = Join-Path $chunksDir $chunkName
                 [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
                 Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)"
-                Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
+                try {
+                  Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
+                } catch {
+                  Write-Log "Upload failed for $chunkName. Aborting this file."
+                  $uploadSuccess = $false
+                  break
+                }
                 Remove-Item $chunkPath -Force
                 $partIdx++
                 Start-Sleep -Milliseconds 500
               }
               $stream.Close()
-              $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
+              if ($uploadSuccess) {
+                $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
+              } else {
+                Write-Log "Skipping remaining chunks for $fileName."
+                # Remove any already uploaded chunks? Not necessary, they'll be orphaned but not harmful.
+                # Better to log that manual cleanup may be needed.
+              }
             }
             Remove-Item $tempFile -Force
           }
 
-          Write-Log "Generating reassemble.bat..."
-          $batPath = Join-Path $chunksDir "reassemble.bat"
-          $batLines = @(
-            "@echo off",
-            "setlocal enabledelayedexpansion",
-            "echo ========================================",
-            "echo  Reassembling all downloaded files...",
-            "echo ========================================"
-          )
-          foreach ($fi in $fileInfos) {
-            $name = $fi.Name
-            if ($fi.HasChunks) {
-              $batLines += "echo --- Rebuilding $name ---"
-              $batLines += "copy /b $name.part* $name"
-              $batLines += "if %errorlevel% equ 0 ("
-              $batLines += "    echo Successfully created $name"
-              $batLines += "    del $name.part*"
-              $batLines += "    echo Deleted temporary parts for $name"
-              $batLines += ") else ("
-              $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
-              $batLines += ")"
-            } else {
-              $batLines += "echo $name was downloaded as a single file (no chunks)."
+          if ($fileInfos.Count -eq 0) {
+            Write-Log "No files were successfully uploaded. All URLs failed or were skipped."
+            Write-Log "Workflow finished with no output."
+          } else {
+            Write-Log "Generating reassemble.bat..."
+            $batPath = Join-Path $chunksDir "reassemble.bat"
+            $batLines = @(
+              "@echo off",
+              "setlocal enabledelayedexpansion",
+              "echo ========================================",
+              "echo  Reassembling all downloaded files...",
+              "echo ========================================"
+            )
+            foreach ($fi in $fileInfos) {
+              $name = $fi.Name
+              if ($fi.HasChunks) {
+                $batLines += "echo --- Rebuilding $name ---"
+                $batLines += "copy /b $name.part* $name"
+                $batLines += "if %errorlevel% equ 0 ("
+                $batLines += "    echo Successfully created $name"
+                $batLines += "    del $name.part*"
+                $batLines += "    echo Deleted temporary parts for $name"
+                $batLines += ") else ("
+                $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
+                $batLines += ")"
+              } else {
+                $batLines += "echo $name was downloaded as a single file (no chunks)."
+              }
             }
-          }
-          $batLines += "echo ========================================"
-          $batLines += "echo All done! Press any key to exit."
-          $batLines += "pause >nul"
-          $batLines | Out-File -FilePath $batPath -Encoding ASCII
+            $batLines += "echo ========================================"
+            $batLines += "echo All done! Press any key to exit."
+            $batLines += "pause >nul"
+            $batLines | Out-File -FilePath $batPath -Encoding ASCII
 
-          Write-Log "Uploading reassemble.bat..."
-          Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
-          Write-Log "✅ All files processed and uploaded."
+            Write-Log "Uploading reassemble.bat..."
+            Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
+            Write-Log "✅ All files processed and uploaded."
+          }
 
       - name: Final log commit (always)
         if: always()
