@@ -6,6 +6,10 @@ on:
       file_url:
         description: 'URL of the file to download'
         required: true
+      folder_name:
+        description: 'Folder to store chunks (default: Download)'
+        required: false
+        default: 'Download'
 
 jobs:
   fetch-and-upload:
@@ -18,160 +22,172 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
 
-      - name: Clean up old downloaded folder
+      - name: Clean up old downloads and log
         run: |
-          rm -rf "Download"
-          rm -f downloaded.file
+          rm -rf "${{ github.event.inputs.folder_name }}"
+          rm -f downloaded.file download.log
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Clean up old download folder" || true
+          git commit -m "Clean up old downloads" || true
+          git pull --rebase
           git push || true
 
-      - name: Download, Split, and Upload Chunks
+      - name: Download file (with logging)
+        id: download
+        continue-on-error: true
+        run: |
+          {
+            echo "=== Download Log ==="
+            echo "Date: $(date)"
+            echo "URL: ${{ github.event.inputs.file_url }}"
+            echo "Folder: ${{ github.event.inputs.folder_name }}"
+            echo ""
+
+            # Extract filename (try Content-Disposition first, then URL)
+            echo "--- Downloading file ---"
+            curl -L --retry 3 --retry-delay 10 --max-time 3600 \
+                 -o downloaded.file \
+                 -w "%{http_code} %{filename_effective}" \
+                 "${{ github.event.inputs.file_url }}"
+
+            # Check success
+            if [ ! -f downloaded.file ]; then
+              echo "Download failed – no file"
+              exit 1
+            fi
+            echo "Download completed."
+            ls -lh downloaded.file
+          } > download.log 2>&1
+
+      - name: Commit download.log (always)
+        if: always()
+        run: |
+          git add download.log
+          git commit -m "Update download log" || true
+          git pull --rebase
+          git push || true
+
+      - name: Fail if download failed
+        if: steps.download.outcome == 'failure'
+        run: |
+          echo "Download failed – see download.log in repository."
+          exit 1
+
+      - name: Split and upload (robust PowerShell chunker)
+        if: success()
+        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
         run: |
-          python3 << 'EOF'
-          import os
-          import base64
-          import requests
-          import sys
-          import time
-          from pathlib import Path
-          from urllib.parse import urlparse, unquote
-
-          # --- Configuration ---
-          token = os.environ["GITHUB_TOKEN"]
-          repo = os.environ["GITHUB_REPOSITORY"]
-          branch = os.environ["GITHUB_REF_NAME"]
-          file_url = "${{ github.event.inputs.file_url }}"
-
-          # Extract filename from URL
-          parsed = urlparse(file_url)
-          filename = unquote(os.path.basename(parsed.path))
-          if not filename:
-              filename = "downloaded_file"
-          base_name = filename
-
-          # Hardcoded safe chunk size (20 MB)
-          chunk_size_mb = 20
-          chunk_size = chunk_size_mb * 1024 * 1024
-
-          print(f"=== Download From Direct Link 1 ===")
-          print(f"Repository: {repo}")
-          print(f"Branch: {branch}")
-          print(f"Source URL: {file_url}")
-          print(f"Base filename: {base_name}")
-          print(f"Chunk size: {chunk_size_mb} MB")
-          print("=" * 50)
-
-          # --- Step 1: Download the file ---
-          print("\n[1/3] Downloading file...")
-          temp_file = "downloaded.file"
-          response = requests.get(file_url, stream=True)
-          response.raise_for_status()
-          total_size = 0
-          with open(temp_file, "wb") as f:
-              for chunk in response.iter_content(chunk_size=8192):
-                  f.write(chunk)
-                  total_size += len(chunk)
-                  if total_size % (50 * 1024 * 1024) < 8192:
-                      print(f"  Downloaded: {total_size / (1024**3):.2f} GB")
-          file_size_gb = total_size / (1024**3)
-          print(f"✓ Download complete: {file_size_gb:.2f} GB")
-
-          # --- Step 2: Split into chunks ---
-          print(f"\n[2/3] Splitting file into {chunk_size_mb} MB chunks...")
-          chunks_dir = "Download"
-          Path(chunks_dir).mkdir(exist_ok=True)
-          chunk_files = []
-          with open(temp_file, "rb") as f:
-              idx = 0
-              while True:
-                  data = f.read(chunk_size)
-                  if not data:
-                      break
-                  chunk_filename = f"{base_name}.part{idx:04d}"
-                  chunk_path = os.path.join(chunks_dir, chunk_filename)
-                  with open(chunk_path, "wb") as cf:
-                      cf.write(data)
-                  chunk_files.append((chunk_path, chunk_filename, len(data)))
-                  idx += 1
-          print(f"✓ Created {len(chunk_files)} chunks in '{chunks_dir}/'")
-
-          # --- Step 2.5: Create reassemble.bat for Windows users ---
-          bat_path = os.path.join(chunks_dir, "reassemble.bat")
-          with open(bat_path, "w") as bat:
-              bat.write(f"@echo off\n")
-              bat.write(f"echo Reassembling {base_name}...\n")
-              bat.write(f"copy /b {base_name}.part* {base_name}\n")
-              bat.write(f"echo Done. Output file: {base_name}\n")
-              bat.write(f"pause\n")
-          print(f"✓ Created reassemble.bat in '{chunks_dir}/'")
-
-          # --- Step 3: Upload chunks and batch file via GitHub API ---
-          print(f"\n[3/3] Uploading files via GitHub API...")
-          headers = {"Authorization": f"token {token}"}
-          repo_api_base = f"https://api.github.com/repos/{repo}/contents"
-
-          # Upload each chunk
-          for chunk_path, chunk_filename, chunk_bytes in chunk_files:
-              print(f"  Uploading {chunk_filename} ({chunk_bytes / (1024**2):.1f} MB)...")
-              with open(chunk_path, "rb") as cf:
-                  content_b64 = base64.b64encode(cf.read()).decode("utf-8")
-              api_url = f"{repo_api_base}/{chunks_dir}/{chunk_filename}"
-              resp = requests.get(api_url, headers=headers)
-              sha = resp.json().get("sha") if resp.status_code == 200 else None
-              payload = {
-                  "message": f"Add {chunk_filename}",
-                  "content": content_b64,
-                  "branch": branch,
-              }
-              if sha:
-                  payload["sha"] = sha
-              max_retries = 3
-              for attempt in range(max_retries):
-                  put_resp = requests.put(api_url, headers=headers, json=payload)
-                  if put_resp.status_code in (200, 201):
-                      print(f"    ✓ Uploaded")
-                      break
-                  else:
-                      if attempt == max_retries - 1:
-                          print(f"    ✗ Failed: {put_resp.status_code} - {put_resp.text}")
-                          sys.exit(1)
-                      else:
-                          print(f"    Retrying in 10 seconds...")
-                          time.sleep(10)
-
-          # Upload reassemble.bat
-          print("  Uploading reassemble.bat...")
-          with open(bat_path, "rb") as bf:
-              bat_b64 = base64.b64encode(bf.read()).decode("utf-8")
-          api_url = f"{repo_api_base}/{chunks_dir}/reassemble.bat"
-          resp = requests.get(api_url, headers=headers)
-          sha = resp.json().get("sha") if resp.status_code == 200 else None
-          payload = {
-              "message": "Add reassemble.bat",
-              "content": bat_b64,
-              "branch": branch,
+          $videoFile = "downloaded.file"   # rename for consistency, but it's just a file
+          if (-not (Test-Path $videoFile)) {
+            Add-Content -Path download.log -Value "File missing: $videoFile"
+            exit 1
           }
-          if sha:
-              payload["sha"] = sha
-          put_resp = requests.put(api_url, headers=headers, json=payload)
-          if put_resp.status_code not in (200, 201):
-              print(f"  ✗ Failed to upload reassemble.bat: {put_resp.status_code}")
-              sys.exit(1)
-          else:
-              print(f"    ✓ Uploaded reassemble.bat")
 
-          # --- Cleanup ---
-          os.remove(temp_file)
-          print("\n" + "=" * 50)
-          print("✅ SUCCESS! All files uploaded.")
-          print(f"📁 Repository: https://github.com/{repo}")
-          print(f"📂 Files are in the '{chunks_dir}/' folder.")
-          print("\n📥 To reassemble on Windows:")
-          print(f"   Double-click the 'reassemble.bat' file inside the folder.")
-          print("=" * 50)
-          EOF
+          $token = $env:GITHUB_TOKEN
+          $repo = $env:GITHUB_REPOSITORY
+          $branch = $env:GITHUB_REF_NAME
+          $chunksDir = $env:FOLDER_NAME
+          $chunkSize = 20MB
+          $logFile = "download.log"
+
+          function Write-Log {
+            param([string]$msg)
+            Write-Host $msg
+            Add-Content -Path $logFile -Value $msg
+          }
+
+          # Derive base name from the original URL (extract filename)
+          $fileUrl = "${{ github.event.inputs.file_url }}"
+          $fileName = [System.IO.Path]::GetFileName([System.Uri]::UnescapeDataString($fileUrl))
+          if (-not $fileName) { $fileName = "downloaded_file" }
+          Write-Log "Base filename: $fileName"
+
+          # --- Split into chunks ---
+          $fileStream = [System.IO.File]::OpenRead($videoFile)
+          $partIdx = 0
+          $buffer = New-Object byte[] $chunkSize
+          New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
+          $chunkFiles = [System.Collections.Generic.List[hashtable]]::new()
+
+          while (($n = $fileStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
+            $chunkPath = Join-Path $chunksDir $chunkName
+            [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
+            $chunkFiles.Add(@{ Path = $chunkPath; Name = $chunkName; Size = $n })
+            $partIdx++
+          }
+          $fileStream.Close()
+          $totalChunks = $chunkFiles.Count
+          Write-Log "Split into $totalChunks chunks."
+
+          # --- reassemble.bat ---
+          $batPath = Join-Path $chunksDir "reassemble.bat"
+          @"
+          @echo off
+          echo Reassembling $fileName...
+          copy /b $fileName.part* $fileName
+          echo Done. Output file: $fileName
+          echo.
+          echo Press any key to delete the part files...
+          pause >nul
+          del $fileName.part*
+          pause
+          "@ | Out-File -FilePath $batPath -Encoding ASCII
+
+          # --- Upload helper ---
+          $headers = @{ Authorization = "Bearer $token" }
+          $apiBase = "https://api.github.com/repos/$repo/contents"
+          $maxRetries = 3
+
+          function Upload-File {
+            param([string]$localPath, [string]$remotePath)
+            $bytes = [System.IO.File]::ReadAllBytes($localPath)
+            $b64 = [Convert]::ToBase64String($bytes)
+            $url = "$apiBase/$($remotePath -replace '\\','/')"
+            try { $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $sha = $null }
+            $body = @{ message = "Add $(Split-Path $localPath -Leaf)"; content = $b64; branch = $branch }
+            if ($sha) { $body.sha = $sha }
+            $success = $false
+            for ($retry = 0; $retry -lt $maxRetries; $retry++) {
+              try {
+                Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
+                $success = $true
+                break
+              } catch {
+                if ($retry -lt $maxRetries - 1) {
+                  Write-Log "Retry $($retry+1) in 10 seconds..."
+                  Start-Sleep -Seconds 10
+                } else {
+                  Write-Log "FATAL: upload failed after $maxRetries attempts."
+                  exit 1
+                }
+              }
+            }
+          }
+
+          # --- Upload all chunks ---
+          for ($i = 0; $i -lt $totalChunks; $i++) {
+            $chunk = $chunkFiles[$i]
+            $sizeMB = [math]::Round($chunk.Size / 1MB, 1)
+            Write-Log "Uploading $($chunk.Name) ($sizeMB MB)..."
+            Upload-File -localPath $chunk.Path -remotePath "$chunksDir/$($chunk.Name)"
+            Start-Sleep -Milliseconds 500
+          }
+
+          # --- Upload reassemble.bat ---
+          Write-Log "Uploading reassemble.bat..."
+          Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
+
+          Write-Log "✅ All done. Chunks are in the '$chunksDir' folder."
+
+      - name: Final log commit (always)
+        if: always()
+        run: |
+          git add download.log
+          git commit -m "Final download log" || true
+          git pull --rebase
+          git push || true
