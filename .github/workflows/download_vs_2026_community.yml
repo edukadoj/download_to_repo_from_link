@@ -1,4 +1,4 @@
-name: VS2026 Offline Layout
+name: Download VS 2026 Community Offline Mode
 
 on:
   workflow_dispatch:
