@@ -222,7 +222,7 @@ jobs:
           Write-Host "Zip size: $((Get-Item "$env:RUNNER_TEMP\VsCommunity2026Layout.zip").Length / 1MB) MB"
           echo "ZIP_PATH=$env:RUNNER_TEMP\VsCommunity2026Layout.zip" >> $env:GITHUB_ENV
 
-      - name: Split zip and upload chunks (with robust retries)
+      - name: Split zip and upload chunks (with smart reassemble.bat)
         if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
         shell: powershell
         env:
@@ -242,7 +242,36 @@ jobs:
           $stream.Close()
           $totalChunks = $idx
           Write-Host "Total chunks to upload: $totalChunks"
-          "@echo off`r`ncopy /b VsCommunity2026Layout.part* VsCommunity2026Layout.zip`r`necho Done." | Out-File "$chunks\reassemble.bat" -Encoding ASCII
+
+          # --- IMPROVED reassemble.bat: deletes parts on success ---
+          $batContent = @"
+          @echo off
+          setlocal enabledelayedexpansion
+          echo ========================================
+          echo  Reassembling Visual Studio Layout...
+          echo ========================================
+          echo.
+          echo Combining VsCommunity2026Layout.part* into VsCommunity2026Layout.zip...
+          copy /b VsCommunity2026Layout.part* VsCommunity2026Layout.zip
+          if %errorlevel% equ 0 (
+              echo.
+              echo Successfully created VsCommunity2026Layout.zip
+              echo.
+              echo Deleting temporary parts...
+              del VsCommunity2026Layout.part*
+              echo Done! You can now extract VsCommunity2026Layout.zip and run vs_setup.exe
+          ) else (
+              echo.
+              echo ERROR: Failed to reassemble the ZIP file.
+              echo All parts are kept intact so you can retry.
+          )
+          echo.
+          echo ========================================
+          pause
+          "@
+          $batContent | Out-File "$chunks\reassemble.bat" -Encoding ASCII
+          # ---------------------------------------------------
+
           $token = $env:GITHUB_TOKEN
           $repo = $env:GITHUB_REPOSITORY
           $branch = $env:GITHUB_REF_NAME
@@ -275,10 +304,9 @@ jobs:
               }
             }
             if (-not $success) { exit 1 }
-            # brief pause between chunks to avoid overloading GitHub API
             Start-Sleep -Milliseconds 500
           }
-          # Upload reassemble.bat
+          # Upload the improved reassemble.bat
           $batPath = "$chunks\reassemble.bat"
           $bytes = [System.IO.File]::ReadAllBytes($batPath)
           $enc = [Convert]::ToBase64String($bytes)
