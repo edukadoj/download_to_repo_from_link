@@ -1,0 +1,66 @@
+=== YouTube Download (fast proxy) ===
+Date: Sat Apr 25 20:01:45 UTC 2026
+
+--- Processing URL #1: https://www.youtube.com/watch?v=OCbPPnyD7rk ---
+▶ Direct download ...
+[youtube] Extracting URL: https://www.youtube.com/watch?v=OCbPPnyD7rk
+[youtube] OCbPPnyD7rk: Downloading webpage
+[youtube] OCbPPnyD7rk: Downloading android vr player API JSON
+ERROR: [youtube] OCbPPnyD7rk: Video unavailable
+▶ Testing proxies from proxylist.txt ...
+🗑️ Invalid proxy line, removing: # Add your HTTP/HTTPS/SOCKS proxies below, one per line.
+🗑️ Invalid proxy line, removing: # Example: http://user:pass@12.34.56.78:8080
+🗑️ Invalid proxy line, removing: # Only lines containing proxy URLs are used.
+▶ Fetching fresh proxies ...
+sort: write failed: 'standard output': Broken pipe
+sort: write error
+   Testing 20 fresh proxies...
+   ⏱️ Quick check: 0.0.0.0:80
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.0.0.123:80
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.0.163.213:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.0.220.65:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.10.141.115:8080
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.10.238.254:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.12.253.9:8086
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.179.148.9:55636
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.179.151.165:31948
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.2.212.35:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.20.235.153:5678
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.225.116.115:9050
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.231.81.166:3128
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.4.195.114:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.4.214.178:8080
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.55.241.4:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.57.21.59:7302
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 101.0.6.154:8080
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 101.109.23.73:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 101.109.245.200:4153
+000💀 Dead (no answer in 5s)
+▶ Trying vixy.net ...
+jq: parse error: Invalid numeric literal at line 1, column 10
+vixy returned no URL.
+⚠️ Could not download URL #1 – skipping.
+No videos were downloaded.
+[main aa543c0] Update proxy list
+ 1 file changed, 3 deletions(-)
+To https://github.com/edukadoj/download_to_repo_from_link
+   1b95702..aa543c0  main -> main
