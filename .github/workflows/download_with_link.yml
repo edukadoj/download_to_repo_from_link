@@ -69,12 +69,15 @@ jobs:
             Add-Content -Path $logFile -Value $msg
           }
 
-          # Collect URLs
-          $urls = @()
-          foreach ($i in 1..5) {
-            $v = Get-Variable -Name "github.event.inputs.file_url$i" -ValueOnly -ErrorAction SilentlyContinue
-            if ($v -and $v -ne '') { $urls += $v }
-          }
+          # Collect URLs – use direct expression syntax
+          $urls = @(
+            "${{ github.event.inputs.file_url1 }}",
+            "${{ github.event.inputs.file_url2 }}",
+            "${{ github.event.inputs.file_url3 }}",
+            "${{ github.event.inputs.file_url4 }}",
+            "${{ github.event.inputs.file_url5 }}"
+          ) | Where-Object { $_ -and $_ -ne '' }
+
           if ($urls.Count -eq 0) {
             Write-Log "No URLs provided. Exiting."
             exit 1
