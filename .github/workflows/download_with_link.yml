@@ -41,7 +41,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f download.log
+          rm -f download.log url_list.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -49,16 +49,23 @@ jobs:
           git pull --rebase
           git push || true
 
+      - name: Write URLs to file (bypass YAML expression parser)
+        run: |
+          > url_list.txt
+          for url in "${{ github.event.inputs.file_url1 }}" \
+                     "${{ github.event.inputs.file_url2 }}" \
+                     "${{ github.event.inputs.file_url3 }}" \
+                     "${{ github.event.inputs.file_url4 }}" \
+                     "${{ github.event.inputs.file_url5 }}"; do
+            [ -n "$url" ] && echo "$url" >> url_list.txt
+          done
+          echo "URL list created with $(wc -l < url_list.txt) entries."
+
       - name: Download, split (if needed) and upload all files
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
-          FILE_URL_1: ${{ github.event.inputs.file_url1 }}
-          FILE_URL_2: ${{ github.event.inputs.file_url2 }}
-          FILE_URL_3: ${{ github.event.inputs.file_url3 }}
-          FILE_URL_4: ${{ github.event.inputs.file_url4 }}
-          FILE_URL_5: ${{ github.event.inputs.file_url5 }}
         run: |
           $ErrorActionPreference = "Stop"
           $token = $env:GITHUB_TOKEN
@@ -74,15 +81,8 @@ jobs:
             Add-Content -Path $logFile -Value $msg
           }
 
-          # Collect URLs from environment variables
-          $urls = @(
-            $env:FILE_URL_1,
-            $env:FILE_URL_2,
-            $env:FILE_URL_3,
-            $env:FILE_URL_4,
-            $env:FILE_URL_5
-          ) | Where-Object { $_ -and $_ -ne '' }
-
+          # Read URLs from the file created in the previous step
+          $urls = Get-Content url_list.txt | Where-Object { $_ -and $_ -ne '' }
           if ($urls.Count -eq 0) {
             Write-Log "No URLs provided. Exiting."
             exit 1
