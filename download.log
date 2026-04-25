@@ -1,0 +1,65 @@
+=== YouTube Download Log ===
+Date: Sat Apr 25 10:33:56 UTC 2026
+Quality: 720p
+Subtitles: en (English)
+Folder: YouTube Download
+
+--- Processing URL #1: https://www.youtube.com/watch?v=OCbPPnyD7rk ---
+Attempting direct download...
+[youtube] Extracting URL: https://www.youtube.com/watch?v=OCbPPnyD7rk
+[youtube] OCbPPnyD7rk: Downloading webpage
+[youtube] OCbPPnyD7rk: Downloading android vr player API JSON
+ERROR: [youtube] OCbPPnyD7rk: Video unavailable
+Attempting local proxies...
+Attempting public proxies...
+Trying public proxy: 104.36.7.57:1337
+[youtube] Extracting URL: https://www.youtube.com/watch?v=OCbPPnyD7rk
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] [Errno 111] Connection refused. Retrying (1/3)...
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] [Errno 111] Connection refused. Retrying (2/3)...
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] [Errno 111] Connection refused. Retrying (3/3)...
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] Unable to download webpage: [Errno 111] Connection refused (caused by TransportError('[Errno 111] Connection refused')). Giving up after 3 retries
+[youtube] OCbPPnyD7rk: Downloading initial data API JSON
+WARNING: [youtube] [Errno 111] Connection refused. Retrying (1/3)...
+[youtube] OCbPPnyD7rk: Downloading initial data API JSON
+WARNING: [youtube] [Errno 111] Connection refused. Retrying (2/3)...
+[youtube] OCbPPnyD7rk: Downloading initial data API JSON
+WARNING: [youtube] [Errno 111] Connection refused. Retrying (3/3)...
+[youtube] OCbPPnyD7rk: Downloading initial data API JSON
+ERROR: [youtube] OCbPPnyD7rk: Unable to download API page: [Errno 111] Connection refused (caused by TransportError('[Errno 111] Connection refused'))
+Trying public proxy: 185.190.90.2:4145
+[youtube] Extracting URL: https://www.youtube.com/watch?v=OCbPPnyD7rk
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] timed out. Retrying (1/3)...
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] Remote end closed connection without response. Retrying (2/3)...
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] Remote end closed connection without response. Retrying (3/3)...
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] Unable to download webpage: Remote end closed connection without response (caused by TransportError('Remote end closed connection without response')). Giving up after 3 retries
+[youtube] OCbPPnyD7rk: Downloading initial data API JSON
+WARNING: [youtube] timed out. Retrying (1/3)...
+[youtube] OCbPPnyD7rk: Downloading initial data API JSON
+WARNING: [youtube] Remote end closed connection without response. Retrying (2/3)...
+[youtube] OCbPPnyD7rk: Downloading initial data API JSON
+WARNING: [youtube] timed out. Retrying (3/3)...
+[youtube] OCbPPnyD7rk: Downloading initial data API JSON
+ERROR: [youtube] OCbPPnyD7rk: Unable to download API page: timed out (caused by TransportError('timed out'))
+Trying public proxy: 160.238.65.2:3128
+[youtube] Extracting URL: https://www.youtube.com/watch?v=OCbPPnyD7rk
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] timed out. Retrying (1/3)...
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] timed out. Retrying (2/3)...
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] timed out. Retrying (3/3)...
+[youtube] OCbPPnyD7rk: Downloading webpage
+WARNING: [youtube] Unable to download webpage: timed out (caused by TransportError('timed out')). Giving up after 3 retries
+[youtube] OCbPPnyD7rk: Downloading initial data API JSON
+[youtube] OCbPPnyD7rk: Downloading android vr player API JSON
+[youtube] OCbPPnyD7rk: Downloading iframe API JS
+WARNING: [youtube] timed out. Retrying (1/3)...
+[youtube] OCbPPnyD7rk: Downloading iframe API JS
