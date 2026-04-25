@@ -6,7 +6,7 @@ on:
       youtube_url1:
         description: 'YouTube URL #1 (required)'
         required: true
-        default: 'https://www.youtube.com/watch?v=OCbPPnyD7rk'
+        default: 'https://www.youtube.com/watch?v=M0iyhwzdG3k'
       youtube_url2:
         description: 'YouTube URL #2 (optional)'
         required: false
