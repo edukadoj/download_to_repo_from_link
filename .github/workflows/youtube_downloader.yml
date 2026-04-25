@@ -1,3 +1,96 @@
+name: YouTube Download
+
+on:
+  workflow_dispatch:
+    inputs:
+      youtube_url1:
+        description: 'YouTube URL #1 (required)'
+        required: true
+        default: 'https://www.youtube.com/watch?v=OCbPPnyD7rk'
+      youtube_url2:
+        description: 'YouTube URL #2 (optional)'
+        required: false
+        default: 'https://www.youtube.com/watch?v=NP_ufm36bOQ'
+      youtube_url3:
+        description: 'YouTube URL #3 (optional)'
+        required: false
+        default: 'https://www.youtube.com/watch?v=j0qDPdSZm1Q'
+      youtube_url4:
+        description: 'YouTube URL #4 (optional)'
+        required: false
+        default: 'https://www.youtube.com/watch?v=RTJpJkfHclM'
+      youtube_url5:
+        description: 'YouTube URL #5 (optional)'
+        required: false
+        default: 'https://www.youtube.com/watch?v=RTJpJkfHclM'
+      quality:
+        description: 'Video quality'
+        required: true
+        type: choice
+        default: '720p'
+        options:
+          - '144p'
+          - '360p'
+          - '720p'
+          - '1080p'
+          - 'best'
+      sub_lang:
+        description: 'Subtitles language'
+        required: true
+        type: choice
+        default: 'en (English)'
+        options:
+          - 'en (English)'
+          - 'fa (Persian)'
+          - 'none'
+      folder_name:
+        description: 'Folder to store videos & subtitles'
+        required: false
+        default: 'YouTube Download'
+
+jobs:
+  download-and-chunk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Clean up old downloads and log
+        run: |
+          rm -rf "${{ github.event.inputs.folder_name }}"
+          rm -f video.* download.log proxy_list.tmp video_list.txt sub_list.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Clean up old downloads" || true
+          git pull --rebase
+          git push || true
+
+      - name: Create example proxylist.txt if missing
+        run: |
+          if [ ! -f proxylist.txt ]; then
+            echo "# Add your HTTP/HTTPS/SOCKS proxies below, one per line." > proxylist.txt
+            echo "# Example: http://user:pass@12.34.56.78:8080" >> proxylist.txt
+            echo "# Only lines containing proxy URLs are used." >> proxylist.txt
+            git add proxylist.txt
+            git commit -m "Add example proxy list" || true
+            git pull --rebase
+            git push || true
+          fi
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg jq
+          python3 -m pip install --upgrade yt-dlp
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "/home/runner/.deno/bin" >> $GITHUB_PATH
+
       - name: Download all videos (live console output + log)
         id: download
         run: |
@@ -159,3 +252,185 @@
             echo "Download phase completed successfully."
           fi
         shell: /usr/bin/bash {0}
+
+      - name: Commit download.log (always)
+        if: always()
+        run: |
+          git add download.log
+          git commit -m "Update download log" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
+
+      - name: Split and upload everything
+        if: success()
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+        run: |
+          $token = $env:GITHUB_TOKEN
+          $repo = $env:GITHUB_REPOSITORY
+          $branch = $env:GITHUB_REF_NAME
+          $chunksDir = $env:FOLDER_NAME
+          $chunkSize = 20MB
+          $logFile = "download.log"
+
+          function Write-Log {
+            param([string]$msg)
+            Write-Host $msg
+            Add-Content -Path $logFile -Value $msg
+          }
+
+          # Read lists (force array)
+          $videoList = @(Get-Content video_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
+          $subList = @(Get-Content sub_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
+
+          if ($videoList.Count -eq 0) {
+            Write-Log "No video files to upload. Exiting."
+            exit 0
+          }
+
+          New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
+          $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
+
+          $headers = @{ Authorization = "Bearer $token" }
+          $apiBase = "https://api.github.com/repos/$repo/contents"
+          $maxRetries = 3
+
+          function Upload-File {
+            param([string]$localPath, [string]$remotePath)
+            $bytes = [System.IO.File]::ReadAllBytes($localPath)
+            $b64 = [Convert]::ToBase64String($bytes)
+            $url = "$apiBase/$($remotePath -replace '\\','/')"
+            try { $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $sha = $null }
+            $body = @{ message = "Add $(Split-Path $localPath -Leaf)"; content = $b64; branch = $branch }
+            if ($sha) { $body.sha = $sha }
+            $success = $false
+            for ($retry = 0; $retry -lt $maxRetries; $retry++) {
+              try {
+                Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
+                $success = $true
+                break
+              } catch {
+                if ($retry -lt $maxRetries - 1) {
+                  Write-Log "Retry $($retry+1) in 10 seconds..."
+                  Start-Sleep -Seconds 10
+                } else {
+                  Write-Log "FATAL: upload failed after $maxRetries attempts."
+                  exit 1
+                }
+              }
+            }
+          }
+
+          for ($i = 0; $i -lt $videoList.Count; $i++) {
+            $videoFile = $videoList[$i]
+            $subFile = if ($i -lt $subList.Count) { $subList[$i] } else { $null }
+
+            if (-not (Test-Path $videoFile)) {
+              Write-Log "Video file missing: $videoFile – skipping."
+              continue
+            }
+
+            $fileSize = (Get-Item $videoFile).Length
+            $fileName = [System.IO.Path]::GetFileName($videoFile)
+            Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
+
+            if ($fileSize -lt $chunkSize) {
+              Write-Log "File smaller than chunk size; uploading directly."
+              try {
+                Upload-File -localPath $videoFile -remotePath "$chunksDir/$fileName"
+                $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+              } catch {
+                Write-Log "Upload failed for $fileName – skipping."
+              }
+            } else {
+              Write-Log "Splitting into chunks..."
+              $stream = [System.IO.File]::OpenRead($videoFile)
+              $partIdx = 0
+              $buffer = New-Object byte[] $chunkSize
+              $uploadSuccess = $true
+              while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
+                $chunkPath = Join-Path $chunksDir $chunkName
+                [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
+                Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)"
+                try {
+                  Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
+                } catch {
+                  Write-Log "Upload failed for $chunkName. Aborting remaining chunks for $fileName."
+                  $uploadSuccess = $false
+                  break
+                }
+                Remove-Item $chunkPath -Force
+                $partIdx++
+                Start-Sleep -Milliseconds 500
+              }
+              $stream.Close()
+              if ($uploadSuccess) {
+                $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
+              }
+            }
+            Remove-Item $videoFile -Force
+          }
+
+          # Upload subtitle files
+          if ($subList.Count -gt 0) {
+            foreach ($sub in $subList) {
+              if (Test-Path $sub) {
+                $subName = [System.IO.Path]::GetFileName($sub)
+                Write-Log "Uploading subtitle: $subName"
+                try {
+                  Upload-File -localPath $sub -remotePath "$chunksDir/$subName"
+                } catch {
+                  Write-Log "Failed to upload subtitle $subName."
+                }
+              }
+            }
+          }
+
+          if ($fileInfos.Count -gt 0) {
+            Write-Log "Creating reassemble.bat..."
+            $batPath = Join-Path $chunksDir "reassemble.bat"
+            $batLines = @(
+              "@echo off",
+              "setlocal enabledelayedexpansion",
+              "echo ========================================",
+              "echo  Reassembling all downloaded files...",
+              "echo ========================================"
+            )
+            foreach ($fi in $fileInfos) {
+              $name = $fi.Name
+              if ($fi.HasChunks) {
+                $batLines += "echo --- Rebuilding $name ---"
+                $batLines += "copy /b $name.part* $name"
+                $batLines += "if %errorlevel% equ 0 ("
+                $batLines += "    echo Successfully created $name"
+                $batLines += "    del $name.part*"
+                $batLines += "    echo Deleted temporary parts for $name"
+                $batLines += ") else ("
+                $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
+                $batLines += ")"
+              } else {
+                $batLines += "echo $name was downloaded as a single file (no chunks)."
+              }
+            }
+            $batLines += "echo ========================================"
+            $batLines += "echo All done! Press any key to exit."
+            $batLines += "pause >nul"
+            $batLines | Out-File -FilePath $batPath -Encoding ASCII
+            Write-Log "Uploading reassemble.bat..."
+            Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
+          } else {
+            Write-Log "No files were successfully uploaded."
+          }
+
+          Write-Log "✅ Processing complete."
+
+      - name: Final log commit (always)
+        if: always()
+        run: |
+          git add download.log
+          git commit -m "Final download log" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
