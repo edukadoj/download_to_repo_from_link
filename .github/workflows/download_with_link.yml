@@ -55,6 +55,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
         run: |
+          $ErrorActionPreference = "Stop"
           $token = $env:GITHUB_TOKEN
           $repo = $env:GITHUB_REPOSITORY
           $branch = $env:GITHUB_REF_NAME
@@ -68,33 +69,21 @@ jobs:
             Add-Content -Path $logFile -Value $msg
           }
 
-          # Collect URLs (skip empty ones)
+          # Collect URLs
           $urls = @()
-          $urlFields = @("${{ github.event.inputs.file_url1 }}",
-                         "${{ github.event.inputs.file_url2 }}",
-                         "${{ github.event.inputs.file_url3 }}",
-                         "${{ github.event.inputs.file_url4 }}",
-                         "${{ github.event.inputs.file_url5 }}")
-          foreach ($url in $urlFields) {
-            if (-not [string]::IsNullOrWhiteSpace($url)) {
-              $urls += $url
-            }
+          foreach ($i in 1..5) {
+            $v = Get-Variable -Name "github.event.inputs.file_url$i" -ValueOnly -ErrorAction SilentlyContinue
+            if ($v -and $v -ne '') { $urls += $v }
           }
-
           if ($urls.Count -eq 0) {
             Write-Log "No URLs provided. Exiting."
             exit 1
           }
 
           Write-Log "Processing $($urls.Count) URL(s)."
-
-          # Prepare the output folder
           New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
-
-          # Track per-file info for the reassemble script
           $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
 
-          # Upload helper (same as before)
           $headers = @{ Authorization = "Bearer $token" }
           $apiBase = "https://api.github.com/repos/$repo/contents"
           $maxRetries = 3
@@ -119,18 +108,15 @@ jobs:
                   Start-Sleep -Seconds 10
                 } else {
                   Write-Log "FATAL: upload failed after $maxRetries attempts."
-                  exit 1
+                  throw
                 }
               }
             }
           }
 
-          # Process each URL
           for ($i = 0; $i -lt $urls.Count; $i++) {
             $url = $urls[$i]
             Write-Log "--- Processing URL $($i+1): $url ---"
-
-            # Download to a temporary file
             $tempFile = "temp_$($i).download"
             try {
               $response = Invoke-WebRequest -Uri $url -OutFile $tempFile -PassThru -MaximumRedirection 10 -ErrorAction Stop
@@ -138,77 +124,60 @@ jobs:
               Write-Log "Download failed: $_"
               exit 1
             }
-
             if (-not (Test-Path $tempFile) -or (Get-Item $tempFile).Length -eq 0) {
               Write-Log "Download returned empty file. Aborting."
               exit 1
             }
-
-            # Try to get a meaningful filename
             $fileName = $null
             if ($response.Headers['Content-Disposition']) {
               $match = [System.Text.RegularExpressions.Regex]::Match($response.Headers['Content-Disposition'], 'filename="?([^"]+)"?')
               if ($match.Success) { $fileName = $match.Groups[1].Value }
             }
             if (-not $fileName) {
-              # Extract from URL path
               $uriObj = [System.Uri]::new($url)
               $fileName = [System.IO.Path]::GetFileName($uriObj.AbsolutePath)
             }
-            if (-not $fileName) {
-              $fileName = "downloaded_file_$($i+1)"
-            }
-            # Sanitize the filename a bit
-            $fileName = [System.IO.Path]::GetFileName($fileName)   # strip any folder parts
+            if (-not $fileName) { $fileName = "downloaded_file_$($i+1)" }
+            $fileName = [System.IO.Path]::GetFileName($fileName)
 
             $fileSize = (Get-Item $tempFile).Length
-            Write-Log "File name: $fileName, Size: $([math]::Round($fileSize / 1MB, 1)) MB"
+            Write-Log "File: $fileName, Size: $([math]::Round($fileSize / 1MB, 1)) MB"
 
             if ($fileSize -lt $chunkSize) {
-              # Small file → upload directly
-              Write-Log "File is smaller than chunk size. Uploading directly."
+              Write-Log "Small file, uploading directly."
               $remotePath = "$chunksDir/$fileName"
               Upload-File -localPath $tempFile -remotePath $remotePath
               $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
             } else {
-              # Large file → split and upload parts
-              Write-Log "Splitting into $chunkSize MB chunks..."
-              $baseName = $fileName
+              Write-Log "Splitting into $([math]::Round($chunkSize/1MB)) MB chunks..."
               $stream = [System.IO.File]::OpenRead($tempFile)
               $partIdx = 0
               $buffer = New-Object byte[] $chunkSize
-              $chunkList = [System.Collections.Generic.List[string]]::new()
-
               while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-                $chunkName = "{0}.part{1:D4}" -f $baseName, $partIdx
+                $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
                 $chunkPath = Join-Path $chunksDir $chunkName
                 [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
-                # Upload immediately to save disk space
                 Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)"
                 Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
                 Remove-Item $chunkPath -Force
-                $chunkList.Add($chunkName)
                 $partIdx++
                 Start-Sleep -Milliseconds 500
               }
               $stream.Close()
               $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
             }
-
             Remove-Item $tempFile -Force
           }
 
-          # Generate reassemble.bat (conditional delete on success)
           Write-Log "Generating reassemble.bat..."
           $batPath = Join-Path $chunksDir "reassemble.bat"
-          $batLines = @"
-          @echo off
-          setlocal enabledelayedexpansion
-          echo ========================================
-          echo  Reassembling all downloaded files...
-          echo ========================================
-          "@ -split "`n"
-
+          $batLines = @(
+            "@echo off",
+            "setlocal enabledelayedexpansion",
+            "echo ========================================",
+            "echo  Reassembling all downloaded files...",
+            "echo ========================================"
+          )
           foreach ($fi in $fileInfos) {
             $name = $fi.Name
             if ($fi.HasChunks) {
@@ -219,10 +188,10 @@ jobs:
               $batLines += "    del $name.part*"
               $batLines += "    echo Deleted temporary parts for $name"
               $batLines += ") else ("
-              $batLines += "    echo ERROR: Failed to reassemble $name. Part files kept intact."
+              $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
               $batLines += ")"
             } else {
-              $batLines += "echo $name was downloaded as a single file (no chunks). Nothing to reassemble."
+              $batLines += "echo $name was downloaded as a single file (no chunks)."
             }
           }
           $batLines += "echo ========================================"
@@ -232,7 +201,6 @@ jobs:
 
           Write-Log "Uploading reassemble.bat..."
           Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
-
           Write-Log "✅ All files processed and uploaded."
 
       - name: Final log commit (always)
@@ -240,5 +208,5 @@ jobs:
         run: |
           git add download.log
           git commit -m "Final download log" || true
-          git pull --rebase
+          git pull --rebase --strategy-option ours || true
           git push || true
