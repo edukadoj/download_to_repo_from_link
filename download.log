@@ -1,0 +1,6 @@
+Processing 1 URL(s).
+--- Processing URL 1: https://edge.microsoft.com/extensionwebstorebase/v1/crx?x=client=desktop&id=ebbdheafhjncoeidpdijmfmkicnejelp ---
+Download failed: Response status code does not indicate success: 400 (Bad Request).
+Skipping this URL and continuing.
+No files were successfully uploaded. All URLs failed or were skipped.
+Workflow finished with no output.
