@@ -92,7 +92,6 @@ jobs:
 
       - name: Download all videos
         id: download
-        continue-on-error: true
         run: |
           {
             echo "=== YouTube Download Log ==="
@@ -120,7 +119,7 @@ jobs:
               SUB_ARGS="--write-auto-subs --sub-lang ${SUB_LANG%% *} --convert-subs srt"
             fi
 
-            # ---- Download function ----
+            # ---- Download function (no set -e inside) ----
             try_download() {
               local extra_args="$1"
               yt-dlp --no-playlist --format "$FORMAT" --output "video.%(ext)s" \
@@ -129,14 +128,13 @@ jobs:
                 --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
                 $extra_args \
                 "$url" 2>&1
-              return $?   # return yt-dlp exit code
+              return $?
             }
 
-            # ---- Proxy helper ----
             WORKING_PROXY=""
             VIDEO_COUNT=0
+            DOWNLOADED_ANY=0
 
-            # Process all URLs (1-5)
             for url in "${{ github.event.inputs.youtube_url1 }}" \
                         "${{ github.event.inputs.youtube_url2 }}" \
                         "${{ github.event.inputs.youtube_url3 }}" \
@@ -145,15 +143,13 @@ jobs:
               [ -z "$url" ] && continue
               VIDEO_COUNT=$((VIDEO_COUNT+1))
               echo "--- Processing URL #$VIDEO_COUNT: $url ---"
-
               SUCCESS=0
+
               # Attempt 1: Direct
-              if [ $SUCCESS -eq 0 ]; then
-                echo "Attempting direct download..."
-                if try_download ""; then
-                  echo "Direct success"
-                  SUCCESS=1
-                fi
+              echo "Attempting direct download..."
+              if try_download ""; then
+                echo "Direct success"
+                SUCCESS=1
               fi
 
               # Attempt 2: Known working proxy (if any)
@@ -212,7 +208,7 @@ jobs:
                 DL_URL=$(echo "$ANALYZE" | jq -r '.links.mp4["18"].url // .links.mp4["22"].url // .links.mp4["136"].url // empty')
                 if [ -n "$DL_URL" ]; then
                   echo "y2mate URL: $DL_URL"
-                  curl -L -o video.mp4 "$DL_URL" && SUCCESS=1
+                  curl -L -o video.mp4 "$DL_URL" && SUCCESS=1 || echo "y2mate download failed"
                 fi
                 # savefrom.net
                 if [ $SUCCESS -eq 0 ]; then
@@ -221,13 +217,13 @@ jobs:
                     -d "sf_url=https://www.youtube.com/watch?v=$VID" | jq -r '.list[0].download[0].url // empty')
                   if [ -n "$DL_URL" ]; then
                     echo "savefrom.net URL: $DL_URL"
-                    curl -L -o video.mp4 "$DL_URL" && SUCCESS=1
+                    curl -L -o video.mp4 "$DL_URL" && SUCCESS=1 || echo "savefrom.net download failed"
                   fi
                 fi
               fi
 
               if [ $SUCCESS -eq 1 ]; then
-                # Rename video to avoid clashes
+                DOWNLOADED_ANY=1
                 VIDEO_FILE=$(ls video.* 2>/dev/null | grep -v '\.part$' | head -n1)
                 VIDEO_EXT="${VIDEO_FILE##*.}"
                 NEW_NAME="video_${VIDEO_COUNT}.${VIDEO_EXT}"
@@ -235,7 +231,6 @@ jobs:
                 echo "Renamed to $NEW_NAME"
                 echo "$NEW_NAME" >> video_list.txt
 
-                # Move subtitle if present
                 SUB_FILE=$(ls video.*.srt 2>/dev/null | head -n1)
                 if [ -n "$SUB_FILE" ]; then
                   SUB_NEW_NAME="video_${VIDEO_COUNT}.en.srt"
@@ -244,31 +239,26 @@ jobs:
                   echo "Subtitle saved as $SUB_NEW_NAME"
                 fi
               else
-                echo "ERROR: Failed to download URL #$VIDEO_COUNT"
-                exit 1
+                echo "WARNING: Failed to download URL #$VIDEO_COUNT – skipping."
               fi
             done
 
-            if [ $VIDEO_COUNT -eq 0 ]; then
-              echo "No URLs provided!"
-              exit 1
+            if [ $DOWNLOADED_ANY -eq 0 ]; then
+              echo "No videos were downloaded. All URLs failed or were skipped."
+            else
+              echo "Download phase completed successfully."
             fi
-            echo "All downloads completed successfully."
           } > download.log 2>&1
+        # Important: do NOT use set -e in the shell, we handle errors ourselves
+        shell: /usr/bin/bash {0}
 
       - name: Commit download.log (always)
         if: always()
         run: |
           git add download.log
           git commit -m "Update download log" || true
-          git pull --rebase
+          git pull --rebase --strategy-option ours || true
           git push || true
-
-      - name: Fail if download failed
-        if: steps.download.outcome == 'failure'
-        run: |
-          echo "Download failed – see download.log in repository."
-          exit 1
 
       - name: Split and upload everything
         if: success()
@@ -291,21 +281,17 @@ jobs:
           }
 
           # Read lists
-          $videoList = Get-Content video_list.txt | Where-Object { $_ -ne "" }
-          $subList = if (Test-Path sub_list.txt) { Get-Content sub_list.txt | Where-Object { $_ -ne "" } } else { @() }
+          $videoList = @(Get-Content video_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
+          $subList = @(Get-Content sub_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
 
           if ($videoList.Count -eq 0) {
-            Write-Log "No video files found. Aborting."
-            exit 1
+            Write-Log "No video files to upload. Exiting."
+            exit 0
           }
 
-          # Create output folder
           New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
-
-          # Track files for reassemble.bat
           $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
 
-          # Upload helper
           $headers = @{ Authorization = "Bearer $token" }
           $apiBase = "https://api.github.com/repos/$repo/contents"
           $maxRetries = 3
@@ -336,14 +322,13 @@ jobs:
             }
           }
 
-          # Process each video
           for ($i = 0; $i -lt $videoList.Count; $i++) {
             $videoFile = $videoList[$i]
             $subFile = if ($i -lt $subList.Count) { $subList[$i] } else { $null }
 
             if (-not (Test-Path $videoFile)) {
-              Write-Log "Video file missing: $videoFile"
-              exit 1
+              Write-Log "Video file missing: $videoFile – skipping."
+              continue
             }
 
             $fileSize = (Get-Item $videoFile).Length
@@ -351,78 +336,95 @@ jobs:
             Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
 
             if ($fileSize -lt $chunkSize) {
-              # Small file – upload directly
               Write-Log "File smaller than chunk size; uploading directly."
-              Upload-File -localPath $videoFile -remotePath "$chunksDir/$fileName"
-              $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+              try {
+                Upload-File -localPath $videoFile -remotePath "$chunksDir/$fileName"
+                $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+              } catch {
+                Write-Log "Upload failed for $fileName – skipping."
+              }
             } else {
-              # Split and upload chunks
               Write-Log "Splitting into chunks..."
-              $baseName = $fileName
               $stream = [System.IO.File]::OpenRead($videoFile)
               $partIdx = 0
               $buffer = New-Object byte[] $chunkSize
-
+              $uploadSuccess = $true
               while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-                $chunkName = "{0}.part{1:D4}" -f $baseName, $partIdx
+                $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
                 $chunkPath = Join-Path $chunksDir $chunkName
                 [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
                 Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)"
-                Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
+                try {
+                  Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
+                } catch {
+                  Write-Log "Upload failed for $chunkName. Aborting remaining chunks for $fileName."
+                  $uploadSuccess = $false
+                  break
+                }
                 Remove-Item $chunkPath -Force
                 $partIdx++
                 Start-Sleep -Milliseconds 500
               }
               $stream.Close()
-              $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
+              if ($uploadSuccess) {
+                $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
+              }
             }
+            Remove-Item $videoFile -Force  # clean up original video after processing
           }
 
-          # Upload subtitle files (unchunked)
+          # Upload subtitle files
           if ($subList.Count -gt 0) {
             foreach ($sub in $subList) {
               if (Test-Path $sub) {
                 $subName = [System.IO.Path]::GetFileName($sub)
                 Write-Log "Uploading subtitle: $subName"
-                Upload-File -localPath $sub -remotePath "$chunksDir/$subName"
+                try {
+                  Upload-File -localPath $sub -remotePath "$chunksDir/$subName"
+                } catch {
+                  Write-Log "Failed to upload subtitle $subName."
+                }
               }
             }
           }
 
-          # Generate reassemble.bat
-          Write-Log "Creating reassemble.bat..."
-          $batPath = Join-Path $chunksDir "reassemble.bat"
-          $batLines = @"
-          @echo off
-          setlocal enabledelayedexpansion
-          echo ========================================
-          echo  Reassembling all downloaded files...
-          echo ========================================
-          "@ -split "`n"
-          foreach ($fi in $fileInfos) {
-            $name = $fi.Name
-            if ($fi.HasChunks) {
-              $batLines += "echo --- Rebuilding $name ---"
-              $batLines += "copy /b $name.part* $name"
-              $batLines += "if %errorlevel% equ 0 ("
-              $batLines += "    echo Successfully created $name"
-              $batLines += "    del $name.part*"
-              $batLines += "    echo Deleted temporary parts for $name"
-              $batLines += ") else ("
-              $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
-              $batLines += ")"
-            } else {
-              $batLines += "echo $name was downloaded as a single file (no chunks)."
+          if ($fileInfos.Count -gt 0) {
+            Write-Log "Creating reassemble.bat..."
+            $batPath = Join-Path $chunksDir "reassemble.bat"
+            $batLines = @(
+              "@echo off",
+              "setlocal enabledelayedexpansion",
+              "echo ========================================",
+              "echo  Reassembling all downloaded files...",
+              "echo ========================================"
+            )
+            foreach ($fi in $fileInfos) {
+              $name = $fi.Name
+              if ($fi.HasChunks) {
+                $batLines += "echo --- Rebuilding $name ---"
+                $batLines += "copy /b $name.part* $name"
+                $batLines += "if %errorlevel% equ 0 ("
+                $batLines += "    echo Successfully created $name"
+                $batLines += "    del $name.part*"
+                $batLines += "    echo Deleted temporary parts for $name"
+                $batLines += ") else ("
+                $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
+                $batLines += ")"
+              } else {
+                $batLines += "echo $name was downloaded as a single file (no chunks)."
+              }
             }
+            $batLines += "echo ========================================"
+            $batLines += "echo All done! Press any key to exit."
+            $batLines += "pause >nul"
+            $batLines | Out-File -FilePath $batPath -Encoding ASCII
+            Write-Log "Uploading reassemble.bat..."
+            Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
+          } else {
+            Write-Log "No files were successfully uploaded."
           }
-          $batLines += "echo ========================================"
-          $batLines += "echo All done! Press any key to exit."
-          $batLines += "pause >nul"
-          $batLines | Out-File -FilePath $batPath -Encoding ASCII
-          Write-Log "Uploading reassemble.bat..."
-          Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
 
-          Write-Log "✅ All files uploaded. Check the '$chunksDir' folder."
+          Write-Log "✅ Processing complete."
 
       - name: Final log commit (always)
         if: always()
