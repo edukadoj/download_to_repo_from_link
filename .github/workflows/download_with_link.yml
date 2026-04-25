@@ -146,7 +146,6 @@ jobs:
 
             # Try to get a meaningful filename
             $fileName = $null
-            # Content-Disposition header
             if ($response.Headers['Content-Disposition']) {
               $match = [System.Text.RegularExpressions.Regex]::Match($response.Headers['Content-Disposition'], 'filename="?([^"]+)"?')
               if ($match.Success) { $fileName = $match.Groups[1].Value }
@@ -199,32 +198,36 @@ jobs:
             Remove-Item $tempFile -Force
           }
 
-          # Generate reassemble.bat
+          # Generate reassemble.bat (conditional delete on success)
           Write-Log "Generating reassemble.bat..."
           $batPath = Join-Path $chunksDir "reassemble.bat"
           $batLines = @"
           @echo off
-          echo Reassembling all downloaded files...
+          setlocal enabledelayedexpansion
+          echo ========================================
+          echo  Reassembling all downloaded files...
+          echo ========================================
           "@ -split "`n"
+
           foreach ($fi in $fileInfos) {
             $name = $fi.Name
             if ($fi.HasChunks) {
-              $batLines += "echo --- Reassembling $name ---"
+              $batLines += "echo --- Rebuilding $name ---"
               $batLines += "copy /b $name.part* $name"
-              $batLines += "echo Done: $name"
+              $batLines += "if %errorlevel% equ 0 ("
+              $batLines += "    echo Successfully created $name"
+              $batLines += "    del $name.part*"
+              $batLines += "    echo Deleted temporary parts for $name"
+              $batLines += ") else ("
+              $batLines += "    echo ERROR: Failed to reassemble $name. Part files kept intact."
+              $batLines += ")"
             } else {
-              $batLines += "echo $name was downloaded as a single file (no chunks)."
+              $batLines += "echo $name was downloaded as a single file (no chunks). Nothing to reassemble."
             }
           }
-          $batLines += "echo."
-          $batLines += "echo Press any key to delete the part files..."
+          $batLines += "echo ========================================"
+          $batLines += "echo All done! Press any key to exit."
           $batLines += "pause >nul"
-          foreach ($fi in $fileInfos) {
-            if ($fi.HasChunks) {
-              $batLines += "del $($fi.Name).part*"
-            }
-          }
-          $batLines += "pause"
           $batLines | Out-File -FilePath $batPath -Encoding ASCII
 
           Write-Log "Uploading reassemble.bat..."
