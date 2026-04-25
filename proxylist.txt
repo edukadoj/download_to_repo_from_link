@@ -1,3 +1,0 @@
-# Add your HTTP/HTTPS/SOCKS proxies below, one per line.
-# Example: http://user:pass@12.34.56.78:8080
-# Only lines containing proxy URLs are used.
