@@ -1,0 +1,75 @@
+=== YouTube Download (fast proxy) ===
+Date: Sat Apr 25 22:33:47 UTC 2026
+
+--- Processing URL #1: https://www.youtube.com/watch?v=M0iyhwzdG3k ---
+▶ Direct download ...
+[youtube] Extracting URL: https://www.youtube.com/watch?v=M0iyhwzdG3k
+[youtube] M0iyhwzdG3k: Downloading webpage
+[youtube] M0iyhwzdG3k: Downloading android vr player API JSON
+WARNING: [youtube] No title found in player responses; falling back to title from initial data. Other metadata may also be missing
+ERROR: [youtube] M0iyhwzdG3k: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
+▶ Fetching fresh proxies ...
+sort: write failed: 'standard output': Broken pipe
+sort: write error
+   Testing 20 fresh proxies...
+   ⏱️ Quick check: 0.0.0.0:80
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.0.0.123:80
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.0.163.213:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.0.220.65:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.10.141.115:8080
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.10.238.254:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.12.253.9:8086
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.179.148.9:55636
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.179.151.165:31948
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.2.212.35:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.20.169.75:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.20.235.153:5678
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.225.116.115:9050
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.231.81.166:3128
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.4.195.114:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.4.214.178:8080
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.55.241.4:4145
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 1.57.21.59:7302
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 101.0.6.154:8080
+000💀 Dead (no answer in 5s)
+   ⏱️ Quick check: 101.109.23.73:4145
+000💀 Dead (no answer in 5s)
+▶ Trying vixy.net ...
+jq: parse error: Invalid numeric literal at line 1, column 10
+vixy returned no URL.
+⚠️ Could not download URL #1 – skipping.
+No videos were downloaded.
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	download.log
+
+nothing added to commit but untracked files present (use "git add" to track)
+To https://github.com/edukadoj/download_to_repo_from_link
+ ! [rejected]        main -> main (fetch first)
+error: failed to push some refs to 'https://github.com/edukadoj/download_to_repo_from_link'
+hint: Updates were rejected because the remote contains work that you do not
+hint: have locally. This is usually caused by another repository pushing to
+hint: the same ref. If you want to integrate the remote changes, use
+hint: 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
