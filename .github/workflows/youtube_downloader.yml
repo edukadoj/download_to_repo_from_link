@@ -228,9 +228,10 @@ jobs:
 
               if [ $SUCCESS -eq 1 ]; then
                 # Rename video to avoid clashes
+                VIDEO_FILE=$(ls video.* 2>/dev/null | grep -v '\.part$' | head -n1)
                 VIDEO_EXT="${VIDEO_FILE##*.}"
                 NEW_NAME="video_${VIDEO_COUNT}.${VIDEO_EXT}"
-                mv video.* "$NEW_NAME"
+                mv "$VIDEO_FILE" "$NEW_NAME"
                 echo "Renamed to $NEW_NAME"
                 echo "$NEW_NAME" >> video_list.txt
 
@@ -428,5 +429,5 @@ jobs:
         run: |
           git add download.log
           git commit -m "Final download log" || true
-          git pull --rebase
+          git pull --rebase --strategy-option ours || true
           git push || true
