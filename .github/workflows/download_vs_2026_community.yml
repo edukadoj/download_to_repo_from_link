@@ -235,7 +235,7 @@ jobs:
           "layout-created=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Test offline installation (verify layout)
-        if: inputs.verify_layout == 'true' && (steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true')
+        if: inputs.verify_layout == true && (steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true')
         shell: pwsh
         timeout-minutes: 60
         run: |
