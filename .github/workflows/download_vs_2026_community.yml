@@ -10,6 +10,10 @@ on:
           - 'use cache if any'
           - 'do not use cache'
         default: 'do not use cache'
+      all_workloads:
+        description: 'Ignore the workload selection and download all'
+        type: boolean
+        default: false
       workload_web:
         description: 'ASP.NET and web development'
         type: boolean
@@ -135,6 +139,7 @@ jobs:
         shell: pwsh
         run: |
           $key = "vs-layout-v6-" +
+            "all-${{ inputs.all_workloads }}" +
             "web-${{ inputs.workload_web }}" +
             "-azure-${{ inputs.workload_azure }}" +
             "-python-${{ inputs.workload_python }}" +
@@ -172,24 +177,29 @@ jobs:
 
           # Workload IDs for Visual Studio 2026 Community
           $addArgs = @()
-          if ('${{ inputs.workload_web }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetWeb' }
-          if ('${{ inputs.workload_azure }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Azure' }
-          if ('${{ inputs.workload_python }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Python' }
-          if ('${{ inputs.workload_node }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Node' }
-          if ('${{ inputs.workload_maui }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetCrossPlat' }
-          if ('${{ inputs.workload_desktop_net }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedDesktop' }
-          if ('${{ inputs.workload_desktop_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeDesktop' }
-          if ('${{ inputs.workload_winui }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Universal' }
-          if ('${{ inputs.workload_cpp_mobile }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeMobile' }
-          if ('${{ inputs.workload_unity }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedGame' }
-          if ('${{ inputs.workload_cpp_game }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeGame' }
-          if ('${{ inputs.workload_data }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Data' }
-          if ('${{ inputs.workload_data_science }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.DataScience' }
-          if ('${{ inputs.workload_office }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Office' }
-          if ('${{ inputs.workload_vs_extension }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.VisualStudioExtension' }
-          if ('${{ inputs.workload_linux_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeCrossPlat' }
+          if ('${{ inputs.all_workloads }}' -eq 'true') {
+            $addArgs += '--all'
+            Write-Host "Downloading ALL workloads (--all)"
+          } else {
+            if ('${{ inputs.workload_web }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetWeb' }
+            if ('${{ inputs.workload_azure }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Azure' }
+            if ('${{ inputs.workload_python }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Python' }
+            if ('${{ inputs.workload_node }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Node' }
+            if ('${{ inputs.workload_maui }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetCrossPlat' }
+            if ('${{ inputs.workload_desktop_net }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedDesktop' }
+            if ('${{ inputs.workload_desktop_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeDesktop' }
+            if ('${{ inputs.workload_winui }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Universal' }
+            if ('${{ inputs.workload_cpp_mobile }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeMobile' }
+            if ('${{ inputs.workload_unity }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedGame' }
+            if ('${{ inputs.workload_cpp_game }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeGame' }
+            if ('${{ inputs.workload_data }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Data' }
+            if ('${{ inputs.workload_data_science }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.DataScience' }
+            if ('${{ inputs.workload_office }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Office' }
+            if ('${{ inputs.workload_vs_extension }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.VisualStudioExtension' }
+            if ('${{ inputs.workload_linux_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeCrossPlat' }
+          }
 
-          if ($addArgs.Count -eq 0) { Write-Error "No workload selected!"; exit 1 }
+          if ($addArgs.Count -eq 0) { Write-Error "No workload selected and 'all_workloads' is false!"; exit 1 }
 
           Write-Host "Workloads: $addArgs"
           $cliArgs = @('--layout', $layoutDir, '--lang', 'en-US') + $addArgs + @('--quiet', '--wait', '--norestart')
