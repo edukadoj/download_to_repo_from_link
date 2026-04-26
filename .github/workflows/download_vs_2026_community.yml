@@ -11,9 +11,13 @@ on:
           - 'do not use cache'
         default: 'do not use cache'
       layout_options:
-        description: 'Additional VS layout options (e.g., --includeRecommended --includeOptional)'
+        description: 'Additional VS layout options (--includeRecommended is default)'
         type: string
         default: '--includeRecommended'
+      verify_layout:
+        description: 'Test install layout offline? (takes extra time)'
+        type: boolean
+        default: true
       workload_web:
         description: 'ASP.NET and web development'
         type: boolean
@@ -230,16 +234,73 @@ jobs:
           Write-Host "Layout created at $layoutDir"
           "layout-created=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      - name: Verify layout integrity
-        if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
+      - name: Test offline installation (verify layout)
+        if: inputs.verify_layout == 'true' && (steps.cache-restore.outputs.cache-hit != 'true' || steps.layout.outputs.layout-created == 'true')
         shell: pwsh
+        timeout-minutes: 60
         run: |
           $layoutDir = "${{ steps.select-drive.outputs.layout_root }}"
-          Write-Host "Verifying layout integrity..."
-          $verifyArgs = @('--layout', $layoutDir, '--verify', '--quiet', '--wait', '--norestart')
-          $process = Start-Process -FilePath .\vs_Community.exe -ArgumentList $verifyArgs -PassThru -Wait -NoNewWindow
-          if ($process.ExitCode -ne 0) { Write-Error "Layout verification failed!"; exit 1 }
-          Write-Host "Layout verification passed."
+          Write-Host "Testing offline installation from $layoutDir..."
+          
+          # Create a test directory for the installation
+          $testInstallDir = "D:\vs_test_install"
+          if (Test-Path $testInstallDir) {
+            Remove-Item -Recurse -Force $testInstallDir
+          }
+          New-Item -ItemType Directory -Force -Path $testInstallDir | Out-Null
+          
+          # Build the test installation arguments
+          $testArgs = @('--installPath', $testInstallDir, '--noWeb', '--noUpdateInstaller', '--quiet', '--wait', '--norestart')
+          
+          # Add the same workloads and layout options as used during layout creation
+          $addArgs = @()
+          if ('${{ inputs.workload_web }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetWeb' }
+          if ('${{ inputs.workload_azure }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Azure' }
+          if ('${{ inputs.workload_python }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Python' }
+          if ('${{ inputs.workload_node }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Node' }
+          if ('${{ inputs.workload_maui }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetCrossPlat' }
+          if ('${{ inputs.workload_desktop_net }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedDesktop' }
+          if ('${{ inputs.workload_desktop_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeDesktop' }
+          if ('${{ inputs.workload_winui }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Universal' }
+          if ('${{ inputs.workload_cpp_mobile }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeMobile' }
+          if ('${{ inputs.workload_unity }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedGame' }
+          if ('${{ inputs.workload_cpp_game }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeGame' }
+          if ('${{ inputs.workload_data }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Data' }
+          if ('${{ inputs.workload_data_science }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.DataScience' }
+          if ('${{ inputs.workload_office }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Office' }
+          if ('${{ inputs.workload_vs_extension }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.VisualStudioExtension' }
+          if ('${{ inputs.workload_linux_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeCrossPlat' }
+          
+          $testArgs += $addArgs
+          
+          $layoutOptions = "${{ inputs.layout_options }}".Trim()
+          if ($layoutOptions -ne '') {
+            $testArgs += $layoutOptions -split ' '
+          }
+          
+          Write-Host "Test arguments: $testArgs"
+          
+          # Run the installer from the layout directory
+          $layoutExe = Join-Path $layoutDir "vs_community.exe"
+          $process = Start-Process -FilePath $layoutExe -ArgumentList $testArgs -PassThru -Wait -NoNewWindow `
+            -RedirectStandardOutput "$env:TEMP\vs_test_stdout.log" -RedirectStandardError "$env:TEMP\vs_test_stderr.log"
+          
+          Write-Host "Test installation exit code: $($process.ExitCode)"
+          Get-Content "$env:TEMP\vs_test_stdout.log" -ErrorAction SilentlyContinue | Write-Host
+          Get-Content "$env:TEMP\vs_test_stderr.log" -ErrorAction SilentlyContinue | Write-Host
+          
+          if ($process.ExitCode -ne 0) {
+            Write-Error "Offline installation test FAILED! The layout is missing required components."
+            exit 1
+          }
+          
+          Write-Host "Offline installation test PASSED - layout is complete and working."
+          
+          # Clean up test installation
+          if (Test-Path $testInstallDir) {
+            Write-Host "Cleaning up test installation..."
+            Remove-Item -Recurse -Force $testInstallDir -ErrorAction SilentlyContinue
+          }
 
       - name: Package layout into zip
         if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
