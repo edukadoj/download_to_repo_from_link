@@ -187,8 +187,8 @@ jobs:
 
           $addArgs = @()
           if ('${{ inputs.all_workloads }}' -eq 'true') {
-            $addArgs += '--allWorkloads'
-            Write-Host "Downloading ALL available workloads (--allWorkloads)"
+            # When --add is omitted, the bootstrapper downloads ALL workloads and components
+            Write-Host "Downloading ALL available workloads (by omitting --add)"
           } else {
             if ('${{ inputs.workload_web }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetWeb' }
             if ('${{ inputs.workload_azure }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Azure' }
@@ -208,7 +208,11 @@ jobs:
             if ('${{ inputs.workload_linux_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeCrossPlat' }
           }
 
-          if ($addArgs.Count -eq 0) { Write-Error "No workload selected and 'all_workloads' is false!"; exit 1 }
+          # Only error if no workloads selected AND all_workloads is false
+          if ($addArgs.Count -eq 0 -and '${{ inputs.all_workloads }}' -ne 'true') {
+            Write-Error "No workload selected and 'all_workloads' is false!"
+            exit 1
+          }
 
           Write-Host "Arguments: $addArgs"
           $cliArgs = @('--layout', $layoutDir, '--lang', 'en-US') + $addArgs + @('--quiet', '--wait', '--norestart')
