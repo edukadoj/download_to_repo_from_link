@@ -218,6 +218,17 @@ jobs:
           Write-Host "Layout created at $layoutDir"
           "layout-created=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
+      - name: Verify layout integrity
+        if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
+        shell: pwsh
+        run: |
+          $layoutDir = "${{ steps.select-drive.outputs.layout_root }}"
+          Write-Host "Verifying layout integrity..."
+          $verifyArgs = @('--layout', $layoutDir, '--verify', '--quiet', '--wait', '--norestart')
+          $process = Start-Process -FilePath .\vs_Community.exe -ArgumentList $verifyArgs -PassThru -Wait -NoNewWindow
+          if ($process.ExitCode -ne 0) { Write-Error "Layout verification failed!"; exit 1 }
+          Write-Host "Layout verification passed."
+
       - name: Package layout into zip
         if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
         shell: powershell
