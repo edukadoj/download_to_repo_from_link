@@ -21,67 +21,67 @@ on:
       workload_web:
         description: 'ASP.NET and web development'
         type: boolean
-        default: false
+        default: true
       workload_azure:
         description: 'Azure and AI development'
         type: boolean
-        default: false
+        default: true
       workload_python:
         description: 'Python development'
         type: boolean
-        default: false
+        default: true
       workload_node:
         description: 'Node.js development'
         type: boolean
-        default: false
+        default: true
       workload_maui:
         description: '.NET Multi-platform App UI development'
         type: boolean
-        default: false
+        default: true
       workload_desktop_net:
         description: '.NET desktop development'
         type: boolean
-        default: false
+        default: true
       workload_desktop_cpp:
         description: 'Desktop development with C++'
         type: boolean
-        default: false
+        default: true
       workload_winui:
         description: 'WinUI application development'
         type: boolean
-        default: false
+        default: true
       workload_cpp_mobile:
         description: 'Mobile development with C++ (Out of support)'
         type: boolean
-        default: false
+        default: true
       workload_unity:
         description: 'Game development with Unity'
         type: boolean
-        default: false
+        default: true
       workload_cpp_game:
         description: 'Game development with C++'
         type: boolean
-        default: false
+        default: true
       workload_data:
         description: 'Data storage and processing'
         type: boolean
-        default: false
+        default: true
       workload_data_science:
         description: 'Data science and analytical applications'
         type: boolean
-        default: false
+        default: true
       workload_office:
         description: 'Microsoft 365 development'
         type: boolean
-        default: false
+        default: true
       workload_vs_extension:
         description: 'Visual Studio extension development'
         type: boolean
-        default: false
+        default: true
       workload_linux_cpp:
         description: 'Linux, Mac, and embedded development with C++'
         type: boolean
-        default: false
+        default: true
 
 jobs:
   build:
@@ -235,7 +235,7 @@ jobs:
           "layout-created=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Test offline installation (verify layout)
-        if: inputs.verify_layout == 'true' && (steps.cache-restore.outputs.cache-hit != 'true' || steps.layout.outputs.layout-created == 'true')
+        if: inputs.verify_layout == 'true' && (steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true')
         shell: pwsh
         timeout-minutes: 60
         run: |
