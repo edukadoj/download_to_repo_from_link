@@ -1,456 +1,83 @@
-name: YouTube Download (ultra‑fast proxy selection)
+name: Download VS 2026 Community Offline Mode
 
 on:
   workflow_dispatch:
     inputs:
-      youtube_url1:
-        description: 'YouTube URL #1 (required)'
-        required: true
-        default: 'https://www.youtube.com/watch?v=M0iyhwzdG3k'
-      youtube_url2:
-        description: 'YouTube URL #2 (optional)'
-        required: false
-        default: ''
-      youtube_url3:
-        description: 'YouTube URL #3 (optional)'
-        required: false
-        default: ''
-      youtube_url4:
-        description: 'YouTube URL #4 (optional)'
-        required: false
-        default: ''
-      youtube_url5:
-        description: 'YouTube URL #5 (optional)'
-        required: false
-        default: ''
-      quality:
-        description: 'Video quality'
-        required: true
-        type: choice
-        default: '720p'
-        options:
-          - '144p'
-          - '360p'
-          - '720p'
-          - '1080p'
-          - 'best'
-      sub_lang:
-        description: 'Subtitles language'
-        required: true
-        type: choice
-        default: 'en (English)'
-        options:
-          - 'en (English)'
-          - 'fa (Persian)'
-          - 'none'
-      folder_name:
-        description: 'Folder to store videos & subtitles'
-        required: false
-        default: 'YouTube Download'
+      # ... (keep all existing workload checkboxes) ...
+      include_android_sdk:
+        description: 'Include Android SDK setup'
+        type: boolean
+        default: false
+      clear_cache:                                 # <-- NEW INPUT
+        description: 'Delete existing cache and rebuild layout from scratch'
+        type: boolean
+        default: false
 
 jobs:
-  download-and-chunk:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: windows-latest
     timeout-minutes: 360
     permissions:
       contents: write
+      actions: write                               # <-- REQUIRED TO DELETE CACHES
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
 
-      - name: Clean up old downloads and log
-        run: |
-          rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f video.* download.log proxy_list.tmp video_list.txt sub_list.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Clean up old downloads" || true
-          git pull --rebase
-          git push || true
+      # ... (keep all steps up to "Compute cache key") ...
 
-      - name: Create example proxylist.txt if missing
-        run: |
-          if [ ! -f proxylist.txt ]; then
-            echo "" > proxylist.txt
-            git add proxylist.txt
-            git commit -m "Create empty proxy list" || true
-            git pull --rebase
-            git push || true
-          fi
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg jq
-          python3 -m pip install --upgrade yt-dlp
-          curl -fsSL https://deno.land/install.sh | sh
-          echo "/home/runner/.deno/bin" >> $GITHUB_PATH
-
-      - name: Download all videos (lightning‑fast proxy tests)
-        id: download
-        run: |
-          exec > >(tee -a download.log) 2>&1
-
-          echo "=== YouTube Download (fast proxy) ==="
-          echo "Date: $(date)"
-          echo ""
-
-          # ---- Quality format ----
-          case "${{ github.event.inputs.quality }}" in
-            144p)  FORMAT='bestvideo[height<=144]+bestaudio/best[height<=144]' ;;
-            360p)  FORMAT='bestvideo[height<=360]+bestaudio/best[height<=360]' ;;
-            720p)  FORMAT='bestvideo[height<=720]+bestaudio/best[height<=720]' ;;
-            1080p) FORMAT='bestvideo[height<=1080]+bestaudio/best[height<=1080]' ;;
-            best)  FORMAT='best' ;;
-            *)     FORMAT='best' ;;
-          esac
-
-          SUB_LANG="${{ github.event.inputs.sub_lang }}"
-          if [ "$SUB_LANG" = "none" ]; then
-            SUB_ARGS=""
-          else
-            SUB_ARGS="--write-auto-subs --sub-lang ${SUB_LANG%% *} --convert-subs srt"
-          fi
-
-          # ---- Super‑fast proxy test ----
-          PROXY_FILE="proxylist.txt"
-
-          # Quick connectivity check with curl (must answer within 5 sec)
-          proxy_alive() {
-            local proxy="$1"
-            # Try to fetch YouTube's robots.txt through the proxy; if it answers at all, the proxy is alive.
-            # We don't care about the HTTP code – even 403 means it works.
-            curl -x "$proxy" --max-time 5 -s -o /dev/null -w "%{http_code}" "https://www.youtube.com/robots.txt" 2>/dev/null
-            return $?
-          }
-
-          # Actual download test with extreme timeouts
-          try_download() {
-            local proxy_arg="$1"
-            timeout 15 yt-dlp \
-              --no-playlist \
-              --format "$FORMAT" \
-              --output "video.%(ext)s" \
-              $SUB_ARGS \
-              --js-runtimes deno \
-              --extractor-retries 0 \
-              --retries 0 \
-              --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-              $proxy_arg \
-              "$url" 2>&1
-            return $?
-          }
-
-          # ---- Main loop ----
-          VIDEO_COUNT=0
-          DOWNLOADED_ANY=0
-
-          for url in "${{ github.event.inputs.youtube_url1 }}" \
-                      "${{ github.event.inputs.youtube_url2 }}" \
-                      "${{ github.event.inputs.youtube_url3 }}" \
-                      "${{ github.event.inputs.youtube_url4 }}" \
-                      "${{ github.event.inputs.youtube_url5 }}"; do
-            [ -z "$url" ] && continue
-            VIDEO_COUNT=$((VIDEO_COUNT+1))
-            echo "--- Processing URL #$VIDEO_COUNT: $url ---"
-            SUCCESS=0
-
-            # ---------- 1. Direct ----------
-            echo "▶ Direct download ..."
-            if try_download ""; then
-              echo "✅ Direct success"
-              SUCCESS=1
-            fi
-
-            # ---------- 2. Proxies from proxylist.txt ----------
-            if [ $SUCCESS -eq 0 ] && [ -s "$PROXY_FILE" ]; then
-              echo "▶ Testing proxies from $PROXY_FILE ..."
-              while IFS= read -r proxy; do
-                [ -z "$proxy" ] && continue
-                if ! echo "$proxy" | grep -qE '^(http)://[a-zA-Z0-9.:@]+|^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+'; then
-                  echo "🗑️ Invalid proxy line, removing: $proxy"
-                  sed -i "\|^$proxy\$|d" "$PROXY_FILE"
-                  continue
-                fi
-
-                echo "   ⏱️ Quick check: $proxy"
-                if proxy_alive "$proxy"; then
-                  echo "   👍 Proxy alive, trying yt-dlp ..."
-                  if try_download "--proxy $proxy"; then
-                    echo "✅ Proxy success: $proxy"
-                    SUCCESS=1
-                    break
-                  else
-                    echo "❌ yt-dlp failed with this proxy. Removing."
-                    sed -i "\|^$proxy\$|d" "$PROXY_FILE"
-                  fi
-                else
-                  echo "💀 No response in 5 sec – removing $proxy"
-                  sed -i "\|^$proxy\$|d" "$PROXY_FILE"
-                fi
-              done < "$PROXY_FILE"
-            fi
-
-            # ---------- 3. Fetch and test fresh public proxies ----------
-            if [ $SUCCESS -eq 0 ]; then
-              echo "▶ Fetching fresh proxies ..."
-              # Combine two reliable lists, remove duplicates, pick up to 20
-              { curl -s --max-time 10 "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt" 2>/dev/null; \
-                curl -s --max-time 10 "https://raw.githubusercontent.com/proxygenerator1/ProxyGenerator/main/Lists/most-stable.txt" 2>/dev/null; } \
-                | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+$' \
-                | sort -u \
-                | head -n 20 > fresh_proxies.tmp
-
-              echo "   Testing $(wc -l < fresh_proxies.tmp) fresh proxies..."
-              while IFS= read -r proxy; do
-                [ -z "$proxy" ] && continue
-                echo "   ⏱️ Quick check: $proxy"
-                if proxy_alive "$proxy"; then
-                  echo "   👍 Alive, trying download ..."
-                  if try_download "--proxy $proxy"; then
-                    echo "✅ Fresh proxy works: $proxy"
-                    echo "$proxy" >> "$PROXY_FILE"
-                    SUCCESS=1
-                    break
-                  else
-                    echo "❌ yt-dlp failed"
-                  fi
-                else
-                  echo "💀 Dead (no answer in 5s)"
-                fi
-              done < fresh_proxies.tmp
-              rm -f fresh_proxies.tmp
-            fi
-
-            # ---------- 4. Last resort: third‑party ----------
-            if [ $SUCCESS -eq 0 ]; then
-              echo "▶ Trying vixy.net ..."
-              VID=$(echo "$url" | sed -n 's/.*v=\([^&]*\).*/\1/p')
-              DL_URL=$(curl -s --max-time 15 \
-                "https://vixy.net/api/convert?url=https%3A//www.youtube.com/watch%3Fv%3D$VID%26format%3Dmp4" |
-                jq -r '.download_url // empty')
-              if [ -n "$DL_URL" ]; then
-                echo "vixy URL: $DL_URL"
-                curl -L --max-time 120 -o video.mp4 "$DL_URL" && SUCCESS=1 || echo "vixy download failed"
-              else
-                echo "vixy returned no URL."
-              fi
-            fi
-
-            # ---------- Save downloaded file ----------
-            if [ $SUCCESS -eq 1 ]; then
-              DOWNLOADED_ANY=1
-              VIDEO_FILE=$(ls video.* 2>/dev/null | grep -v '\.part$' | head -n1)
-              VIDEO_EXT="${VIDEO_FILE##*.}"
-              NEW_NAME="video_${VIDEO_COUNT}.${VIDEO_EXT}"
-              mv "$VIDEO_FILE" "$NEW_NAME"
-              echo "🎉 $NEW_NAME saved"
-              echo "$NEW_NAME" >> video_list.txt
-
-              SUB_FILE=$(ls video.*.srt 2>/dev/null | head -n1)
-              if [ -n "$SUB_FILE" ]; then
-                SUB_NEW_NAME="video_${VIDEO_COUNT}.en.srt"
-                mv "$SUB_FILE" "$SUB_NEW_NAME"
-                echo "$SUB_NEW_NAME" >> sub_list.txt
-                echo "📝 Subtitle: $SUB_NEW_NAME"
-              fi
-            else
-              echo "⚠️ Could not download URL #$VIDEO_COUNT – skipping."
-            fi
-          done
-
-          if [ $DOWNLOADED_ANY -eq 0 ]; then
-            echo "No videos were downloaded."
-          else
-            echo "Download phase completed."
-          fi
-
-          # Commit updated proxy list
-          git add "$PROXY_FILE" 2>/dev/null
-          git commit -m "Update proxy list" || true
-          git push || true
-        shell: /usr/bin/bash {0}
-
-      - name: Commit download.log (always)
-        if: always()
-        run: |
-          git add download.log
-          git commit -m "Update download log" || true
-          git pull --rebase --strategy-option ours || true
-          git push || true
-
-      - name: Split and upload everything
-        if: success()
+      - name: Compute cache key
+        id: cache-key
         shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
         run: |
-          $token = $env:GITHUB_TOKEN
-          $repo = $env:GITHUB_REPOSITORY
-          $branch = $env:GITHUB_REF_NAME
-          $chunksDir = $env:FOLDER_NAME
-          $chunkSize = 20MB
-          $logFile = "download.log"
+          $key = "vs-layout-v6-" +
+            "web-${{ inputs.workload_web }}" +
+            # ... (same key construction) ...
+            "-androidsdk-${{ inputs.include_android_sdk }}"
+          "key=$key" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-          function Write-Log {
-            param([string]$msg)
-            Write-Host $msg
-            Add-Content -Path $logFile -Value $msg
+      # --- NEW: Delete cache if the checkbox is ticked ---
+      - name: Clear cache (if requested)
+        if: ${{ inputs.clear_cache == true }}
+        shell: pwsh
+        run: |
+          $repo = "${{ github.repository }}"
+          $key  = "${{ steps.cache-key.outputs.key }}"
+          $headers = @{
+            Authorization = "Bearer ${{ github.token }}"
+            Accept = "application/vnd.github+json"
           }
-
-          $videoList = @(Get-Content video_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
-          $subList = @(Get-Content sub_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
-
-          if ($videoList.Count -eq 0) {
-            Write-Log "No video files to upload. Exiting."
-            exit 0
-          }
-
-          New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
-          $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
-
-          $headers = @{ Authorization = "Bearer $token" }
-          $apiBase = "https://api.github.com/repos/$repo/contents"
-          $maxRetries = 3
-
-          function Upload-File {
-            param([string]$localPath, [string]$remotePath)
-            $bytes = [System.IO.File]::ReadAllBytes($localPath)
-            $b64 = [Convert]::ToBase64String($bytes)
-            $url = "$apiBase/$($remotePath -replace '\\','/')"
-            try { $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $sha = $null }
-            $body = @{ message = "Add $(Split-Path $localPath -Leaf)"; content = $b64; branch = $branch }
-            if ($sha) { $body.sha = $sha }
-            $success = $false
-            for ($retry = 0; $retry -lt $maxRetries; $retry++) {
-              try {
-                Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
-                $success = $true
-                break
-              } catch {
-                if ($retry -lt $maxRetries - 1) {
-                  Write-Log "Retry $($retry+1) in 10 seconds..."
-                  Start-Sleep -Seconds 10
-                } else {
-                  Write-Log "FATAL: upload failed after $maxRetries attempts."
-                  exit 1
-                }
-              }
+          Write-Host "Deleting cache entries for key: $key"
+          # List all caches
+          $caches = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$repo/actions/caches?key=$key"
+          if ($caches.total_count -gt 0 -and $caches.actions_caches) {
+            foreach ($cache in $caches.actions_caches) {
+              Write-Host "Deleting cache $($cache.id)..."
+              Invoke-RestMethod -Method Delete -Headers $headers -Uri "https://api.github.com/repos/$repo/actions/caches/$($cache.id)"
             }
-          }
-
-          for ($i = 0; $i -lt $videoList.Count; $i++) {
-            $videoFile = $videoList[$i]
-            $subFile = if ($i -lt $subList.Count) { $subList[$i] } else { $null }
-
-            if (-not (Test-Path $videoFile)) {
-              Write-Log "Video file missing: $videoFile – skipping."
-              continue
-            }
-
-            $fileSize = (Get-Item $videoFile).Length
-            $fileName = [System.IO.Path]::GetFileName($videoFile)
-            Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
-
-            if ($fileSize -lt $chunkSize) {
-              Write-Log "File smaller than chunk size; uploading directly."
-              try {
-                Upload-File -localPath $videoFile -remotePath "$chunksDir/$fileName"
-                $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
-              } catch {
-                Write-Log "Upload failed for $fileName – skipping."
-              }
-            } else {
-              Write-Log "Splitting into chunks..."
-              $stream = [System.IO.File]::OpenRead($videoFile)
-              $partIdx = 0
-              $buffer = New-Object byte[] $chunkSize
-              $uploadSuccess = $true
-              while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-                $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
-                $chunkPath = Join-Path $chunksDir $chunkName
-                [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
-                Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)"
-                try {
-                  Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
-                } catch {
-                  Write-Log "Upload failed for $chunkName. Aborting remaining chunks for $fileName."
-                  $uploadSuccess = $false
-                  break
-                }
-                Remove-Item $chunkPath -Force
-                $partIdx++
-                Start-Sleep -Milliseconds 500
-              }
-              $stream.Close()
-              if ($uploadSuccess) {
-                $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
-              }
-            }
-            Remove-Item $videoFile -Force
-          }
-
-          # Upload subtitle files
-          if ($subList.Count -gt 0) {
-            foreach ($sub in $subList) {
-              if (Test-Path $sub) {
-                $subName = [System.IO.Path]::GetFileName($sub)
-                Write-Log "Uploading subtitle: $subName"
-                try {
-                  Upload-File -localPath $sub -remotePath "$chunksDir/$subName"
-                } catch {
-                  Write-Log "Failed to upload subtitle $subName."
-                }
-              }
-            }
-          }
-
-          if ($fileInfos.Count -gt 0) {
-            Write-Log "Creating reassemble.bat..."
-            $batPath = Join-Path $chunksDir "reassemble.bat"
-            $batLines = @(
-              "@echo off",
-              "setlocal enabledelayedexpansion",
-              "echo ========================================",
-              "echo  Reassembling all downloaded files...",
-              "echo ========================================"
-            )
-            foreach ($fi in $fileInfos) {
-              $name = $fi.Name
-              if ($fi.HasChunks) {
-                $batLines += "echo --- Rebuilding $name ---"
-                $batLines += "copy /b $name.part* $name"
-                $batLines += "if %errorlevel% equ 0 ("
-                $batLines += "    echo Successfully created $name"
-                $batLines += "    del $name.part*"
-                $batLines += "    echo Deleted temporary parts for $name"
-                $batLines += ") else ("
-                $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
-                $batLines += ")"
-              } else {
-                $batLines += "echo $name was downloaded as a single file (no chunks)."
-              }
-            }
-            $batLines += "echo ========================================"
-            $batLines += "echo All done! Press any key to exit."
-            $batLines += "pause >nul"
-            $batLines | Out-File -FilePath $batPath -Encoding ASCII
-            Write-Log "Uploading reassemble.bat..."
-            Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
           } else {
-            Write-Log "No files were successfully uploaded."
+            Write-Host "No matching cache found."
           }
 
-          Write-Log "✅ Processing complete."
+      - name: Restore cached layout
+        id: cache-restore
+        if: ${{ inputs.clear_cache != true }}       # only restore if not clearing
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}\vs_layout
+          key: ${{ steps.cache-key.outputs.key }}
 
-      - name: Final log commit (always)
-        if: always()
-        run: |
-          git add download.log
-          git commit -m "Final download log" || true
-          git pull --rebase --strategy-option ours || true
-          git push || true
+      # ... (keep "Create offline layout" step) ...
+
+      # ... (keep "Package layout into zip" step) ...
+
+      # ... (keep "Split zip and upload chunks" step) ...
+
+      - name: Save layout cache
+        if: ${{ steps.layout.outputs.layout-created == 'true' && inputs.clear_cache != true }}  # don't save while clearing
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}\vs_layout
+          key: ${{ steps.cache-key.outputs.key }}
