@@ -1,4 +1,4 @@
-name: YouTube Download (Cloudflare WARP)
+name: YouTube Download (WARP)
 
 on:
   workflow_dispatch:
@@ -54,7 +54,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f video.* download.log video_list.txt sub_list.txt
+          rm -f video.* download.log video_list.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -75,7 +75,7 @@ jobs:
           curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
           echo "WARP is active."
 
-      - name: Install yt-dlp
+      - name: Install yt-dlp and ffmpeg
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
@@ -94,7 +94,8 @@ jobs:
           import os, sys, time, subprocess
 
           quality = "${{ github.event.inputs.quality }}"
-          
+
+          # Collect URLs from environment variables (no dynamic expressions)
           urls = []
           for i in range(1, 6):
               v = os.environ.get(f"YT_URL_{i}", "").strip()
@@ -123,7 +124,7 @@ jobs:
               video_count += 1
               print(f"\n--- URL #{video_count}: {url} ---")
               out_name = f"video_{video_count}.%(ext)s"
-              
+
               cmd = [
                   "yt-dlp", "--no-playlist",
                   "--format", fmt,
@@ -131,10 +132,10 @@ jobs:
                   "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                   url
               ]
-              
+
               print(f"  Downloading...")
               result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-              
+
               if result.returncode == 0:
                   for f in os.listdir("."):
                       if f.startswith(f"video_{video_count}.") and not f.endswith(".part"):
@@ -151,7 +152,7 @@ jobs:
                   print(f"  ✗ Download failed for URL #{video_count}")
 
           with open("download.log", "a") as log:
-              log.write(f"=== YouTube Download Log ===\n")
+              log.write(f"=== YouTube Download Log (WARP) ===\n")
               log.write(f"Date: {time.ctime()}\n")
               log.write(f"Total URLs: {len(urls)}\n")
               log.write(f"Successfully downloaded: {downloaded_any}\n")
