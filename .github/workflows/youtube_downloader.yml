@@ -6,7 +6,7 @@ on:
       youtube_url1:
         description: 'YouTube URL #1 (required)'
         required: true
-        default: 'https://www.youtube.com/watch?v=M0iyhwzdG3k'
+        default: ''
       youtube_url2:
         description: 'YouTube URL #2 (optional)'
         required: false
@@ -34,6 +34,15 @@ on:
           - '720p'
           - '1080p'
           - 'best'
+      sub_lang:
+        description: 'Subtitles language'
+        required: true
+        type: choice
+        default: 'en (English)'
+        options:
+          - 'en (English)'
+          - 'fa (Persian)'
+          - 'none'
       folder_name:
         description: 'Folder to store downloads'
         required: false
@@ -54,7 +63,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f video.* download.log video_list.txt cookies.txt
+          rm -f video.* download.log video_list.txt sub_list.txt cookies.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -90,14 +99,16 @@ jobs:
           YT_URL_4: ${{ github.event.inputs.youtube_url4 }}
           YT_URL_5: ${{ github.event.inputs.youtube_url5 }}
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+          SUB_LANG: ${{ github.event.inputs.sub_lang }}
         run: |
           python3 << 'PYEOF'
           import os, sys, time, subprocess
 
           quality = "${{ github.event.inputs.quality }}"
           cookies_secret = os.environ.get("YOUTUBE_COOKIES", "").strip()
+          sub_lang_input = os.environ.get("SUB_LANG", "none").strip()
 
-          # Collect URLs from environment variables
+          # Collect URLs
           urls = []
           for i in range(1, 6):
               v = os.environ.get(f"YT_URL_{i}", "").strip()
@@ -119,19 +130,25 @@ jobs:
           }
           fmt = quality_map.get(quality, "bestvideo[height<=720]+bestaudio/best[height<=720]")
 
-          # Helper to run yt-dlp command with optional extra args
+          # Subtitle arguments
+          sub_args = []
+          if sub_lang_input != "none":
+              lang_code = sub_lang_input.split()[0]  # "en" or "fa"
+              sub_args = ["--write-auto-subs", "--sub-lang", lang_code, "--convert-subs", "srt"]
+              print(f"Subtitles enabled: {lang_code}")
+          else:
+              print("Subtitles disabled.")
+
           def run_ytdlp(url, out_name, extra_args=None):
               cmd = [
                   "yt-dlp", "--no-playlist",
                   "--format", fmt,
                   "--output", out_name,
                   "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                  url
-              ]
+              ] + sub_args
               if extra_args:
-                  # Insert any extra arguments before the URL
-                  for arg in extra_args:
-                      cmd.insert(-1, arg)
+                  cmd.extend(extra_args)
+              cmd.append(url)
               result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
               return result
 
@@ -144,7 +161,7 @@ jobs:
               out_name = f"video_{video_count}.%(ext)s"
               success = False
 
-              # Strategy 1: WARP (no cookies)
+              # Strategy 1: WARP
               print("  [Strategy 1] Downloading via Cloudflare WARP (no cookies)...")
               result = run_ytdlp(url, out_name)
               if result.returncode == 0:
@@ -156,10 +173,9 @@ jobs:
                       print(f"    {line}")
                   print("  ✗ WARP download failed")
 
-              # Strategy 2: Cookies fallback (if WARP failed and cookies are available)
+              # Strategy 2: Cookies fallback
               if not success and cookies_secret:
                   print("  [Strategy 2] Attempting with cookies...")
-                  # Write cookies to file
                   with open("cookies.txt", "w") as cf:
                       cf.write(cookies_secret)
                   result = run_ytdlp(url, out_name, extra_args=["--cookies", "cookies.txt"])
@@ -175,15 +191,34 @@ jobs:
                   print("  [Strategy 2] Skipped (no cookies secret available)")
 
               if success:
-                  # Locate the downloaded file (yt-dlp might use an extension)
+                  # Locate the downloaded video file
+                  video_file = None
                   for f in os.listdir("."):
-                      if f.startswith(f"video_{video_count}.") and not f.endswith(".part"):
-                          size_mb = os.path.getsize(f) / (1024 * 1024)
-                          print(f"  ✓ Downloaded: {f} ({size_mb:.1f} MB)")
-                          with open("video_list.txt", "a") as vl:
-                              vl.write(f + "\n")
-                          downloaded_any += 1
+                      if f.startswith(f"video_{video_count}.") and not f.endswith(".part") and not f.endswith(".srt"):
+                          video_file = f
                           break
+                  if video_file:
+                      size_mb = os.path.getsize(video_file) / (1024 * 1024)
+                      print(f"  ✓ Video: {video_file} ({size_mb:.1f} MB)")
+                      with open("video_list.txt", "a") as vl:
+                          vl.write(video_file + "\n")
+                      downloaded_any += 1
+                  else:
+                      print("  ⚠ Video file not found after download.")
+
+                  # Locate subtitle file if any
+                  if sub_lang_input != "none":
+                      sub_file = None
+                      for f in os.listdir("."):
+                          if f.startswith(f"video_{video_count}.") and f.endswith(".srt"):
+                              sub_file = f
+                              break
+                      if sub_file:
+                          print(f"  ✓ Subtitle: {sub_file}")
+                          with open("sub_list.txt", "a") as sl:
+                              sl.write(sub_file + "\n")
+                      else:
+                          print("  ℹ No subtitle file downloaded (may not exist for this video).")
               else:
                   print(f"  ✗ All methods failed for URL #{video_count}")
 
@@ -206,7 +241,7 @@ jobs:
       - name: Commit download log
         if: always()
         run: |
-          git add download.log video_list.txt 2>/dev/null || true
+          git add download.log video_list.txt sub_list.txt 2>/dev/null || true
           git commit -m "Update download log" || true
           git pull --rebase --strategy-option ours || true
           git push || true
@@ -232,6 +267,8 @@ jobs:
           }
 
           $videoList = @(Get-Content video_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
+          $subList = @(Get-Content sub_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
+
           if ($videoList.Count -eq 0) {
             Write-Log "No video files to upload. Exiting."
             exit 0
@@ -269,6 +306,8 @@ jobs:
 
           for ($i = 0; $i -lt $videoList.Count; $i++) {
             $videoFile = $videoList[$i]
+            $subFile = if ($i -lt $subList.Count) { $subList[$i] } else { $null }
+
             if (-not (Test-Path $videoFile)) {
               Write-Log "Video file missing: $videoFile – skipping."
               continue
@@ -308,6 +347,17 @@ jobs:
               }
             }
             Remove-Item $videoFile -Force
+          }
+
+          # Upload subtitle files
+          if ($subList.Count -gt 0) {
+            foreach ($sub in $subList) {
+              if (Test-Path $sub) {
+                $subName = [System.IO.Path]::GetFileName($sub)
+                Write-Log "Uploading subtitle: $subName"
+                Upload-File -localPath $sub -remotePath "$chunksDir/$subName"
+              }
+            }
           }
 
           if ($fileInfos.Count -gt 0) {
