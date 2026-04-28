@@ -139,18 +139,24 @@ jobs:
           else:
               print("Subtitles disabled.")
 
-          def run_ytdlp(url, out_name, extra_args=None):
+          def run_ytdlp(url, extra_args=None):
+              """Download with yt-dlp; return (result, set_of_new_files)."""
+              before = set(os.listdir("."))
               cmd = [
                   "yt-dlp", "--no-playlist",
                   "--format", fmt,
-                  "--output", out_name,
+                  "--output", "%(title).150B [%(id)s].%(ext)s",
+                  "--restrict-filenames",
+                  "--windows-filenames",
                   "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
               ] + sub_args
               if extra_args:
                   cmd.extend(extra_args)
               cmd.append(url)
               result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-              return result
+              after = set(os.listdir("."))
+              new_files = after - before
+              return result, new_files
 
           video_count = 0
           downloaded_any = 0
@@ -158,12 +164,12 @@ jobs:
           for idx, url in enumerate(urls):
               video_count += 1
               print(f"\n--- URL #{video_count}: {url} ---")
-              out_name = f"video_{video_count}.%(ext)s"
               success = False
+              new_files = set()
 
               # Strategy 1: WARP
               print("  [Strategy 1] Downloading via Cloudflare WARP (no cookies)...")
-              result = run_ytdlp(url, out_name)
+              result, new_files = run_ytdlp(url)
               if result.returncode == 0:
                   success = True
                   print("  ✓ WARP download succeeded")
@@ -178,7 +184,7 @@ jobs:
                   print("  [Strategy 2] Attempting with cookies...")
                   with open("cookies.txt", "w") as cf:
                       cf.write(cookies_secret)
-                  result = run_ytdlp(url, out_name, extra_args=["--cookies", "cookies.txt"])
+                  result, new_files = run_ytdlp(url, extra_args=["--cookies", "cookies.txt"])
                   if result.returncode == 0:
                       success = True
                       print("  ✓ Cookies download succeeded")
@@ -191,11 +197,13 @@ jobs:
                   print("  [Strategy 2] Skipped (no cookies secret available)")
 
               if success:
+                  # Find the video file (exclude .part, .srt, .ytdl, .log)
                   video_file = None
-                  for f in os.listdir("."):
-                      if f.startswith(f"video_{video_count}.") and not f.endswith(".part") and not f.endswith(".srt"):
+                  for f in sorted(new_files):
+                      if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")):
                           video_file = f
                           break
+
                   if video_file:
                       size_mb = os.path.getsize(video_file) / (1024 * 1024)
                       print(f"  ✓ Video: {video_file} ({size_mb:.1f} MB)")
@@ -203,12 +211,12 @@ jobs:
                           vl.write(video_file + "\n")
                       downloaded_any += 1
                   else:
-                      print("  ⚠ Video file not found after download.")
+                      print("  ⚠ Video file not found among new files.")
 
                   if sub_lang_input != "none":
                       sub_file = None
-                      for f in os.listdir("."):
-                          if f.startswith(f"video_{video_count}.") and f.endswith(".srt"):
+                      for f in sorted(new_files):
+                          if f.endswith(".srt"):
                               sub_file = f
                               break
                       if sub_file:
