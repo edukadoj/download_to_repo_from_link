@@ -97,6 +97,9 @@ jobs:
               if yt is True:
                   api_url = inst.get("api", "")
                   if api_url:
+                      # Ensure the URL has a scheme
+                      if not api_url.startswith("http"):
+                          api_url = "https://" + api_url
                       youtube_instances.append({
                           "api": api_url,
                           "score": inst.get("score", 0),
