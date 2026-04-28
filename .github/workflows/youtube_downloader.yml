@@ -64,7 +64,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f video.* download.log video_list.txt sub_list.txt cookies.txt
+          rm -f download.log cookies.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -97,18 +97,18 @@ jobs:
           curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
           echo "WARP is active."
 
-      - name: Install yt-dlp, ffmpeg, Deno (if not cached)
+      - name: Install dependencies (with caching)
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-          python3 -m pip install --upgrade yt-dlp "yt-dlp[default,curl-cffi]"
+          python3 -m pip install --upgrade yt-dlp "yt-dlp[default,curl-cffi]" requests
           if [ ! -d "/home/runner/.deno" ]; then
             curl -fsSL https://deno.land/install.sh | sh
           fi
           echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
-      - name: Download all videos (WARP first, then cookies)
-        id: download
+      - name: Download, split & upload (all‑in‑one Python)
+        id: process
         env:
           YT_URL_1: ${{ github.event.inputs.youtube_url1 }}
           YT_URL_2: ${{ github.event.inputs.youtube_url2 }}
@@ -117,19 +117,31 @@ jobs:
           YT_URL_5: ${{ github.event.inputs.youtube_url5 }}
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
           SUB_LANG: ${{ github.event.inputs.sub_lang }}
+          QUALITY: ${{ github.event.inputs.quality }}
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 << 'PYEOF'
-          import os, sys, time, subprocess
+          import os, sys, time, subprocess, base64, requests, json, traceback
+          from pathlib import Path
+          from urllib.parse import quote
 
+          # ── Logging ──
           def log(msg):
               print(msg)
               with open("download.log", "a", encoding="utf-8") as f:
                   f.write(msg + "\n")
 
-          quality = "${{ github.event.inputs.quality }}"
+          # ── Config from environment ──
+          quality = os.environ.get("QUALITY", "720p")
           cookies_secret = os.environ.get("YOUTUBE_COOKIES", "").strip()
           sub_lang_input = os.environ.get("SUB_LANG", "none").strip()
+          folder_name = os.environ.get("FOLDER_NAME", "YouTube Download")
+          token = os.environ.get("GITHUB_TOKEN")
+          repo = os.environ["GITHUB_REPOSITORY"]
+          branch = os.environ["GITHUB_REF_NAME"]
 
+          # Collect URLs
           urls = []
           for i in range(1, 6):
               v = os.environ.get(f"YT_URL_{i}", "").strip()
@@ -141,7 +153,10 @@ jobs:
               sys.exit(0)
 
           log(f"Processing {len(urls)} URL(s) through Cloudflare WARP")
+          log(f"Quality: {quality}")
+          log(f"Subtitles: {sub_lang_input}")
 
+          # ── Quality map ──
           quality_map = {
               "144p": "bestvideo[height<=144]+bestaudio/best[height<=144]",
               "360p": "bestvideo[height<=360]+bestaudio/best[height<=360]",
@@ -152,44 +167,13 @@ jobs:
           }
           fmt = quality_map.get(quality, "bestvideo[height<=720]+bestaudio/best[height<=720]")
 
-          # Video-only command
-          video_cmd = [
-              "yt-dlp", "--no-playlist",
-              "--format", fmt,
-              "--merge-output-format", "mp4",
-              "--output", "%(title).150B [%(id)s].%(ext)s",
-              "--restrict-filenames",
-              "--windows-filenames",
-              "--remote-components", "ejs:github",
-              "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-              "--extractor-retries", "3",
-              "--retries", "3",
-              "--sleep-requests", "1",
-              "--sleep-interval", "5",
-          ]
+          # ── Output folder ──
+          out_dir = Path(folder_name)
+          out_dir.mkdir(exist_ok=True)
 
-          # Subtitle-only command
-          sub_cmd = None
-          if sub_lang_input != "none":
-              lang_code = sub_lang_input.split()[0]
-              sub_cmd = [
-                  "yt-dlp", "--no-playlist",
-                  "--skip-download",
-                  "--write-auto-subs",
-                  "--sub-lang", lang_code,
-                  "--convert-subs", "srt",
-                  "--output", "%(title).150B [%(id)s].%(ext)s",
-                  "--restrict-filenames",
-                  "--windows-filenames",
-                  "--remote-components", "ejs:github",
-                  "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                  "--extractor-retries", "2",
-                  "--retries", "2",
-                  "--sleep-requests", "1",
-                  "--sleep-interval", "5",
-              ]
-
-          def run_cmd(cmd, url, extra_args=None):
+          # ── Helper: run yt-dlp ──
+          def run_ytdlp(cmd, url, extra_args=None):
+              """Return (success, set of new filenames)."""
               before = set(os.listdir("."))
               final_cmd = list(cmd)
               if extra_args:
@@ -198,284 +182,205 @@ jobs:
               result = subprocess.run(final_cmd, capture_output=True, text=True, timeout=600)
               after = set(os.listdir("."))
               new_files = after - before
-              return result, new_files
+              return result.returncode == 0, new_files
 
+          # ── Video-only command ──
+          video_cmd = [
+              "yt-dlp", "--no-playlist",
+              "--format", fmt,
+              "--merge-output-format", "mp4",
+              "--output", "%(title).150B [%(id)s].%(ext)s",
+              "--restrict-filenames", "--windows-filenames",
+              "--remote-components", "ejs:github",
+              "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+              "--extractor-retries", "3", "--retries", "3",
+              "--sleep-requests", "1", "--sleep-interval", "5",
+          ]
+
+          # ── Subtitle-only command (if needed) ──
+          sub_cmd = None
+          if sub_lang_input != "none":
+              lang_code = sub_lang_input.split()[0]
+              sub_cmd = [
+                  "yt-dlp", "--no-playlist", "--skip-download",
+                  "--write-auto-subs", "--sub-lang", lang_code,
+                  "--convert-subs", "srt",
+                  "--output", "%(title).150B [%(id)s].%(ext)s",
+                  "--restrict-filenames", "--windows-filenames",
+                  "--remote-components", "ejs:github",
+                  "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                  "--extractor-retries", "2", "--retries", "2",
+                  "--sleep-requests", "1", "--sleep-interval", "5",
+              ]
+
+          # ── GitHub upload helper ──
+          def upload_to_github(local_path, remote_path):
+              """Upload a file via GitHub API. Returns True on success."""
+              with open(local_path, "rb") as f:
+                  b64 = base64.b64encode(f.read()).decode("utf-8")
+              url = f"https://api.github.com/repos/{repo}/contents/{quote(remote_path)}"
+              headers = {"Authorization": f"token {token}"}
+              # Check if file exists (to get SHA for updates)
+              resp = requests.get(url, headers=headers)
+              sha = resp.json().get("sha") if resp.status_code == 200 else None
+              body = {
+                  "message": f"Add/update {Path(local_path).name}",
+                  "content": b64,
+                  "branch": branch,
+              }
+              if sha:
+                  body["sha"] = sha
+              for attempt in range(3):
+                  r = requests.put(url, headers=headers, json=body)
+                  if r.status_code in (200, 201):
+                      return True
+                  time.sleep(5)
+              return False
+
+          # ── Process each URL ──
           video_count = 0
-          downloaded_any = 0
+          total_uploaded = 0
+          chunk_size = 20 * 1024 * 1024
 
           for idx, url in enumerate(urls):
               video_count += 1
               log(f"\n--- URL #{video_count}: {url} ---")
-              extra_args = []   # initialize for cookie usage
+              extra_args = []
+              video_file = None
 
-              try:
-                  success = False
-                  new_files = set()
+              # ── Try WARP ──
+              log("  [Strategy 1] Cloudflare WARP (video only)...")
+              ok, new_files = run_ytdlp(video_cmd, url)
+              if ok:
+                  log("  ✓ WARP video download succeeded")
+              else:
+                  log("  ✗ WARP failed")
 
-                  # Strategy 1: WARP
-                  log("  [Strategy 1] Cloudflare WARP (video only)...")
-                  result, new_files = run_cmd(video_cmd, url)
-                  if result.returncode == 0:
-                      success = True
-                      log("  ✓ WARP video download succeeded")
+              # ── Try cookies if needed ──
+              if not ok and cookies_secret:
+                  log("  [Strategy 2] Cookies (video only)...")
+                  with open("cookies.txt", "w") as cf:
+                      cf.write(cookies_secret)
+                  extra_args = ["--cookies", "cookies.txt"]
+                  ok, new_files = run_ytdlp(video_cmd, url, extra_args=extra_args)
+                  if ok:
+                      log("  ✓ Cookies video download succeeded")
                   else:
-                      lines = result.stderr.splitlines()[-5:]
-                      for line in lines:
-                          log(f"    {line}")
-                      log("  ✗ WARP video download failed")
+                      log("  ✗ Cookies video download failed")
+              elif not ok:
+                  log("  [Strategy 2] Skipped (no cookies secret)")
 
-                  # Strategy 2: Cookies fallback
-                  if not success and cookies_secret:
-                      log("  [Strategy 2] Cookies (video only)...")
-                      with open("cookies.txt", "w") as cf:
-                          cf.write(cookies_secret)
-                      extra_args = ["--cookies", "cookies.txt"]
-                      result, new_files = run_cmd(video_cmd, url, extra_args=extra_args)
-                      if result.returncode == 0:
-                          success = True
-                          log("  ✓ Cookies video download succeeded")
-                      else:
-                          lines = result.stderr.splitlines()[-5:]
-                          for line in lines:
-                              log(f"    {line}")
-                          log("  ✗ Cookies video download failed")
-                  elif not success:
-                      log("  [Strategy 2] Skipped (no cookies secret)")
-
-                  if success:
-                      video_file = None
-                      for f in sorted(new_files):
-                          if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")):
-                              video_file = f
-                              break
-                      if video_file:
-                          size_mb = os.path.getsize(video_file) / (1024 * 1024)
-                          log(f"  ✓ Video: {video_file} ({size_mb:.1f} MB)")
-                          # Write the relative path for the PowerShell step
-                          with open("video_list.txt", "a") as vl:
-                              vl.write(video_file + "\n")
-                          downloaded_any += 1
-                      else:
-                          log("  ⚠ Video file not found among new files.")
-
-                      # ---- Subs (best effort) ----
-                      if sub_cmd and sub_lang_input != "none":
-                          log("  [Subs] Attempting subtitle download (best effort)...")
-                          try:
-                              sub_result, sub_new = run_cmd(sub_cmd, url, extra_args=extra_args)
-                              if sub_result.returncode == 0:
-                                  sub_file = None
-                                  for f in sorted(sub_new):
-                                      if f.endswith(".srt"):
-                                          sub_file = f
-                                          break
-                                  if sub_file:
-                                      log(f"  ✓ Subtitle: {sub_file}")
-                                      with open("sub_list.txt", "a") as sl:
-                                          sl.write(sub_file + "\n")
-                                  else:
-                                      log("  ℹ No subtitle file found.")
-                              else:
-                                  log("  ℹ Subtitle download failed (non‑critical).")
-                          except Exception as se:
-                              log(f"  ℹ Subtitle error (non‑critical): {se}")
-                  else:
-                      log(f"  ✗ All methods failed for URL #{video_count}")
-              except Exception as e:
-                  log(f"  ✗ Unexpected error processing URL #{video_count}: {e}")
+              if not ok:
+                  log("  ✗ All download methods failed for this URL. Skipping.")
                   continue
 
+              # Locate video file among new files
+              for f in sorted(new_files):
+                  if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")) and os.path.exists(f):
+                      video_file = f
+                      break
+              if not video_file:
+                  log("  ⚠ Video file not found after download.")
+                  continue
+
+              file_size = os.path.getsize(video_file)
+              log(f"  ✓ Video: {video_file} ({file_size/1024/1024:.1f} MB)")
+
+              # ── Split & upload video ──
+              if file_size < chunk_size:
+                  log("  Uploading small file directly...")
+                  remote_path = f"{folder_name}/{video_file}"
+                  if upload_to_github(video_file, remote_path):
+                      log("  ✓ Uploaded small file")
+                      total_uploaded += 1
+                  else:
+                      log("  ✗ Small file upload failed")
+                      continue
+              else:
+                  log(f"  Splitting into {chunk_size//1024//1024} MB chunks...")
+                  with open(video_file, "rb") as f:
+                      part_idx = 0
+                      while True:
+                          data = f.read(chunk_size)
+                          if not data:
+                              break
+                          chunk_name = f"{video_file}.part{part_idx:04d}"
+                          chunk_path = out_dir / chunk_name
+                          with open(chunk_path, "wb") as cf:
+                              cf.write(data)
+                          log(f"    Uploading {chunk_name} ({len(data)/1024/1024:.1f} MB)")
+                          if not upload_to_github(str(chunk_path), f"{folder_name}/{chunk_name}"):
+                              log(f"    ✗ Upload failed for {chunk_name}. Skipping remaining chunks.")
+                              break
+                          os.remove(chunk_path)
+                          part_idx += 1
+                          time.sleep(0.3)
+                  log(f"  ✓ Uploaded {part_idx} chunks")
+                  total_uploaded += 1
+
+              # ── Subtitle (best effort) ──
+              if sub_cmd and sub_lang_input != "none":
+                  log("  [Subs] Attempting subtitle download (best effort)...")
+                  try:
+                      sub_ok, sub_new = run_ytdlp(sub_cmd, url, extra_args=extra_args)
+                      if sub_ok:
+                          sub_file = None
+                          for f in sorted(sub_new):
+                              if f.endswith(".srt"):
+                                  sub_file = f
+                                  break
+                          if sub_file:
+                              remote_sub = f"{folder_name}/{sub_file}"
+                              if upload_to_github(sub_file, remote_sub):
+                                  log(f"  ✓ Subtitle uploaded: {sub_file}")
+                              else:
+                                  log("  ℹ Subtitle upload failed")
+                          else:
+                              log("  ℹ No subtitle file found.")
+                      else:
+                          log("  ℹ Subtitle download failed (non‑critical).")
+                  except Exception as e:
+                      log(f"  ℹ Subtitle error (non‑critical): {e}")
+
+              # Remove original video after successful upload
+              try: os.remove(video_file)
+              except: pass
+
+          # ── Generate reassemble.bat (if any file uploaded) ──
+          if total_uploaded > 0:
+              bat_path = out_dir / "reassemble.bat"
+              with open(bat_path, "w") as bat:
+                  bat.write("@echo off\nsetlocal enabledelayedexpansion\n")
+                  bat.write("echo ========================================\n")
+                  bat.write("echo  Reassembling all downloaded files...\n")
+                  bat.write("echo ========================================\n")
+                  bat.write("echo If you have .part files, they will be combined.\n")
+                  bat.write("echo To rebuild a file use: copy /b yourfile.mp4.part* yourfile.mp4\n")
+                  bat.write("echo ========================================\n")
+                  bat.write("pause\n")
+              remote_bat = f"{folder_name}/reassemble.bat"
+              if upload_to_github(str(bat_path), remote_bat):
+                  log("  ✓ reassemble.bat uploaded.")
+              else:
+                  log("  ✗ reassemble.bat upload failed.")
+
+          # ── Final log ──
+          log(f"\n=== Summary ===")
+          log(f"Total URLs: {len(urls)}")
+          log(f"Successfully uploaded: {total_uploaded}")
+
+          # Clean up cookies
           try: os.remove("cookies.txt")
           except: pass
 
-          log(f"\n=== Summary ===")
-          log(f"Date: {time.ctime()}")
-          log(f"Total URLs: {len(urls)}")
-          log(f"Successfully downloaded: {downloaded_any}")
-
-          if downloaded_any == 0:
-              log("\n⚠️ No videos were downloaded.")
+          if total_uploaded == 0:
+              log("\n⚠️ No videos were uploaded. Failing the workflow.")
               sys.exit(1)
           else:
-              log(f"\n✅ Downloaded {downloaded_any} video(s).")
+              log(f"\n✅ Uploaded {total_uploaded} video(s).")
           PYEOF
 
-      - name: Commit download.log only (no list files)
-        if: always()
-        run: |
-          git add download.log
-          git commit -m "Update download log" || true
-          git pull --rebase --strategy-option ours || true
-          git push || true
-
-      - name: Fail workflow if download step failed
-        if: steps.download.outcome == 'failure'
-        run: |
-          echo "Download step failed – see download.log in repository."
-          exit 1
-
-      - name: Split and upload everything (verbose)
-        if: success()
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
-        run: |
-          $token = $env:GITHUB_TOKEN
-          $repo = $env:GITHUB_REPOSITORY
-          $branch = $env:GITHUB_REF_NAME
-          $chunksDir = $env:FOLDER_NAME
-          $chunkSize = 20MB
-          $logFile = "download.log"
-
-          function Write-Log {
-            param([string]$msg)
-            $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-            $line = "[$timestamp] $msg"
-            Write-Host $line
-            Add-Content -Path $logFile -Value $line
-          }
-
-          Write-Log "===== Current directory content ====="
-          Get-ChildItem -Name | Write-Host
-          Write-Log "===================================="
-
-          $videoList = @(Get-Content video_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
-          $subList   = @(Get-Content sub_list.txt   -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
-
-          if ($videoList.Count -eq 0) {
-            Write-Log "No video files to upload. Exiting."
-            exit 0
-          }
-
-          Write-Log "Files to process: $($videoList -join ', ')"
-
-          New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
-          $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
-          $headers = @{ Authorization = "Bearer $token" }
-          $apiBase = "https://api.github.com/repos/$repo/contents"
-          $maxRetries = 3
-
-          function Upload-File {
-            param([string]$localPath, [string]$remotePath)
-            $bytes = [System.IO.File]::ReadAllBytes($localPath)
-            $b64 = [Convert]::ToBase64String($bytes)
-            $url = "$apiBase/$($remotePath -replace '\\','/')"
-            try { $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $sha = $null }
-            $body = @{ message = "Add $(Split-Path $localPath -Leaf)"; content = $b64; branch = $branch }
-            if ($sha) { $body.sha = $sha }
-            for ($retry = 0; $retry -lt $maxRetries; $retry++) {
-              try {
-                Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
-                return
-              } catch {
-                if ($retry -lt $maxRetries - 1) {
-                  Write-Log "Retry $($retry+1) in 10 seconds..."
-                  Start-Sleep -Seconds 10
-                } else {
-                  Write-Log "FATAL: upload failed after $maxRetries attempts"
-                  exit 1
-                }
-              }
-            }
-          }
-
-          for ($i = 0; $i -lt $videoList.Count; $i++) {
-            $videoFile = $videoList[$i]
-            $subFile   = if ($i -lt $subList.Count) { $subList[$i] } else { $null }
-
-            if (-not (Test-Path $videoFile -PathType Leaf)) {
-              Write-Log "ERROR: Video file missing: $videoFile – skipping."
-              continue
-            }
-            $fileSize = (Get-Item $videoFile).Length
-            $fileName = [System.IO.Path]::GetFileName($videoFile)
-            Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
-
-            if ($fileSize -lt $chunkSize) {
-              Write-Log "Small file, uploading directly..."
-              Upload-File -localPath $videoFile -remotePath "$chunksDir/$fileName"
-              $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
-            } else {
-              Write-Log "Splitting into chunks..."
-              $stream = [System.IO.File]::OpenRead($videoFile)
-              $partIdx = 0
-              $buffer = New-Object byte[] $chunkSize
-              $uploadSuccess = $true
-              while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-                $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
-                $chunkPath = Join-Path $chunksDir $chunkName
-                [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
-                Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)"
-                try {
-                  Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
-                } catch {
-                  Write-Log "Upload failed for $chunkName. Aborting file."
-                  $uploadSuccess = $false
-                  break
-                }
-                Remove-Item $chunkPath -Force
-                $partIdx++
-                Start-Sleep -Milliseconds 500
-              }
-              $stream.Close()
-              if ($uploadSuccess) {
-                $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
-              }
-            }
-            Remove-Item $videoFile -Force
-          }
-
-          if ($subList.Count -gt 0) {
-            foreach ($sub in $subList) {
-              if (Test-Path $sub) {
-                $subName = [System.IO.Path]::GetFileName($sub)
-                Write-Log "Uploading subtitle: $subName"
-                Upload-File -localPath $sub -remotePath "$chunksDir/$subName"
-              }
-            }
-          }
-
-          if ($fileInfos.Count -gt 0) {
-            Write-Log "Generating reassemble.bat..."
-            $batPath = Join-Path $chunksDir "reassemble.bat"
-            $batLines = @(
-              "@echo off",
-              "setlocal enabledelayedexpansion",
-              "echo ========================================",
-              "echo  Reassembling all downloaded files...",
-              "echo ========================================"
-            )
-            foreach ($fi in $fileInfos) {
-              $name = $fi.Name
-              if ($fi.HasChunks) {
-                $batLines += "echo --- Rebuilding $name ---"
-                $batLines += "copy /b $name.part* $name"
-                $batLines += "if %errorlevel% equ 0 ("
-                $batLines += "    echo Successfully created $name"
-                $batLines += "    del $name.part*"
-                $batLines += "    echo Deleted temporary parts for $name"
-                $batLines += ") else ("
-                $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
-                $batLines += ")"
-              } else {
-                $batLines += "echo $name was downloaded as a single file (no chunks)."
-              }
-            }
-            $batLines += "echo ========================================"
-            $batLines += "echo All done! Press any key to exit."
-            $batLines += "pause >nul"
-            $batLines | Out-File -FilePath $batPath -Encoding ASCII
-            Write-Log "Uploading reassemble.bat..."
-            Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
-          } else {
-            Write-Log "No files were successfully uploaded."
-          }
-          Write-Log "✅ Processing complete."
-
-          Remove-Item video_list.txt, sub_list.txt -ErrorAction SilentlyContinue
-
-      - name: Final log commit (always)
+      - name: Commit download.log and output folder
         if: always()
         run: |
           git add download.log "${{ github.event.inputs.folder_name }}" 2>/dev/null || true
