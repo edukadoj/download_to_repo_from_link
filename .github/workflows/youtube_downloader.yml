@@ -44,6 +44,16 @@ on:
           - 'en (English)'
           - 'fa (Persian)'
           - 'none'
+      burner_subs:
+        description: 'Burn subtitles into video?'
+        required: true
+        type: boolean
+        default: false
+      use_cache:
+        description: 'Enable pip & Deno caching'
+        required: true
+        type: boolean
+        default: true
       folder_name:
         description: 'Folder to store downloads'
         required: false
@@ -72,8 +82,9 @@ jobs:
           git pull --rebase
           git push || true
 
-      # ── Cache for pip & Deno ──
+      # ── Optional caching ──
       - name: Restore pip & Deno cache
+        if: inputs.use_cache == 'true'
         id: cache
         uses: actions/cache@v4
         with:
@@ -97,7 +108,7 @@ jobs:
           curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
           echo "WARP is active."
 
-      - name: Install dependencies (with caching)
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
@@ -107,7 +118,7 @@ jobs:
           fi
           echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
-      - name: Download, split & upload (all‑in‑one Python)
+      - name: Download, split & upload (verbose)
         id: process
         env:
           YT_URL_1: ${{ github.event.inputs.youtube_url1 }}
@@ -118,6 +129,7 @@ jobs:
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
           SUB_LANG: ${{ github.event.inputs.sub_lang }}
           QUALITY: ${{ github.event.inputs.quality }}
+          BURN_SUBS: ${{ github.event.inputs.burner_subs }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -136,6 +148,7 @@ jobs:
           quality = os.environ.get("QUALITY", "720p")
           cookies_secret = os.environ.get("YOUTUBE_COOKIES", "").strip()
           sub_lang_input = os.environ.get("SUB_LANG", "none").strip()
+          burn_subs = os.environ.get("BURN_SUBS", "false").lower() == "true"
           folder_name = os.environ.get("FOLDER_NAME", "YouTube Download")
           token = os.environ.get("GITHUB_TOKEN")
           repo = os.environ["GITHUB_REPOSITORY"]
@@ -149,12 +162,13 @@ jobs:
                   urls.append(v)
 
           if not urls:
-              log("No URLs provided.")
+              log("❌ No URLs provided.")
               sys.exit(0)
 
-          log(f"Processing {len(urls)} URL(s) through Cloudflare WARP")
-          log(f"Quality: {quality}")
-          log(f"Subtitles: {sub_lang_input}")
+          log(f"🚀 Processing {len(urls)} URL(s) through Cloudflare WARP")
+          log(f"   Quality: {quality}")
+          log(f"   Subtitles: {sub_lang_input}")
+          log(f"   Burn subtitles: {burn_subs}")
 
           # ── Quality map ──
           quality_map = {
@@ -220,7 +234,6 @@ jobs:
                   b64 = base64.b64encode(f.read()).decode("utf-8")
               url = f"https://api.github.com/repos/{repo}/contents/{quote(remote_path)}"
               headers = {"Authorization": f"token {token}"}
-              # Check if file exists (to get SHA for updates)
               resp = requests.get(url, headers=headers)
               sha = resp.json().get("sha") if resp.status_code == 200 else None
               body = {
@@ -241,65 +254,104 @@ jobs:
           video_count = 0
           total_uploaded = 0
           chunk_size = 20 * 1024 * 1024
+          video_infos = []  # list of dicts: name, chunks (0=small file)
 
           for idx, url in enumerate(urls):
               video_count += 1
-              log(f"\n--- URL #{video_count}: {url} ---")
+              log(f"\n📥 URL #{video_count}: {url}")
               extra_args = []
               video_file = None
+              subtitle_file = None
 
               # ── Try WARP ──
-              log("  [Strategy 1] Cloudflare WARP (video only)...")
+              log("   [Strategy 1] Cloudflare WARP (video only) ...")
               ok, new_files = run_ytdlp(video_cmd, url)
               if ok:
-                  log("  ✓ WARP video download succeeded")
+                  log("   ✅ WARP download succeeded")
               else:
-                  log("  ✗ WARP failed")
+                  log("   ❌ WARP download failed")
 
               # ── Try cookies if needed ──
               if not ok and cookies_secret:
-                  log("  [Strategy 2] Cookies (video only)...")
+                  log("   [Strategy 2] Cookies (video only) ...")
                   with open("cookies.txt", "w") as cf:
                       cf.write(cookies_secret)
                   extra_args = ["--cookies", "cookies.txt"]
                   ok, new_files = run_ytdlp(video_cmd, url, extra_args=extra_args)
                   if ok:
-                      log("  ✓ Cookies video download succeeded")
+                      log("   ✅ Cookies download succeeded")
                   else:
-                      log("  ✗ Cookies video download failed")
+                      log("   ❌ Cookies download failed")
               elif not ok:
-                  log("  [Strategy 2] Skipped (no cookies secret)")
+                  log("   [Strategy 2] Skipped (no cookies secret)")
 
               if not ok:
-                  log("  ✗ All download methods failed for this URL. Skipping.")
+                  log("   ❌ All download methods failed for this URL. Skipping.")
                   continue
 
-              # Locate video file among new files
+              # Locate video file
               for f in sorted(new_files):
                   if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")) and os.path.exists(f):
                       video_file = f
                       break
               if not video_file:
-                  log("  ⚠ Video file not found after download.")
+                  log("   ⚠️ Video file not found after download.")
                   continue
 
               file_size = os.path.getsize(video_file)
-              log(f"  ✓ Video: {video_file} ({file_size/1024/1024:.1f} MB)")
+              log(f"   📦 Video: {video_file} ({file_size/1024**2:.1f} MB)")
 
-              # ── Split & upload video ──
+              # ── Subtitle (best effort) ──
+              if sub_cmd and sub_lang_input != "none":
+                  log("   📝 Attempting subtitle download ...")
+                  try:
+                      sub_ok, sub_new = run_ytdlp(sub_cmd, url, extra_args=extra_args)
+                      if sub_ok:
+                          for f in sorted(sub_new):
+                              if f.endswith(".srt"):
+                                  subtitle_file = f
+                                  log(f"   ✅ Subtitle downloaded: {subtitle_file}")
+                                  break
+                          if not subtitle_file:
+                              log("   ℹ️ No subtitle file found for this video.")
+                      else:
+                          log("   ⚠️ Subtitle download failed (non‑critical).")
+                  except Exception as e:
+                      log(f"   ⚠️ Subtitle error (non‑critical): {e}")
+
+              # ── Burn subtitles if requested ──
+              if burn_subs and subtitle_file:
+                  log("   🔥 Burning subtitles into video ...")
+                  burned_video = f"burned_{video_file}"
+                  cmd_ffmpeg = [
+                      "ffmpeg", "-y", "-i", video_file,
+                      "-vf", f"subtitles={subtitle_file}",
+                      "-c:v", "libx264", "-crf", "22", "-c:a", "copy",
+                      burned_video
+                  ]
+                  proc = subprocess.run(cmd_ffmpeg, capture_output=True, text=True)
+                  if proc.returncode == 0:
+                      os.remove(video_file)
+                      os.rename(burned_video, video_file)
+                      log("   ✅ Subtitles burned into video")
+                  else:
+                      log(f"   ⚠️ Burning failed: {proc.stderr.strip()}")
+
+              # ── Split & upload ──
               if file_size < chunk_size:
-                  log("  Uploading small file directly...")
+                  log("   ⬆️ Uploading small file directly ...")
                   remote_path = f"{folder_name}/{video_file}"
                   if upload_to_github(video_file, remote_path):
-                      log("  ✓ Uploaded small file")
+                      log("   ✅ Uploaded small file")
+                      video_infos.append({"name": video_file, "chunks": 0})
                       total_uploaded += 1
                   else:
-                      log("  ✗ Small file upload failed")
+                      log("   ❌ Small file upload failed")
                       continue
               else:
-                  log(f"  Splitting into {chunk_size//1024//1024} MB chunks...")
+                  log(f"   ✂️ Splitting into {chunk_size//1024//1024} MB chunks ...")
+                  part_idx = 0
                   with open(video_file, "rb") as f:
-                      part_idx = 0
                       while True:
                           data = f.read(chunk_size)
                           if not data:
@@ -308,76 +360,77 @@ jobs:
                           chunk_path = out_dir / chunk_name
                           with open(chunk_path, "wb") as cf:
                               cf.write(data)
-                          log(f"    Uploading {chunk_name} ({len(data)/1024/1024:.1f} MB)")
+                          log(f"      ⬆️ Uploading chunk {part_idx+1}: {chunk_name} ({len(data)/1024**2:.1f} MB)")
                           if not upload_to_github(str(chunk_path), f"{folder_name}/{chunk_name}"):
-                              log(f"    ✗ Upload failed for {chunk_name}. Skipping remaining chunks.")
+                              log(f"      ❌ Upload failed for {chunk_name}. Skipping remaining chunks.")
                               break
                           os.remove(chunk_path)
                           part_idx += 1
                           time.sleep(0.3)
-                  log(f"  ✓ Uploaded {part_idx} chunks")
-                  total_uploaded += 1
+                  if part_idx > 0:
+                      video_infos.append({"name": video_file, "chunks": part_idx})
+                      log(f"   ✅ Uploaded {part_idx} chunks")
+                      total_uploaded += 1
+                  else:
+                      log("   ❌ No chunks uploaded, skipping.")
 
-              # ── Subtitle (best effort) ──
-              if sub_cmd and sub_lang_input != "none":
-                  log("  [Subs] Attempting subtitle download (best effort)...")
-                  try:
-                      sub_ok, sub_new = run_ytdlp(sub_cmd, url, extra_args=extra_args)
-                      if sub_ok:
-                          sub_file = None
-                          for f in sorted(sub_new):
-                              if f.endswith(".srt"):
-                                  sub_file = f
-                                  break
-                          if sub_file:
-                              remote_sub = f"{folder_name}/{sub_file}"
-                              if upload_to_github(sub_file, remote_sub):
-                                  log(f"  ✓ Subtitle uploaded: {sub_file}")
-                              else:
-                                  log("  ℹ Subtitle upload failed")
-                          else:
-                              log("  ℹ No subtitle file found.")
-                      else:
-                          log("  ℹ Subtitle download failed (non‑critical).")
-                  except Exception as e:
-                      log(f"  ℹ Subtitle error (non‑critical): {e}")
+              # Upload subtitle file (if not burned)
+              if subtitle_file and not burn_subs:
+                  remote_sub = f"{folder_name}/{subtitle_file}"
+                  if upload_to_github(subtitle_file, remote_sub):
+                      log(f"   ✅ Subtitle file uploaded: {subtitle_file}")
+                  else:
+                      log("   ⚠️ Subtitle upload failed")
 
-              # Remove original video after successful upload
+              # Remove original video to free space
               try: os.remove(video_file)
               except: pass
 
-          # ── Generate reassemble.bat (if any file uploaded) ──
-          if total_uploaded > 0:
+          # ── Generate reassemble.bat ──
+          if video_infos:
+              log("\n📄 Creating reassemble.bat ...")
               bat_path = out_dir / "reassemble.bat"
-              with open(bat_path, "w") as bat:
-                  bat.write("@echo off\nsetlocal enabledelayedexpansion\n")
-                  bat.write("echo ========================================\n")
-                  bat.write("echo  Reassembling all downloaded files...\n")
-                  bat.write("echo ========================================\n")
-                  bat.write("echo If you have .part files, they will be combined.\n")
-                  bat.write("echo To rebuild a file use: copy /b yourfile.mp4.part* yourfile.mp4\n")
-                  bat.write("echo ========================================\n")
-                  bat.write("pause\n")
-              remote_bat = f"{folder_name}/reassemble.bat"
-              if upload_to_github(str(bat_path), remote_bat):
-                  log("  ✓ reassemble.bat uploaded.")
+              with open(bat_path, "w", encoding="utf-8") as bat:
+                  bat.write("@echo off\r\nsetlocal enabledelayedexpansion\r\n")
+                  bat.write("echo ========================================\r\n")
+                  bat.write("echo  Reassembling all downloaded files...\r\n")
+                  bat.write("echo ========================================\r\n")
+                  for info in video_infos:
+                      name = info["name"]
+                      if info["chunks"] > 0:
+                          bat.write(f"echo --- Rebuilding {name} ---\r\n")
+                          bat.write(f"copy /b {name}.part* {name}\r\n")
+                          bat.write(f"if %errorlevel% equ 0 (\r\n")
+                          bat.write(f"    echo Successfully created {name}\r\n")
+                          bat.write(f"    del {name}.part*\r\n")
+                          bat.write(f"    echo Deleted temporary parts\r\n")
+                          bat.write(f") else (\r\n")
+                          bat.write(f"    echo ERROR: Failed to reassemble {name}. Parts kept intact.\r\n")
+                          bat.write(f")\r\n")
+                      else:
+                          bat.write(f"echo {name} was downloaded as a single file (no chunks).\r\n")
+                  bat.write("echo ========================================\r\n")
+                  bat.write("echo All done! Press any key to exit.\r\n")
+                  bat.write("pause >nul\r\n")
+              log("   ⬆️ Uploading reassemble.bat ...")
+              if upload_to_github(str(bat_path), f"{folder_name}/reassemble.bat"):
+                  log("   ✅ reassemble.bat uploaded.")
               else:
-                  log("  ✗ reassemble.bat upload failed.")
+                  log("   ⚠️ Failed to upload reassemble.bat.")
 
           # ── Final log ──
-          log(f"\n=== Summary ===")
-          log(f"Total URLs: {len(urls)}")
-          log(f"Successfully uploaded: {total_uploaded}")
+          log(f"\n📊 Summary")
+          log(f"   Total URLs: {len(urls)}")
+          log(f"   Successfully uploaded: {total_uploaded}")
 
-          # Clean up cookies
           try: os.remove("cookies.txt")
           except: pass
 
           if total_uploaded == 0:
-              log("\n⚠️ No videos were uploaded. Failing the workflow.")
+              log("\n❌ No videos were uploaded. The workflow will be marked as failed.")
               sys.exit(1)
           else:
-              log(f"\n✅ Uploaded {total_uploaded} video(s).")
+              log(f"\n✅ Uploaded {total_uploaded} video(s) successfully.")
           PYEOF
 
       - name: Commit download.log and output folder
