@@ -1,91 +1,47 @@
-name: Download VS 2026 Community Offline Mode
+name: YouTube Download (PO Token + PyTubeFix)
 
 on:
   workflow_dispatch:
     inputs:
-      cache_mode:
-        description: 'Cache behavior'
+      youtube_url1:
+        description: 'YouTube URL #1 (required)'
+        required: true
+        default: 'https://www.youtube.com/watch?v=M0iyhwzdG3k'
+      youtube_url2:
+        description: 'YouTube URL #2 (optional)'
+        required: false
+        default: ''
+      youtube_url3:
+        description: 'YouTube URL #3 (optional)'
+        required: false
+        default: ''
+      youtube_url4:
+        description: 'YouTube URL #4 (optional)'
+        required: false
+        default: ''
+      youtube_url5:
+        description: 'YouTube URL #5 (optional)'
+        required: false
+        default: ''
+      quality:
+        description: 'Video quality'
+        required: true
         type: choice
+        default: '720p'
         options:
-          - 'use cache if any'
-          - 'do not use cache'
-        default: 'do not use cache'
-      layout_options:
-        description: 'Additional VS layout options (--includeRecommended is default)'
-        type: string
-        default: '--includeRecommended'
-      verify_layout:
-        description: 'Test install layout offline? (takes extra time)'
-        type: boolean
-        default: true
-      workload_web:
-        description: 'ASP.NET and web development'
-        type: boolean
-        default: true
-      workload_azure:
-        description: 'Azure and AI development'
-        type: boolean
-        default: true
-      workload_python:
-        description: 'Python development'
-        type: boolean
-        default: true
-      workload_node:
-        description: 'Node.js development'
-        type: boolean
-        default: true
-      workload_maui:
-        description: '.NET Multi-platform App UI development'
-        type: boolean
-        default: true
-      workload_desktop_net:
-        description: '.NET desktop development'
-        type: boolean
-        default: true
-      workload_desktop_cpp:
-        description: 'Desktop development with C++'
-        type: boolean
-        default: true
-      workload_winui:
-        description: 'WinUI application development'
-        type: boolean
-        default: true
-      workload_cpp_mobile:
-        description: 'Mobile development with C++ (Out of support)'
-        type: boolean
-        default: true
-      workload_unity:
-        description: 'Game development with Unity'
-        type: boolean
-        default: true
-      workload_cpp_game:
-        description: 'Game development with C++'
-        type: boolean
-        default: true
-      workload_data:
-        description: 'Data storage and processing'
-        type: boolean
-        default: true
-      workload_data_science:
-        description: 'Data science and analytical applications'
-        type: boolean
-        default: true
-      workload_office:
-        description: 'Microsoft 365 development'
-        type: boolean
-        default: true
-      workload_vs_extension:
-        description: 'Visual Studio extension development'
-        type: boolean
-        default: true
-      workload_linux_cpp:
-        description: 'Linux, Mac, and embedded development with C++'
-        type: boolean
-        default: true
+          - '144p'
+          - '360p'
+          - '720p'
+          - '1080p'
+          - 'best'
+      folder_name:
+        description: 'Folder to store downloads'
+        required: false
+        default: 'YouTube Download'
 
 jobs:
-  build:
-    runs-on: windows-latest
+  download-and-chunk:
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     permissions:
       contents: write
@@ -95,321 +51,314 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
 
-      - name: "Log initial free space (C: and D:)"
-        shell: powershell
+      - name: Clean up old downloads and log
         run: |
-          Get-PSDrive C, D | Select-Object Name, Free
+          rm -rf "${{ github.event.inputs.folder_name }}"
+          rm -f video.* download.log video_list.txt sub_list.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Clean up old downloads" || true
+          git pull --rebase
+          git push || true
 
-      - name: Clean up old chunk folder
-        shell: powershell
+      - name: Install system dependencies
         run: |
-          if (Test-Path vs_2026_community_offline) {
-            Remove-Item -Recurse -Force vs_2026_community_offline
-            Write-Host "Cleaned old chunk folder."
-          } else {
-            Write-Host "No old chunk folder found."
-          }
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
-      - name: Free disk space on runner
-        shell: powershell
+      - name: Install Python dependencies (yt-dlp + PO token + pytubefix)
         run: |
-          Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2022" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2019" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files (x86)\Microsoft Visual Studio\*" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\Android" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Android" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\Microsoft SDKs" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Program Files\Docker" -ErrorAction SilentlyContinue
-          Get-ChildItem "C:\Program Files\dotnet\sdk" -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -notlike "8.0*" -and $_.Name -notlike "9.0*" -and $_.Name -notlike "10.0*" } |
-            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "$env:TEMP\*" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "C:\Windows\Temp\*" -ErrorAction SilentlyContinue
-          Write-Host "Free space after cleanup:"
-          Get-PSDrive C, D | Select-Object Name, Free
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --upgrade "yt-dlp>=2025.05.22"
+          python3 -m pip install --upgrade bgutil-ytdlp-pot-provider
+          python3 -m pip install --upgrade pytubefix
 
-      - name: Download VS bootstrapper
-        shell: powershell
+      - name: Install Deno (for PO token server)
         run: |
-          Invoke-WebRequest -Uri "https://aka.ms/vs/18/stable/vs_community.exe" -OutFile vs_Community.exe
-          if ((Get-Item vs_Community.exe).Length -lt 1000000) {
-            Write-Error "Bootstrapper download failed"
-            exit 1
-          }
-          Write-Host "Bootstrapper ready."
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
-      - name: Compute cache key
-        id: cache-key
+      - name: Clone & start PO token server (Deno)
+        run: |
+          git clone --single-branch --branch 1.3.1 \
+            https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
+          cd bgutil-ytdlp-pot-provider/server/
+          # Start the Deno server in the background on port 4416
+          /home/runner/.deno/bin/deno run --allow-net --allow-read --allow-env \
+            main.ts --port 4416 &
+          sleep 10   # give the server time to boot
+          echo "PO Token server started."
+
+      - name: Download all videos (yt-dlp + PO token → pytubefix fallback)
+        id: download
+        env:
+          YT_URL_1: ${{ github.event.inputs.youtube_url1 }}
+          YT_URL_2: ${{ github.event.inputs.youtube_url2 }}
+          YT_URL_3: ${{ github.event.inputs.youtube_url3 }}
+          YT_URL_4: ${{ github.event.inputs.youtube_url4 }}
+          YT_URL_5: ${{ github.event.inputs.youtube_url5 }}
+        run: |
+          python3 << 'PYEOF'
+          import os, sys, time, traceback
+
+          quality = "${{ github.event.inputs.quality }}"
+          folder  = "${{ github.event.inputs.folder_name }}"
+
+          # Collect URLs from environment variables
+          urls = []
+          for i in range(1, 6):
+              v = os.environ.get(f"YT_URL_{i}", "").strip()
+              if v:
+                  urls.append(v)
+          if not urls:
+              print("No URLs provided.")
+              sys.exit(1)
+
+          print(f"Processing {len(urls)} URL(s)")
+
+          # --------------- Method 1: yt-dlp + PO Token ---------------
+          def try_ytdlp_po_token(url, q, vid_num):
+              """Attempt download with yt-dlp + PO token provider."""
+              import subprocess
+              quality_map = {
+                  "144p": "bestvideo[height<=144]+bestaudio/best[height<=144]",
+                  "360p": "bestvideo[height<=360]+bestaudio/best[height<=360]",
+                  "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]",
+                  "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+                  "best": "best"
+              }
+              fmt = quality_map.get(q, "bestvideo[height<=720]+bestaudio/best[height<=720]")
+              out_name = f"video_{vid_num}.%(ext)s"
+              cmd = [
+                  "yt-dlp", "--no-playlist",
+                  "--format", fmt,
+                  "--output", out_name,
+                  "--extractor-args", "youtube:potoken_server_url=http://127.0.0.1:4416",
+                  "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                  url
+              ]
+              print(f"  [yt-dlp] Trying PO token method...")
+              result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+              if result.returncode == 0:
+                  # Find the created file
+                  for f in os.listdir("."):
+                      if f.startswith(f"video_{vid_num}.") and not f.endswith(".part"):
+                          return f
+              else:
+                  # Print abbreviated error
+                  lines = result.stderr.splitlines()[-5:]
+                  for line in lines:
+                      print(f"    {line}")
+              return None
+
+          # --------------- Method 2: pytubefix fallback ---------------
+          def try_pytubefix(url, vid_num):
+              """Attempt download with pytubefix (no cookies needed)."""
+              try:
+                  from pytubefix import YouTube
+                  from pytubefix.cli import on_progress
+                  print(f"  [pytubefix] Trying...")
+                  yt = YouTube(url, on_progress_callback=on_progress, use_oauth=False)
+                  print(f"    Title: {yt.title}")
+                  stream = yt.streams.get_highest_resolution()
+                  if stream:
+                      out_name = f"video_{vid_num}.mp4"
+                      stream.download(filename=out_name)
+                      if os.path.exists(out_name):
+                          return out_name
+                  print(f"    No suitable stream found.")
+              except Exception as e:
+                  print(f"    pytubefix error: {e}")
+              return None
+
+          # --------------- Main loop ---------------
+          video_count = 0
+          downloaded_any = 0
+
+          for idx, url in enumerate(urls):
+              video_count += 1
+              print(f"\n--- URL #{video_count}: {url} ---")
+
+              vid_file = None
+
+              # Strategy 1: yt-dlp + PO token
+              vid_file = try_ytdlp_po_token(url, quality, video_count)
+
+              # Strategy 2: pytubefix fallback
+              if not vid_file:
+                  vid_file = try_pytubefix(url, video_count)
+
+              if vid_file and os.path.exists(vid_file):
+                  size_mb = os.path.getsize(vid_file) / (1024 * 1024)
+                  print(f"  ✓ Downloaded: {vid_file} ({size_mb:.1f} MB)")
+                  with open("video_list.txt", "a") as vl:
+                      vl.write(vid_file + "\n")
+                  downloaded_any += 1
+              else:
+                  print(f"  ✗ All methods failed for URL #{video_count}.")
+
+          # Write log
+          with open("download.log", "a") as log:
+              log.write(f"=== YouTube Download Log ===\n")
+              log.write(f"Date: {time.ctime()}\n")
+              log.write(f"Total URLs: {len(urls)}\n")
+              log.write(f"Successfully downloaded: {downloaded_any}\n")
+
+          if downloaded_any == 0:
+              print("\n⚠️ No videos were downloaded.")
+          else:
+              print(f"\n✅ Downloaded {downloaded_any} video(s).")
+          PYEOF
+
+      - name: Commit download log
+        if: always()
+        run: |
+          git add download.log video_list.txt 2>/dev/null || true
+          git commit -m "Update download log" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
+
+      - name: Split and upload everything
+        if: success()
         shell: pwsh
-        run: |
-          $key = "vs-layout-v6-" +
-            "-web-${{ inputs.workload_web }}" +
-            "-azure-${{ inputs.workload_azure }}" +
-            "-python-${{ inputs.workload_python }}" +
-            "-node-${{ inputs.workload_node }}" +
-            "-maui-${{ inputs.workload_maui }}" +
-            "-desktopnet-${{ inputs.workload_desktop_net }}" +
-            "-desktopcpp-${{ inputs.workload_desktop_cpp }}" +
-            "-winui-${{ inputs.workload_winui }}" +
-            "-cppmobile-${{ inputs.workload_cpp_mobile }}" +
-            "-unity-${{ inputs.workload_unity }}" +
-            "-cppgame-${{ inputs.workload_cpp_game }}" +
-            "-data-${{ inputs.workload_data }}" +
-            "-datascience-${{ inputs.workload_data_science }}" +
-            "-office-${{ inputs.workload_office }}" +
-            "-vsext-${{ inputs.workload_vs_extension }}" +
-            "-linuxcpp-${{ inputs.workload_linux_cpp }}" +
-            "-options-${{ inputs.layout_options }}"
-          "key=$key" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Select drive with most free space
-        id: select-drive
-        shell: pwsh
-        run: |
-          $drives = Get-PSDrive -Name C, D | Where-Object { $_.Free -gt 0 }
-          $bestDrive = $drives | Sort-Object Free -Descending | Select-Object -First 1
-          $layoutRoot = "$($bestDrive.Name):\vs_layout_workdir"
-          Write-Host "Using drive $($bestDrive.Name) with $([math]::Round($bestDrive.Free/1GB,2)) GB free"
-          "layout_root=$layoutRoot" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Restore cached layout
-        id: cache-restore
-        if: inputs.cache_mode == 'use cache if any'
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ steps.select-drive.outputs.layout_root }}
-          key: ${{ steps.cache-key.outputs.key }}
-
-      - name: Create offline layout
-        id: layout
-        if: inputs.cache_mode == 'do not use cache' || steps.cache-restore.outputs.cache-hit != 'true'
-        shell: pwsh
-        timeout-minutes: 300
-        run: |
-          $layoutDir = "${{ steps.select-drive.outputs.layout_root }}"
-          New-Item -ItemType Directory -Force -Path $layoutDir | Out-Null
-
-          $addArgs = @()
-          if ('${{ inputs.workload_web }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetWeb' }
-          if ('${{ inputs.workload_azure }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Azure' }
-          if ('${{ inputs.workload_python }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Python' }
-          if ('${{ inputs.workload_node }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Node' }
-          if ('${{ inputs.workload_maui }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetCrossPlat' }
-          if ('${{ inputs.workload_desktop_net }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedDesktop' }
-          if ('${{ inputs.workload_desktop_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeDesktop' }
-          if ('${{ inputs.workload_winui }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Universal' }
-          if ('${{ inputs.workload_cpp_mobile }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeMobile' }
-          if ('${{ inputs.workload_unity }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedGame' }
-          if ('${{ inputs.workload_cpp_game }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeGame' }
-          if ('${{ inputs.workload_data }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Data' }
-          if ('${{ inputs.workload_data_science }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.DataScience' }
-          if ('${{ inputs.workload_office }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Office' }
-          if ('${{ inputs.workload_vs_extension }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.VisualStudioExtension' }
-          if ('${{ inputs.workload_linux_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeCrossPlat' }
-
-          if ($addArgs.Count -eq 0) {
-            Write-Error "No workload selected – at least one workload must be chosen."
-            exit 1
-          }
-
-          $layoutOptions = "${{ inputs.layout_options }}".Trim()
-          Write-Host "Layout options: $layoutOptions"
-
-          $cliArgs = @('--layout', $layoutDir, '--lang', 'en-US') + $addArgs
-          if ($layoutOptions -ne '') {
-            $cliArgs += $layoutOptions -split ' '
-          }
-          $cliArgs += @('--quiet', '--wait', '--norestart')
-
-          Write-Host "Arguments: $cliArgs"
-          $process = Start-Process -FilePath .\vs_Community.exe -ArgumentList $cliArgs -PassThru -Wait -NoNewWindow `
-            -RedirectStandardOutput "$env:TEMP\vs_stdout.log" -RedirectStandardError "$env:TEMP\vs_stderr.log"
-
-          Write-Host "Exit code: $($process.ExitCode)"
-          Get-Content "$env:TEMP\vs_stdout.log" -ErrorAction SilentlyContinue | Write-Host
-          Get-Content "$env:TEMP\vs_stderr.log" -ErrorAction SilentlyContinue | Write-Host
-
-          if ($process.ExitCode -ne 0) { Write-Error "Layout failed with code $($process.ExitCode)"; exit $process.ExitCode }
-
-          Write-Host "Layout created at $layoutDir"
-          "layout-created=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Test offline installation (verify layout)
-        if: inputs.verify_layout == true && (steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true')
-        shell: pwsh
-        timeout-minutes: 60
-        run: |
-          $layoutDir = "${{ steps.select-drive.outputs.layout_root }}"
-          Write-Host "Testing offline installation from $layoutDir..."
-          
-          # Create a test directory for the installation
-          $testInstallDir = "D:\vs_test_install"
-          if (Test-Path $testInstallDir) {
-            Remove-Item -Recurse -Force $testInstallDir
-          }
-          New-Item -ItemType Directory -Force -Path $testInstallDir | Out-Null
-          
-          # Build the test installation arguments
-          $testArgs = @('--installPath', $testInstallDir, '--noWeb', '--noUpdateInstaller', '--quiet', '--wait', '--norestart')
-          
-          # Add the same workloads and layout options as used during layout creation
-          $addArgs = @()
-          if ('${{ inputs.workload_web }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetWeb' }
-          if ('${{ inputs.workload_azure }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Azure' }
-          if ('${{ inputs.workload_python }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Python' }
-          if ('${{ inputs.workload_node }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Node' }
-          if ('${{ inputs.workload_maui }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NetCrossPlat' }
-          if ('${{ inputs.workload_desktop_net }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedDesktop' }
-          if ('${{ inputs.workload_desktop_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeDesktop' }
-          if ('${{ inputs.workload_winui }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Universal' }
-          if ('${{ inputs.workload_cpp_mobile }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeMobile' }
-          if ('${{ inputs.workload_unity }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.ManagedGame' }
-          if ('${{ inputs.workload_cpp_game }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeGame' }
-          if ('${{ inputs.workload_data }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Data' }
-          if ('${{ inputs.workload_data_science }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.DataScience' }
-          if ('${{ inputs.workload_office }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.Office' }
-          if ('${{ inputs.workload_vs_extension }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.VisualStudioExtension' }
-          if ('${{ inputs.workload_linux_cpp }}' -eq 'true') { $addArgs += '--add'; $addArgs += 'Microsoft.VisualStudio.Workload.NativeCrossPlat' }
-          
-          $testArgs += $addArgs
-          
-          $layoutOptions = "${{ inputs.layout_options }}".Trim()
-          if ($layoutOptions -ne '') {
-            $testArgs += $layoutOptions -split ' '
-          }
-          
-          Write-Host "Test arguments: $testArgs"
-          
-          # Run the installer from the layout directory
-          $layoutExe = Join-Path $layoutDir "vs_community.exe"
-          $process = Start-Process -FilePath $layoutExe -ArgumentList $testArgs -PassThru -Wait -NoNewWindow `
-            -RedirectStandardOutput "$env:TEMP\vs_test_stdout.log" -RedirectStandardError "$env:TEMP\vs_test_stderr.log"
-          
-          Write-Host "Test installation exit code: $($process.ExitCode)"
-          Get-Content "$env:TEMP\vs_test_stdout.log" -ErrorAction SilentlyContinue | Write-Host
-          Get-Content "$env:TEMP\vs_test_stderr.log" -ErrorAction SilentlyContinue | Write-Host
-          
-          if ($process.ExitCode -ne 0) {
-            Write-Error "Offline installation test FAILED! The layout is missing required components."
-            exit 1
-          }
-          
-          Write-Host "Offline installation test PASSED - layout is complete and working."
-          
-          # Clean up test installation
-          if (Test-Path $testInstallDir) {
-            Write-Host "Cleaning up test installation..."
-            Remove-Item -Recurse -Force $testInstallDir -ErrorAction SilentlyContinue
-          }
-
-      - name: Package layout into zip
-        if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
-        shell: powershell
-        run: |
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $zip = "$env:RUNNER_TEMP\VsCommunity2026Layout.zip"
-          [System.IO.Compression.ZipFile]::CreateFromDirectory("${{ steps.select-drive.outputs.layout_root }}", $zip, 'Optimal', $false)
-          Write-Host "Zip size: $((Get-Item $zip).Length / 1MB) MB"
-          echo "ZIP_PATH=$zip" >> $env:GITHUB_ENV
-
-      - name: Split zip and upload chunks (with smart reassemble.bat)
-        if: steps.cache-restore.outputs.cache-hit == 'true' || steps.layout.outputs.layout-created == 'true'
-        shell: powershell
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
         run: |
-          $zip = $env:ZIP_PATH
-          if (-not $zip) { $zip = "$env:RUNNER_TEMP\VsCommunity2026Layout.zip" }
-          $chunks = "vs_2026_community_offline"
-          New-Item -ItemType Directory -Force -Path $chunks | Out-Null
-          $stream = [System.IO.File]::OpenRead($zip)
-          $buffer = New-Object byte[] (20 * 1MB)
-          $idx = 0
-          while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-            [System.IO.File]::WriteAllBytes("$chunks\VsCommunity2026Layout.part{0:D4}" -f $idx, $buffer[0..($n-1)])
-            $idx++
-          }
-          $stream.Close()
-          $totalChunks = $idx
-          Write-Host "Total chunks to upload: $totalChunks"
-
-          # --- IMPROVED reassemble.bat: deletes parts on success ---
-          $batContent = @"
-          @echo off
-          setlocal enabledelayedexpansion
-          echo ========================================
-          echo  Reassembling Visual Studio Layout...
-          echo ========================================
-          echo.
-          echo Combining VsCommunity2026Layout.part* into VsCommunity2026Layout.zip...
-          copy /b VsCommunity2026Layout.part* VsCommunity2026Layout.zip
-          if %errorlevel% equ 0 (
-              echo.
-              echo Successfully created VsCommunity2026Layout.zip
-              echo.
-              echo Deleting temporary parts...
-              del VsCommunity2026Layout.part*
-              echo Done! You can now extract VsCommunity2026Layout.zip and run vs_setup.exe
-          ) else (
-              echo.
-              echo ERROR: Failed to reassemble the ZIP file.
-              echo All parts are kept intact so you can retry.
-          )
-          echo.
-          echo ========================================
-          pause
-          "@
-          $batContent | Out-File "$chunks\reassemble.bat" -Encoding ASCII
-          # ---------------------------------------------------
-
           $token = $env:GITHUB_TOKEN
           $repo = $env:GITHUB_REPOSITORY
           $branch = $env:GITHUB_REF_NAME
-          $base = "https://api.github.com/repos/$repo/contents"
+          $chunksDir = $env:FOLDER_NAME
+          $chunkSize = 20MB
+          $logFile = "download.log"
+
+          function Write-Log {
+            param([string]$msg)
+            Write-Host $msg
+            Add-Content -Path $logFile -Value $msg
+          }
+
+          $videoList = @(Get-Content video_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
+          if ($videoList.Count -eq 0) {
+            Write-Log "No video files to upload. Exiting."
+            exit 0
+          }
+
+          New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
+          $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
           $headers = @{ Authorization = "Bearer $token" }
+          $apiBase = "https://api.github.com/repos/$repo/contents"
           $maxRetries = 3
-          for ($i=0; $i -lt $totalChunks; $i++) {
-            $f = "$chunks\VsCommunity2026Layout.part{0:D4}" -f $i
-            $bytes = [System.IO.File]::ReadAllBytes($f)
-            $enc = [Convert]::ToBase64String($bytes)
-            $url = "$base/$($f -replace '\\','/')"
-            $sha = try { (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $null }
-            $body = @{message="Upload $([System.IO.Path]::GetFileName($f))"; content=$enc; branch=$branch}
+
+          function Upload-File {
+            param([string]$localPath, [string]$remotePath)
+            $bytes = [System.IO.File]::ReadAllBytes($localPath)
+            $b64 = [Convert]::ToBase64String($bytes)
+            $url = "$apiBase/$($remotePath -replace '\\','/')"
+            try { $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $sha = $null }
+            $body = @{ message = "Add $(Split-Path $localPath -Leaf)"; content = $b64; branch = $branch }
             if ($sha) { $body.sha = $sha }
-            $success = $false
-            for ($retry=0; $retry -lt $maxRetries; $retry++) {
+            for ($retry = 0; $retry -lt $maxRetries; $retry++) {
               try {
-                Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType "application/json"
-                Write-Host "[OK] Uploaded chunk $($i+1) of $totalChunks"
-                $success = $true
-                break
+                Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
+                return
               } catch {
-                if ($retry -lt $maxRetries-1) {
-                  Write-Host "Retry $($retry+1) in 10 seconds..."
+                if ($retry -lt $maxRetries - 1) {
+                  Write-Log "Retry $($retry+1) in 10 seconds..."
                   Start-Sleep -Seconds 10
                 } else {
-                  Write-Error "Failed to upload chunk $f after $maxRetries attempts"
+                  Write-Log "FATAL: upload failed after $maxRetries attempts."
                   exit 1
                 }
               }
             }
-            if (-not $success) { exit 1 }
-            Start-Sleep -Milliseconds 500
           }
-          # Upload the improved reassemble.bat
-          $batPath = "$chunks\reassemble.bat"
-          $bytes = [System.IO.File]::ReadAllBytes($batPath)
-          $enc = [Convert]::ToBase64String($bytes)
-          $url = "$base/$chunks/reassemble.bat"
-          $sha = try { (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $null }
-          $body = @{message="Upload reassemble.bat"; content=$enc; branch=$branch}
-          if ($sha) { $body.sha = $sha }
-          Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType "application/json"
-          Write-Host "All chunks plus reassemble.bat uploaded successfully to folder: $chunks"
 
-      - name: Save layout cache
-        if: inputs.cache_mode == 'use cache if any' && steps.layout.outputs.layout-created == 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ steps.select-drive.outputs.layout_root }}
-          key: ${{ steps.cache-key.outputs.key }}
+          for ($i = 0; $i -lt $videoList.Count; $i++) {
+            $videoFile = $videoList[$i]
+            if (-not (Test-Path $videoFile)) {
+              Write-Log "Video file missing: $videoFile – skipping."
+              continue
+            }
+            $fileSize = (Get-Item $videoFile).Length
+            $fileName = [System.IO.Path]::GetFileName($videoFile)
+            Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
+            if ($fileSize -lt $chunkSize) {
+              Write-Log "File smaller than chunk size; uploading directly."
+              Upload-File -localPath $videoFile -remotePath "$chunksDir/$fileName"
+              $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+            } else {
+              Write-Log "Splitting into chunks..."
+              $stream = [System.IO.File]::OpenRead($videoFile)
+              $partIdx = 0
+              $buffer = New-Object byte[] $chunkSize
+              $uploadSuccess = $true
+              while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
+                $chunkPath = Join-Path $chunksDir $chunkName
+                [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
+                Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)"
+                try {
+                  Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
+                } catch {
+                  Write-Log "Upload failed for $chunkName. Aborting remaining chunks for $fileName."
+                  $uploadSuccess = $false
+                  break
+                }
+                Remove-Item $chunkPath -Force
+                $partIdx++
+                Start-Sleep -Milliseconds 500
+              }
+              $stream.Close()
+              if ($uploadSuccess) {
+                $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
+              }
+            }
+            Remove-Item $videoFile -Force
+          }
+
+          if ($fileInfos.Count -gt 0) {
+            Write-Log "Creating reassemble.bat..."
+            $batPath = Join-Path $chunksDir "reassemble.bat"
+            $batLines = @(
+              "@echo off",
+              "setlocal enabledelayedexpansion",
+              "echo ========================================",
+              "echo  Reassembling all downloaded files...",
+              "echo ========================================"
+            )
+            foreach ($fi in $fileInfos) {
+              $name = $fi.Name
+              if ($fi.HasChunks) {
+                $batLines += "echo --- Rebuilding $name ---"
+                $batLines += "copy /b $name.part* $name"
+                $batLines += "if %errorlevel% equ 0 ("
+                $batLines += "    echo Successfully created $name"
+                $batLines += "    del $name.part*"
+                $batLines += "    echo Deleted temporary parts for $name"
+                $batLines += ") else ("
+                $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
+                $batLines += ")"
+              } else {
+                $batLines += "echo $name was downloaded as a single file (no chunks)."
+              }
+            }
+            $batLines += "echo ========================================"
+            $batLines += "echo All done! Press any key to exit."
+            $batLines += "pause >nul"
+            $batLines | Out-File -FilePath $batPath -Encoding ASCII
+            Write-Log "Uploading reassemble.bat..."
+            Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
+          } else {
+            Write-Log "No files were successfully uploaded."
+          }
+          Write-Log "✅ Processing complete."
+
+      - name: Final log commit (always)
+        if: always()
+        run: |
+          git add download.log
+          git commit -m "Final download log" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
