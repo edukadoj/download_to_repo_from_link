@@ -85,11 +85,14 @@ jobs:
           curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
           echo "WARP is active."
 
-      - name: Install yt-dlp and ffmpeg
+      - name: Install yt-dlp, ffmpeg, and Deno
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
           python3 -m pip install --upgrade yt-dlp
+          # ── Install Deno (required by YouTube extraction) ──
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
       - name: Download all videos (WARP first, then cookies)
         id: download
@@ -145,16 +148,20 @@ jobs:
               log("Subtitles disabled.")
 
           def run_ytdlp(url, extra_args=None):
-              """Download with yt-dlp; return (result, set_of_new_files)."""
               before = set(os.listdir("."))
               cmd = [
                   "yt-dlp", "--no-playlist",
                   "--format", fmt,
-                  "--merge-output-format", "mp4",   # ← ENSURE MP4 OUTPUT
+                  "--merge-output-format", "mp4",
                   "--output", "%(title).150B [%(id)s].%(ext)s",
                   "--restrict-filenames",
                   "--windows-filenames",
                   "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                  # ── Retry + throttle to avoid 429 ──
+                  "--extractor-retries", "3",
+                  "--retries", "3",
+                  "--sleep-requests", "1",
+                  "--sleep-interval", "5",
               ] + sub_args
               if extra_args:
                   cmd.extend(extra_args)
@@ -203,7 +210,6 @@ jobs:
                   log("  [Strategy 2] Skipped (no cookies secret available)")
 
               if success:
-                  # Find the video file (exclude .part, .srt, .ytdl, .log) – will be .mp4 now
                   video_file = None
                   for f in sorted(new_files):
                       if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")):
@@ -406,7 +412,6 @@ jobs:
           }
           Write-Log "✅ Processing complete."
 
-          # Clean up temporary list files so they never reach the repository
           Remove-Item video_list.txt, sub_list.txt -ErrorAction SilentlyContinue
 
       - name: Final log commit (always)
