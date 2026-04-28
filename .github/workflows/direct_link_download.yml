@@ -1,4 +1,4 @@
-name: Download With Direct Link
+name: Download With Direct Link (Universal)
 
 on:
   workflow_dispatch:
@@ -41,8 +41,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f download.log url_list.txt
-          # Create a fresh empty log so it always exists
+          rm -f download.log url_list.txt file_list.txt
           echo "" > download.log
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -51,9 +50,9 @@ jobs:
           git pull --rebase
           git push || true
 
-      - name: Write URLs to file (bypass YAML expression parser)
+      - name: Write URLs to file
         run: |
-          echo "" > url_list.txt
+          > url_list.txt
           for url in "${{ github.event.inputs.file_url1 }}" \
                      "${{ github.event.inputs.file_url2 }}" \
                      "${{ github.event.inputs.file_url3 }}" \
@@ -61,9 +60,151 @@ jobs:
                      "${{ github.event.inputs.file_url5 }}"; do
             [ -n "$url" ] && echo "$url" >> url_list.txt
           done
-          echo "URL list created with $(cat url_list.txt | grep -v '^[[:space:]]*$' | wc -l) entries."
+          echo "URL list created with $(grep -cve '^\s*$' url_list.txt) entries."
 
-      - name: Download, split (if needed) and upload all files
+      - name: Install Playwright + Chromium
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgbm1 libwoff1 libopus0 libwebpdemux2 libharfbuzz-icu0 libenchant-2-2 libsecret-1-0 libhyphen0 libmanette-0.2-0 libflite1
+          python3 -m pip install --upgrade pip
+          python3 -m pip install playwright
+          playwright install chromium
+
+      - name: Download all files via headless browser
+        id: download
+        run: |
+          python3 << 'PYEOF'
+          import os, sys, time, base64, requests, json
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+
+          def log(msg):
+              print(msg)
+              with open("download.log", "a") as f:
+                  f.write(msg + "\n")
+
+          urls = []
+          with open("url_list.txt") as f:
+              for line in f:
+                  line = line.strip()
+                  if line:
+                      urls.append(line)
+
+          if not urls:
+              log("No URLs provided.")
+              sys.exit(0)
+
+          log(f"Processing {len(urls)} URL(s) with headless browser.")
+
+          # Output folder (files will be moved here by PowerShell later)
+          out_dir = os.environ.get("FOLDER_NAME", "Download")
+          Path(out_dir).mkdir(exist_ok=True)
+
+          file_count = 0
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              context = browser.new_context(
+                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                  accept_downloads=True
+              )
+
+              for idx, url in enumerate(urls):
+                  file_count += 1
+                  log(f"\n--- URL #{file_count}: {url} ---")
+                  try:
+                      page = context.new_page()
+                      # Set up download listener before navigation
+                      download_event = None
+                      def on_download(download):
+                          nonlocal download_event
+                          download_event = download
+                          log(f"Download detected: {download.suggested_filename}")
+                      page.on("download", on_download)
+
+                      response = page.goto(url, wait_until="networkidle", timeout=60000)
+                      status = response.status
+                      content_type = response.headers.get("content-type", "")
+
+                      # If the initial response is already a downloadable file (not HTML)
+                      if "text/html" not in content_type and status < 400:
+                          body = response.body()
+                          filename = url.split("/")[-1].split("?")[0]
+                          if not filename:
+                              filename = f"downloaded_file_{file_count}"
+                          filepath = os.path.join(out_dir, filename)
+                          with open(filepath, "wb") as f:
+                              f.write(body)
+                          size_mb = len(body) / (1024*1024)
+                          log(f"✓ Direct file: {filename} ({size_mb:.1f} MB)")
+                          # Write filename to list for later upload
+                          with open("file_list.txt", "a") as fl:
+                              fl.write(f"{filename}\n")
+                          page.close()
+                          continue
+
+                      # Wait a bit for any JavaScript to trigger a download
+                      page.wait_for_timeout(5000)
+
+                      if download_event:
+                          # A download was triggered – save it
+                          suggested_name = download_event.suggested_filename
+                          filepath = os.path.join(out_dir, suggested_name)
+                          download_event.save_as(filepath)
+                          size_mb = os.path.getsize(filepath) / (1024*1024)
+                          log(f"✓ Downloaded: {suggested_name} ({size_mb:.1f} MB)")
+                          with open("file_list.txt", "a") as fl:
+                              fl.write(f"{suggested_name}\n")
+                          page.close()
+                          continue
+
+                      # No download triggered – try to extract a direct link from the page
+                      log("No download event. Searching for potential links...")
+                      potential_links = page.evaluate("""() => {
+                          const links = Array.from(document.querySelectorAll('a[href]'));
+                          return links.map(a => a.href).filter(h => /\.(exe|zip|msi|dmg|tar\.gz|7z|rar|bin|iso|img|pdf|pkg)$/i.test(h));
+                      }""")
+                      download_url = None
+                      if potential_links:
+                          download_url = potential_links[0]
+                          log(f"Found link: {download_url}")
+
+                      if download_url:
+                          headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                          resp = requests.get(download_url, headers=headers, allow_redirects=True)
+                          if resp.status_code < 400 and "text/html" not in resp.headers.get("content-type", ""):
+                              filename = download_url.split("/")[-1].split("?")[0]
+                              if not filename:
+                                  filename = f"downloaded_file_{file_count}"
+                              filepath = os.path.join(out_dir, filename)
+                              with open(filepath, "wb") as f:
+                                  f.write(resp.content)
+                              size_mb = len(resp.content) / (1024*1024)
+                              log(f"✓ Downloaded via extracted link: {filename} ({size_mb:.1f} MB)")
+                              with open("file_list.txt", "a") as fl:
+                                  fl.write(f"{filename}\n")
+                              page.close()
+                              continue
+
+                      log("✗ Could not obtain a downloadable file from this URL.")
+                      page.close()
+
+                  except Exception as e:
+                      log(f"✗ Error: {e}")
+                      continue
+
+          log(f"\nDownload phase completed. {file_count} URL(s) processed.")
+          PYEOF
+
+      - name: Commit download log and file list
+        if: always()
+        run: |
+          git add download.log file_list.txt 2>/dev/null || true
+          git commit -m "Update download log" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
+
+      - name: Split and upload all files
+        if: success()
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -85,16 +226,12 @@ jobs:
             Add-Content -Path $logFile -Value $logLine
           }
 
-          Write-Log "=== Download started ==="
-
-          # Read URLs from file – force array with @()
-          $urls = @(Get-Content url_list.txt | Where-Object { $_ -and $_ -ne '' })
-          if ($urls.Count -eq 0) {
-            Write-Log "No URLs provided. Exiting."
+          $fileList = @(Get-Content file_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
+          if ($fileList.Count -eq 0) {
+            Write-Log "No files to upload. Exiting."
             exit 0
           }
 
-          Write-Log "Processing $($urls.Count) URL(s)."
           New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
           $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
 
@@ -110,70 +247,43 @@ jobs:
             try { $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $sha = $null }
             $body = @{ message = "Add $(Split-Path $localPath -Leaf)"; content = $b64; branch = $branch }
             if ($sha) { $body.sha = $sha }
-            $success = $false
             for ($retry = 0; $retry -lt $maxRetries; $retry++) {
               try {
                 Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
-                $success = $true
-                break
+                return $true
               } catch {
                 if ($retry -lt $maxRetries - 1) {
-                  Write-Log "Retry $($retry+1)/$maxRetries in 10 seconds..."
+                  Write-Log "Retry $($retry+1)/$maxRetries in 10s..."
                   Start-Sleep -Seconds 10
                 } else {
-                  Write-Log "ERROR: Upload failed after $maxRetries attempts: $($_.Exception.Message)"
+                  Write-Log "ERROR: Upload failed after $maxRetries attempts"
                 }
               }
             }
-            return $success
+            return $false
           }
 
-          for ($i = 0; $i -lt $urls.Count; $i++) {
-            $url = $urls[$i]
-            Write-Log "--- URL $($i+1)/$($urls.Count): $url ---"
-            $tempFile = "temp_$($i).download"
-            try {
-              $response = Invoke-WebRequest -Uri $url -OutFile $tempFile -PassThru -MaximumRedirection 10 -ErrorAction Stop
-              Write-Log "HTTP Status: $($response.StatusCode)"
-            } catch {
-              Write-Log "Download FAILED: $($_.Exception.Message)"
-              Write-Log "Skipping this URL."
+          for ($i = 0; $i -lt $fileList.Count; $i++) {
+            $filePath = $fileList[$i]
+            if (-not (Test-Path $filePath)) {
+              Write-Log "File missing: $filePath – skipping."
               continue
             }
-
-            if (-not (Test-Path $tempFile) -or (Get-Item $tempFile).Length -eq 0) {
-              Write-Log "Download returned EMPTY file. Skipping."
-              Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
-              continue
-            }
-
-            $fileName = $null
-            if ($response.Headers['Content-Disposition']) {
-              $match = [System.Text.RegularExpressions.Regex]::Match($response.Headers['Content-Disposition'], 'filename="?([^"]+)"?')
-              if ($match.Success) { $fileName = $match.Groups[1].Value }
-            }
-            if (-not $fileName) {
-              $uriObj = [System.Uri]::new($url)
-              $fileName = [System.IO.Path]::GetFileName($uriObj.AbsolutePath)
-            }
-            if (-not $fileName) { $fileName = "downloaded_file_$($i+1)" }
-            $fileName = [System.IO.Path]::GetFileName($fileName)
-
-            $fileSize = (Get-Item $tempFile).Length
-            Write-Log "File: $fileName, Size: $([math]::Round($fileSize / 1MB, 1)) MB"
+            $fileSize = (Get-Item $filePath).Length
+            $fileName = [System.IO.Path]::GetFileName($filePath)
+            Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
 
             if ($fileSize -lt $chunkSize) {
               Write-Log "Small file, uploading directly..."
-              $remotePath = "$chunksDir/$fileName"
-              if (Upload-File -localPath $tempFile -remotePath $remotePath) {
+              if (Upload-File -localPath $filePath -remotePath "$chunksDir/$fileName") {
                 $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
                 Write-Log "✓ Uploaded: $fileName"
               } else {
                 Write-Log "✗ Upload failed for $fileName"
               }
             } else {
-              Write-Log "Splitting into $([math]::Round($chunkSize/1MB)) MB chunks..."
-              $stream = [System.IO.File]::OpenRead($tempFile)
+              Write-Log "Splitting into chunks..."
+              $stream = [System.IO.File]::OpenRead($filePath)
               $partIdx = 0
               $buffer = New-Object byte[] $chunkSize
               $uploadSuccess = $true
@@ -200,12 +310,11 @@ jobs:
                 Write-Log "✗ Incomplete upload for $fileName"
               }
             }
-            Remove-Item $tempFile -Force
+            Remove-Item $filePath -Force
           }
 
           if ($fileInfos.Count -eq 0) {
             Write-Log "No files were successfully uploaded."
-            Write-Log "Workflow finished with no output."
           } else {
             Write-Log "Generating reassemble.bat..."
             $batPath = Join-Path $chunksDir "reassemble.bat"
@@ -246,15 +355,10 @@ jobs:
             Write-Log "=== Download completed ==="
           }
 
-      - name: Final log commit (always)
+      - name: Final log commit
         if: always()
         run: |
-          if [ -f download.log ]; then
-            git add download.log
-            git add "${{ github.event.inputs.folder_name }}" 2>/dev/null || true
-            git commit -m "Final download log and files" || true
-            git pull --rebase --strategy-option ours || true
-            git push || true
-          else
-            echo "download.log not found, nothing to commit."
-          fi
+          git add download.log "${{ github.event.inputs.folder_name }}" 2>/dev/null || true
+          git commit -m "Final download log and files" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
