@@ -81,11 +81,13 @@ jobs:
           $outDir = $env:FOLDER_NAME
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-          # Create a self‑loggging Node.js script
+          # Create a self‑logging Node.js script with improved SourceForge handling
           $script = @'
           const { chromium } = require('playwright');
           const fs = require('fs');
           const path = require('path');
+          const https = require('https');
+          const http = require('http');
 
           const urls = fs.readFileSync('url_list.txt', 'utf-8').split('\n').filter(line => line.trim() !== '');
           const outDir = process.env.FOLDER_NAME || 'Download';
@@ -97,7 +99,6 @@ jobs:
               fs.appendFileSync('download.log', fullMsg + '\n');
           }
 
-          // Catch all unhandled errors
           process.on('uncaughtException', (err) => {
               log(`FATAL UNHANDLED ERROR: ${err.message}`);
               process.exit(1);
@@ -111,8 +112,8 @@ jobs:
                   acceptDownloads: true
               });
               const page = await context.newPage();
+              page.setDefaultNavigationTimeout(120000);
 
-              // Track download
               let downloadPromise = new Promise((resolve) => {
                   page.on('download', async (download) => {
                       const fileName = download.suggestedFilename();
@@ -125,13 +126,27 @@ jobs:
               });
 
               try {
-                  log(`Navigating to ${url}...`);
-                  const response = await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+                  // Attempt 1: Use domcontentloaded (much faster, no wait for network idle)
+                  log(`Navigating (domcontentloaded)...`);
+                  let response;
+                  try {
+                      response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                  } catch (e) {
+                      log(`First navigation failed: ${e.message}. Trying SourceForge direct format...`);
+                      if (url.includes('sourceforge.net')) {
+                          const directUrl = url.replace('/download', '?download');
+                          log(`Retrying with: ${directUrl}`);
+                          response = await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                      } else {
+                          throw e;
+                      }
+                  }
+
                   const status = response.status();
                   const contentType = response.headers()['content-type'] || '';
                   log(`Response: HTTP ${status}, Content-Type: ${contentType}`);
 
-                  // If it's a non‑HTML file, save directly
+                  // If it's a non‑HTML file, save immediately
                   if (!contentType.includes('text/html') && status < 400) {
                       const body = await response.body();
                       let fileName = url.split('/').pop().split('?')[0];
@@ -145,44 +160,48 @@ jobs:
                       return;
                   }
 
-                  // Wait 5 seconds for JavaScript to possibly trigger a download
-                  log('Waiting 5s for JavaScript download triggers...');
-                  await page.waitForTimeout(5000);
+                  // Wait 10 seconds for any JavaScript to trigger a download (e.g., SourceForge countdown)
+                  log('Waiting 10s for JS download triggers...');
+                  await page.waitForTimeout(10000);
 
-                  // If no download was triggered yet, try extracting a link from the page
-                  // We can check if downloadPromise is already resolved
-                  let raceResult = await Promise.race([
-                      downloadPromise,
-                      page.waitForTimeout(1000)  // just a tiny delay to see if download resolves
-                  ]);
-                  if (raceResult === true) {
-                      log('Download already happened.');
+                  // Check if download already occurred during wait
+                  if (downloadPromise.isResolved) {
+                      log('Download already happened during wait.');
                       await browser.close();
                       return;
                   }
 
-                  log('No download event caught. Extracting direct links from page...');
+                  // Extract potential direct download links from the page
+                  log('Extracting direct links from page...');
                   const potentialLinks = await page.evaluate(() => {
                       const links = Array.from(document.querySelectorAll('a[href]'));
                       return links.map(a => a.href).filter(h => /\.(exe|zip|msi|dmg|tar\.gz|7z|rar|bin|iso|img|pdf|pkg)$/i.test(h));
                   });
                   if (potentialLinks.length > 0) {
                       const downloadUrl = potentialLinks[0];
-                      log(`Found potential download link: ${downloadUrl}`);
-                      // Use page to navigate to that link, which should trigger download
-                      await page.goto(downloadUrl, { waitUntil: 'networkidle', timeout: 60000 });
-                      // Wait for download to start
-                      try {
-                          await downloadPromise;
-                          log('Download started after following extracted link.');
-                      } catch {
-                          log('No download after following extracted link.');
-                      }
+                      log(`Found potential link: ${downloadUrl}`);
+                      const protocol = downloadUrl.startsWith('https') ? https : http;
+                      const fileStream = await new Promise((resolve, reject) => {
+                          protocol.get(downloadUrl, (res) => resolve(res)).on('error', reject);
+                      });
+                      let fileName = downloadUrl.split('/').pop().split('?')[0];
+                      if (!fileName) fileName = `downloaded_file_${index}`;
+                      const filePath = path.join(outDir, fileName);
+                      const writeStream = fs.createWriteStream(filePath);
+                      fileStream.pipe(writeStream);
+                      await new Promise((resolve, reject) => {
+                          writeStream.on('finish', resolve);
+                          writeStream.on('error', reject);
+                      });
+                      const sizeMB = (fs.statSync(filePath).size / 1024 / 1024).toFixed(2);
+                      log(`✓ Downloaded via extracted link: ${fileName} (${sizeMB} MB)`);
+                      fs.appendFileSync('file_list.txt', fileName + '\n');
                   } else {
-                      log('No direct download link found on the page. Giving up.');
+                      log('No direct download link found on the page.');
                   }
+
               } catch (err) {
-                  log(`✗ Error processing ${url}: ${err.message}`);
+                  log(`✗ Error: ${err.message}`);
               } finally {
                   await browser.close();
                   log('Browser closed for this URL.');
@@ -204,7 +223,6 @@ jobs:
           })();
           '@
 
-          # Write the script and run it
           Set-Content -Path "downloader.js" -Value $script
           node downloader.js
 
@@ -223,7 +241,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
         run: |
-          # (identical PowerShell chunker/uploader as before – no changes needed)
           $token = $env:GITHUB_TOKEN
           $repo = $env:GITHUB_REPOSITORY
           $branch = $env:GITHUB_REF_NAME
