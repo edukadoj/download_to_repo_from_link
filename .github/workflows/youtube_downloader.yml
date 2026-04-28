@@ -161,6 +161,7 @@ jobs:
                   "--retries", "3",
                   "--sleep-requests", "1",
                   "--sleep-interval", "5",
+                  "--no-abort-on-error",   # ← Continue even if subtitles fail
               ] + sub_args
               if extra_args:
                   cmd.extend(extra_args)
@@ -247,8 +248,10 @@ jobs:
           log(f"Total URLs: {len(urls)}")
           log(f"Successfully downloaded: {downloaded_any}")
 
+          # Signal failure if nothing was downloaded
           if downloaded_any == 0:
               log("\n⚠️ No videos were downloaded.")
+              sys.exit(1)
           else:
               log(f"\n✅ Downloaded {downloaded_any} video(s).")
           PYEOF
@@ -260,6 +263,12 @@ jobs:
           git commit -m "Update download log" || true
           git pull --rebase --strategy-option ours || true
           git push || true
+
+      - name: Fail workflow if download step failed
+        if: steps.download.outcome == 'failure'
+        run: |
+          echo "Download step failed – see download.log in repository."
+          exit 1
 
       - name: Split and upload everything
         if: success()
