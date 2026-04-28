@@ -1,4 +1,4 @@
-name: YouTube Download (PO Token + PyTubeFix)
+name: YouTube Download (Cloudflare WARP)
 
 on:
   workflow_dispatch:
@@ -62,35 +62,26 @@ jobs:
           git pull --rebase
           git push || true
 
-      - name: Install system dependencies
+      - name: Setup Cloudflare WARP
+        uses: viperadnan-git/setup-warp@v1
+        with:
+          mode: 'client'
+          stack: 'dual'
+          configure_docker: 'false'
+
+      - name: Verify WARP connection
+        run: |
+          echo "Checking WARP status..."
+          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
+          echo "WARP is active."
+
+      - name: Install yt-dlp
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
+          python3 -m pip install --upgrade yt-dlp
 
-      - name: Install Python dependencies (yt-dlp + PO token + pytubefix)
-        run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install --upgrade "yt-dlp>=2025.05.22"
-          python3 -m pip install --upgrade bgutil-ytdlp-pot-provider
-          python3 -m pip install --upgrade pytubefix
-
-      - name: Install Deno (for PO token server)
-        run: |
-          curl -fsSL https://deno.land/install.sh | sh
-          echo "/home/runner/.deno/bin" >> $GITHUB_PATH
-
-      - name: Clone & start PO token server (Deno)
-        run: |
-          git clone --single-branch --branch 1.3.1 \
-            https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
-          cd bgutil-ytdlp-pot-provider/server/
-          # Start the Deno server in the background on port 4416
-          /home/runner/.deno/bin/deno run --allow-net --allow-read --allow-env \
-            main.ts --port 4416 &
-          sleep 10   # give the server time to boot
-          echo "PO Token server started."
-
-      - name: Download all videos (yt-dlp + PO token → pytubefix fallback)
+      - name: Download all videos via yt-dlp with WARP
         id: download
         env:
           YT_URL_1: ${{ github.event.inputs.youtube_url1 }}
@@ -100,105 +91,65 @@ jobs:
           YT_URL_5: ${{ github.event.inputs.youtube_url5 }}
         run: |
           python3 << 'PYEOF'
-          import os, sys, time, traceback
+          import os, sys, time, subprocess
 
           quality = "${{ github.event.inputs.quality }}"
-          folder  = "${{ github.event.inputs.folder_name }}"
-
-          # Collect URLs from environment variables
+          
           urls = []
           for i in range(1, 6):
               v = os.environ.get(f"YT_URL_{i}", "").strip()
               if v:
                   urls.append(v)
+
           if not urls:
               print("No URLs provided.")
               sys.exit(1)
 
-          print(f"Processing {len(urls)} URL(s)")
+          print(f"Processing {len(urls)} URL(s) through Cloudflare WARP")
 
-          # --------------- Method 1: yt-dlp + PO Token ---------------
-          def try_ytdlp_po_token(url, q, vid_num):
-              """Attempt download with yt-dlp + PO token provider."""
-              import subprocess
-              quality_map = {
-                  "144p": "bestvideo[height<=144]+bestaudio/best[height<=144]",
-                  "360p": "bestvideo[height<=360]+bestaudio/best[height<=360]",
-                  "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]",
-                  "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
-                  "best": "best"
-              }
-              fmt = quality_map.get(q, "bestvideo[height<=720]+bestaudio/best[height<=720]")
-              out_name = f"video_{vid_num}.%(ext)s"
-              cmd = [
-                  "yt-dlp", "--no-playlist",
-                  "--format", fmt,
-                  "--output", out_name,
-                  "--extractor-args", "youtube:potoken_server_url=http://127.0.0.1:4416",
-                  "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                  url
-              ]
-              print(f"  [yt-dlp] Trying PO token method...")
-              result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-              if result.returncode == 0:
-                  # Find the created file
-                  for f in os.listdir("."):
-                      if f.startswith(f"video_{vid_num}.") and not f.endswith(".part"):
-                          return f
-              else:
-                  # Print abbreviated error
-                  lines = result.stderr.splitlines()[-5:]
-                  for line in lines:
-                      print(f"    {line}")
-              return None
+          quality_map = {
+              "144p": "bestvideo[height<=144]+bestaudio/best[height<=144]",
+              "360p": "bestvideo[height<=360]+bestaudio/best[height<=360]",
+              "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]",
+              "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+              "best": "best"
+          }
+          fmt = quality_map.get(quality, "bestvideo[height<=720]+bestaudio/best[height<=720]")
 
-          # --------------- Method 2: pytubefix fallback ---------------
-          def try_pytubefix(url, vid_num):
-              """Attempt download with pytubefix (no cookies needed)."""
-              try:
-                  from pytubefix import YouTube
-                  from pytubefix.cli import on_progress
-                  print(f"  [pytubefix] Trying...")
-                  yt = YouTube(url, on_progress_callback=on_progress, use_oauth=False)
-                  print(f"    Title: {yt.title}")
-                  stream = yt.streams.get_highest_resolution()
-                  if stream:
-                      out_name = f"video_{vid_num}.mp4"
-                      stream.download(filename=out_name)
-                      if os.path.exists(out_name):
-                          return out_name
-                  print(f"    No suitable stream found.")
-              except Exception as e:
-                  print(f"    pytubefix error: {e}")
-              return None
-
-          # --------------- Main loop ---------------
           video_count = 0
           downloaded_any = 0
 
           for idx, url in enumerate(urls):
               video_count += 1
               print(f"\n--- URL #{video_count}: {url} ---")
-
-              vid_file = None
-
-              # Strategy 1: yt-dlp + PO token
-              vid_file = try_ytdlp_po_token(url, quality, video_count)
-
-              # Strategy 2: pytubefix fallback
-              if not vid_file:
-                  vid_file = try_pytubefix(url, video_count)
-
-              if vid_file and os.path.exists(vid_file):
-                  size_mb = os.path.getsize(vid_file) / (1024 * 1024)
-                  print(f"  ✓ Downloaded: {vid_file} ({size_mb:.1f} MB)")
-                  with open("video_list.txt", "a") as vl:
-                      vl.write(vid_file + "\n")
-                  downloaded_any += 1
+              out_name = f"video_{video_count}.%(ext)s"
+              
+              cmd = [
+                  "yt-dlp", "--no-playlist",
+                  "--format", fmt,
+                  "--output", out_name,
+                  "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                  url
+              ]
+              
+              print(f"  Downloading...")
+              result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+              
+              if result.returncode == 0:
+                  for f in os.listdir("."):
+                      if f.startswith(f"video_{video_count}.") and not f.endswith(".part"):
+                          size_mb = os.path.getsize(f) / (1024 * 1024)
+                          print(f"  ✓ Downloaded: {f} ({size_mb:.1f} MB)")
+                          with open("video_list.txt", "a") as vl:
+                              vl.write(f + "\n")
+                          downloaded_any += 1
+                          break
               else:
-                  print(f"  ✗ All methods failed for URL #{video_count}.")
+                  lines = result.stderr.splitlines()[-5:]
+                  for line in lines:
+                      print(f"    {line}")
+                  print(f"  ✗ Download failed for URL #{video_count}")
 
-          # Write log
           with open("download.log", "a") as log:
               log.write(f"=== YouTube Download Log ===\n")
               log.write(f"Date: {time.ctime()}\n")
