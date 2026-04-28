@@ -82,7 +82,6 @@ jobs:
           git pull --rebase
           git push || true
 
-      # ── Optional caching ──
       - name: Restore pip & Deno cache
         if: ${{ inputs.use_cache == 'true' }}
         id: cache
@@ -134,11 +133,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 << 'PYEOF'
-          import os, sys, time, subprocess, base64, requests, json, traceback
+          import os, sys, time, subprocess, base64, requests, json, re, traceback
           from pathlib import Path
           from urllib.parse import quote
 
-          # Force unbuffered output so the Actions log updates in real time
+          # Force line-buffered output
           sys.stdout.reconfigure(line_buffering=True)
           sys.stderr.reconfigure(line_buffering=True)
 
@@ -185,37 +184,58 @@ jobs:
           out_dir = Path(folder_name)
           out_dir.mkdir(exist_ok=True)
 
-          def run_ytdlp_live(cmd, url, extra_args=None):
-              """Run yt-dlp with live output, return (success, set_of_new_files)."""
+          # ------------------------------------------------------------
+          # Helper: run command while printing output live
+          # ------------------------------------------------------------
+          def run_cmd_live(cmd, timeout=600):
+              """Run a command, print its output live, return exit code and set of new files."""
               before = set(os.listdir("."))
-              final_cmd = list(cmd)
+              proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+              for line in proc.stdout:
+                  print(line, end="", flush=True)
+              proc.wait(timeout=timeout)
+              after = set(os.listdir("."))
+              new_files = after - before
+              return proc.returncode, new_files
+
+          # ------------------------------------------------------------
+          # Helper: run a yt-dlp command with optional extra args
+          # ------------------------------------------------------------
+          def run_ytdlp(base_cmd, url, extra_args=None):
+              final_cmd = list(base_cmd)
               if extra_args:
                   final_cmd.extend(extra_args)
               final_cmd.append(url)
-              # Run without capturing output – all progress goes directly to the Actions log
-              result = subprocess.run(final_cmd, timeout=600)
-              after = set(os.listdir("."))
-              new_files = after - before
-              return result.returncode == 0, new_files
+              return run_cmd_live(final_cmd)
 
-          video_cmd = [
-              "yt-dlp", "--no-playlist",
-              "--format", fmt,
-              "--merge-output-format", "mp4",
-              "--output", "%(title).150B [%(id)s].%(ext)s",
-              "--restrict-filenames", "--windows-filenames",
-              "--remote-components", "ejs:github",
-              "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-              "--extractor-retries", "3", "--retries", "3",
-              "--sleep-requests", "1", "--sleep-interval", "5",
-          ]
+          # ------------------------------------------------------------
+          # Get video title using --dump-json (without downloading)
+          # ------------------------------------------------------------
+          def get_video_title(url, extra_args=None):
+              title_cmd = [
+                  "yt-dlp", "--no-playlist", "--dump-json",
+                  "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                  "--remote-components", "ejs:github",
+              ]
+              if extra_args:
+                  title_cmd.extend(extra_args)
+              title_cmd.append(url)
+              proc = subprocess.run(title_cmd, capture_output=True, text=True, timeout=60)
+              if proc.returncode == 0 and proc.stdout.strip():
+                  try:
+                      metadata = json.loads(proc.stdout.strip())
+                      return metadata.get("title", None)
+                  except:
+                      pass
+              return None
 
-          sub_cmd = None
-          if sub_lang_input != "none":
-              lang_code = sub_lang_input.split()[0]
-              sub_cmd = [
+          # ------------------------------------------------------------
+          # Prepare subtitle commands
+          # ------------------------------------------------------------
+          def make_sub_cmd(lang):
+              return [
                   "yt-dlp", "--no-playlist", "--skip-download",
-                  "--write-auto-subs", "--sub-lang", lang_code,
+                  "--write-auto-subs", "--sub-lang", lang,
                   "--convert-subs", "srt",
                   "--output", "%(title).150B [%(id)s].%(ext)s",
                   "--restrict-filenames", "--windows-filenames",
@@ -225,6 +245,25 @@ jobs:
                   "--sleep-requests", "1", "--sleep-interval", "5",
               ]
 
+          # ------------------------------------------------------------
+          # Video download command (generic, will be built per URL)
+          # ------------------------------------------------------------
+          def build_video_cmd(output_filename):
+              return [
+                  "yt-dlp", "--no-playlist",
+                  "--format", fmt,
+                  "--merge-output-format", "mp4",
+                  "--output", output_filename,
+                  "--restrict-filenames", "--windows-filenames",
+                  "--remote-components", "ejs:github",
+                  "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                  "--extractor-retries", "3", "--retries", "3",
+                  "--sleep-requests", "1", "--sleep-interval", "5",
+              ]
+
+          # ------------------------------------------------------------
+          # Upload helper
+          # ------------------------------------------------------------
           def upload_to_github(local_path, remote_path):
               with open(local_path, "rb") as f:
                   b64 = base64.b64encode(f.read()).decode("utf-8")
@@ -246,6 +285,9 @@ jobs:
                   time.sleep(5)
               return False
 
+          # ------------------------------------------------------------
+          # Main processing loop
+          # ------------------------------------------------------------
           video_count = 0
           total_uploaded = 0
           chunk_size = 20 * 1024 * 1024
@@ -258,8 +300,27 @@ jobs:
               video_file = None
               subtitle_file = None
 
+              # ---------- extract title ----------
+              log("   🔍 Fetching video title ...")
+              title = get_video_title(url)
+              if title:
+                  # Sanitize title for filename (keep alphanumeric, spaces, Persian chars, etc.)
+                  # We already use --restrict-filenames later, so a simple cleaning is fine.
+                  safe_title = re.sub(r'[<>:"/\\|?*]', '', title)[:150]
+                  log(f"   📝 Title: {safe_title}")
+              else:
+                  safe_title = None
+                  log("   ⚠️ Could not fetch title, will use default naming.")
+
+              # ---------- Download ----------
               log("   [Strategy 1] Cloudflare WARP (video only) ...")
-              ok, new_files = run_ytdlp_live(video_cmd, url)
+              # Build output filename using the fetched title, or fallback to the original template
+              if safe_title:
+                  output_file = f"{safe_title} [%(id)s].%(ext)s"
+              else:
+                  output_file = "%(title).150B [%(id)s].%(ext)s"
+              video_cmd = build_video_cmd(output_file)
+              ok, new_files = run_ytdlp(video_cmd, url)
               if ok:
                   log("   ✅ WARP download succeeded")
               else:
@@ -270,7 +331,7 @@ jobs:
                   with open("cookies.txt", "w") as cf:
                       cf.write(cookies_secret)
                   extra_args = ["--cookies", "cookies.txt"]
-                  ok, new_files = run_ytdlp_live(video_cmd, url, extra_args=extra_args)
+                  ok, new_files = run_ytdlp(video_cmd, url, extra_args=extra_args)
                   if ok:
                       log("   ✅ Cookies download succeeded")
                   else:
@@ -282,6 +343,7 @@ jobs:
                   log("   ❌ All download methods failed for this URL. Skipping.")
                   continue
 
+              # Find the downloaded video file
               for f in sorted(new_files):
                   if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")) and os.path.exists(f):
                       video_file = f
@@ -293,23 +355,43 @@ jobs:
               file_size = os.path.getsize(video_file)
               log(f"   📦 Video: {video_file} ({file_size/1024**2:.1f} MB)")
 
-              if sub_cmd and sub_lang_input != "none":
-                  log("   📝 Attempting subtitle download ...")
-                  try:
-                      sub_ok, sub_new = run_ytdlp_live(sub_cmd, url, extra_args=extra_args)
-                      if sub_ok:
-                          for f in sorted(sub_new):
+              # ---------- Subtitle handling ----------
+              if sub_lang_input != "none":
+                  lang_code = sub_lang_input.split()[0]   # "en" or "fa"
+                  fallback_lang = "fa" if lang_code == "en" else "en"
+                  subtitle_success = False
+
+                  # Try selected language
+                  log(f"   📝 Attempting subtitle download for '{lang_code}' ...")
+                  sub_cmd = make_sub_cmd(lang_code)
+                  sub_ok, sub_new = run_ytdlp(sub_cmd, url, extra_args=extra_args)
+                  if sub_ok:
+                      for f in sorted(sub_new):
+                          if f.endswith(".srt"):
+                              subtitle_file = f
+                              subtitle_success = True
+                              log(f"   ✅ Subtitle downloaded: {subtitle_file}")
+                              break
+                  if not subtitle_success:
+                      log(f"   ⚠️ Subtitle for '{lang_code}' not available.")
+                      # Try fallback language
+                      log(f"   📝 Attempting fallback subtitle language '{fallback_lang}' ...")
+                      sub_cmd_fallback = make_sub_cmd(fallback_lang)
+                      sub_ok2, sub_new2 = run_ytdlp(sub_cmd_fallback, url, extra_args=extra_args)
+                      if sub_ok2:
+                          for f in sorted(sub_new2):
                               if f.endswith(".srt"):
                                   subtitle_file = f
-                                  log(f"   ✅ Subtitle downloaded: {subtitle_file}")
+                                  subtitle_success = True
+                                  log(f"   ✅ Fallback subtitle downloaded: {subtitle_file}")
                                   break
-                          if not subtitle_file:
-                              log("   ℹ️ No subtitle file found for this video.")
-                      else:
-                          log("   ⚠️ Subtitle download failed (non‑critical).")
-                  except Exception as e:
-                      log(f"   ⚠️ Subtitle error (non‑critical): {e}")
+                      if not subtitle_success:
+                          log("   ℹ️ No subtitle file found for either language.")
+                  else:
+                      # Already succeeded with primary language
+                      pass
 
+              # ---------- Burn subtitles if requested ----------
               if burn_subs and subtitle_file:
                   log("   🔥 Burning subtitles into video ...")
                   burned_video = f"burned_{video_file}"
@@ -327,6 +409,7 @@ jobs:
                   else:
                       log(f"   ⚠️ Burning failed: {proc.stderr.strip()}")
 
+              # ---------- Split & upload ----------
               if file_size < chunk_size:
                   log("   ⬆️ Uploading small file directly ...")
                   remote_path = f"{folder_name}/{video_file}"
@@ -363,6 +446,7 @@ jobs:
                   else:
                       log("   ❌ No chunks uploaded, skipping.")
 
+              # Upload subtitle file separately (if not burned)
               if subtitle_file and not burn_subs:
                   remote_sub = f"{folder_name}/{subtitle_file}"
                   if upload_to_github(subtitle_file, remote_sub):
@@ -370,10 +454,13 @@ jobs:
                   else:
                       log("   ⚠️ Subtitle upload failed")
 
+              # Clean up
               try: os.remove(video_file)
               except: pass
 
-          # ── Generate reassemble.bat (with proper quoting) ──
+          # ------------------------------------------------------------
+          # Generate reassemble.bat (with proper quoting)
+          # ------------------------------------------------------------
           if video_infos:
               log("\n📄 Creating reassemble.bat ...")
               bat_path = out_dir / "reassemble.bat"
@@ -385,7 +472,6 @@ jobs:
                   for info in video_infos:
                       name = info["name"]
                       if info["chunks"] > 0:
-                          # Quote the base name because it may contain spaces or brackets
                           bat.write(f'echo --- Rebuilding "{name}" ---\r\n')
                           bat.write(f'copy /b "{name}.part*" "{name}"\r\n')
                           bat.write("if %errorlevel% equ 0 (\r\n")
