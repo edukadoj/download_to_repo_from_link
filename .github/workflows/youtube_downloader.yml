@@ -84,7 +84,7 @@ jobs:
 
       # ── Optional caching ──
       - name: Restore pip & Deno cache
-        if: inputs.use_cache == 'true'
+        if: ${{ inputs.use_cache == 'true' }}
         id: cache
         uses: actions/cache@v4
         with:
@@ -138,13 +138,15 @@ jobs:
           from pathlib import Path
           from urllib.parse import quote
 
-          # ── Logging ──
+          # Force unbuffered output so the Actions log updates in real time
+          sys.stdout.reconfigure(line_buffering=True)
+          sys.stderr.reconfigure(line_buffering=True)
+
           def log(msg):
-              print(msg)
+              print(msg, flush=True)
               with open("download.log", "a", encoding="utf-8") as f:
                   f.write(msg + "\n")
 
-          # ── Config from environment ──
           quality = os.environ.get("QUALITY", "720p")
           cookies_secret = os.environ.get("YOUTUBE_COOKIES", "").strip()
           sub_lang_input = os.environ.get("SUB_LANG", "none").strip()
@@ -154,7 +156,6 @@ jobs:
           repo = os.environ["GITHUB_REPOSITORY"]
           branch = os.environ["GITHUB_REF_NAME"]
 
-          # Collect URLs
           urls = []
           for i in range(1, 6):
               v = os.environ.get(f"YT_URL_{i}", "").strip()
@@ -169,8 +170,8 @@ jobs:
           log(f"   Quality: {quality}")
           log(f"   Subtitles: {sub_lang_input}")
           log(f"   Burn subtitles: {burn_subs}")
+          log(f"   Caching enabled: {'Yes' if '${{ inputs.use_cache }}' == 'true' else 'No'}")
 
-          # ── Quality map ──
           quality_map = {
               "144p": "bestvideo[height<=144]+bestaudio/best[height<=144]",
               "360p": "bestvideo[height<=360]+bestaudio/best[height<=360]",
@@ -181,24 +182,22 @@ jobs:
           }
           fmt = quality_map.get(quality, "bestvideo[height<=720]+bestaudio/best[height<=720]")
 
-          # ── Output folder ──
           out_dir = Path(folder_name)
           out_dir.mkdir(exist_ok=True)
 
-          # ── Helper: run yt-dlp ──
-          def run_ytdlp(cmd, url, extra_args=None):
-              """Return (success, set of new filenames)."""
+          def run_ytdlp_live(cmd, url, extra_args=None):
+              """Run yt-dlp with live output, return (success, set_of_new_files)."""
               before = set(os.listdir("."))
               final_cmd = list(cmd)
               if extra_args:
                   final_cmd.extend(extra_args)
               final_cmd.append(url)
-              result = subprocess.run(final_cmd, capture_output=True, text=True, timeout=600)
+              # Run without capturing output – all progress goes directly to the Actions log
+              result = subprocess.run(final_cmd, timeout=600)
               after = set(os.listdir("."))
               new_files = after - before
               return result.returncode == 0, new_files
 
-          # ── Video-only command ──
           video_cmd = [
               "yt-dlp", "--no-playlist",
               "--format", fmt,
@@ -211,7 +210,6 @@ jobs:
               "--sleep-requests", "1", "--sleep-interval", "5",
           ]
 
-          # ── Subtitle-only command (if needed) ──
           sub_cmd = None
           if sub_lang_input != "none":
               lang_code = sub_lang_input.split()[0]
@@ -227,9 +225,7 @@ jobs:
                   "--sleep-requests", "1", "--sleep-interval", "5",
               ]
 
-          # ── GitHub upload helper ──
           def upload_to_github(local_path, remote_path):
-              """Upload a file via GitHub API. Returns True on success."""
               with open(local_path, "rb") as f:
                   b64 = base64.b64encode(f.read()).decode("utf-8")
               url = f"https://api.github.com/repos/{repo}/contents/{quote(remote_path)}"
@@ -250,11 +246,10 @@ jobs:
                   time.sleep(5)
               return False
 
-          # ── Process each URL ──
           video_count = 0
           total_uploaded = 0
           chunk_size = 20 * 1024 * 1024
-          video_infos = []  # list of dicts: name, chunks (0=small file)
+          video_infos = []
 
           for idx, url in enumerate(urls):
               video_count += 1
@@ -263,21 +258,19 @@ jobs:
               video_file = None
               subtitle_file = None
 
-              # ── Try WARP ──
               log("   [Strategy 1] Cloudflare WARP (video only) ...")
-              ok, new_files = run_ytdlp(video_cmd, url)
+              ok, new_files = run_ytdlp_live(video_cmd, url)
               if ok:
                   log("   ✅ WARP download succeeded")
               else:
                   log("   ❌ WARP download failed")
 
-              # ── Try cookies if needed ──
               if not ok and cookies_secret:
                   log("   [Strategy 2] Cookies (video only) ...")
                   with open("cookies.txt", "w") as cf:
                       cf.write(cookies_secret)
                   extra_args = ["--cookies", "cookies.txt"]
-                  ok, new_files = run_ytdlp(video_cmd, url, extra_args=extra_args)
+                  ok, new_files = run_ytdlp_live(video_cmd, url, extra_args=extra_args)
                   if ok:
                       log("   ✅ Cookies download succeeded")
                   else:
@@ -289,7 +282,6 @@ jobs:
                   log("   ❌ All download methods failed for this URL. Skipping.")
                   continue
 
-              # Locate video file
               for f in sorted(new_files):
                   if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")) and os.path.exists(f):
                       video_file = f
@@ -301,11 +293,10 @@ jobs:
               file_size = os.path.getsize(video_file)
               log(f"   📦 Video: {video_file} ({file_size/1024**2:.1f} MB)")
 
-              # ── Subtitle (best effort) ──
               if sub_cmd and sub_lang_input != "none":
                   log("   📝 Attempting subtitle download ...")
                   try:
-                      sub_ok, sub_new = run_ytdlp(sub_cmd, url, extra_args=extra_args)
+                      sub_ok, sub_new = run_ytdlp_live(sub_cmd, url, extra_args=extra_args)
                       if sub_ok:
                           for f in sorted(sub_new):
                               if f.endswith(".srt"):
@@ -319,7 +310,6 @@ jobs:
                   except Exception as e:
                       log(f"   ⚠️ Subtitle error (non‑critical): {e}")
 
-              # ── Burn subtitles if requested ──
               if burn_subs and subtitle_file:
                   log("   🔥 Burning subtitles into video ...")
                   burned_video = f"burned_{video_file}"
@@ -337,7 +327,6 @@ jobs:
                   else:
                       log(f"   ⚠️ Burning failed: {proc.stderr.strip()}")
 
-              # ── Split & upload ──
               if file_size < chunk_size:
                   log("   ⬆️ Uploading small file directly ...")
                   remote_path = f"{folder_name}/{video_file}"
@@ -374,7 +363,6 @@ jobs:
                   else:
                       log("   ❌ No chunks uploaded, skipping.")
 
-              # Upload subtitle file (if not burned)
               if subtitle_file and not burn_subs:
                   remote_sub = f"{folder_name}/{subtitle_file}"
                   if upload_to_github(subtitle_file, remote_sub):
@@ -382,11 +370,10 @@ jobs:
                   else:
                       log("   ⚠️ Subtitle upload failed")
 
-              # Remove original video to free space
               try: os.remove(video_file)
               except: pass
 
-          # ── Generate reassemble.bat ──
+          # ── Generate reassemble.bat (with proper quoting) ──
           if video_infos:
               log("\n📄 Creating reassemble.bat ...")
               bat_path = out_dir / "reassemble.bat"
@@ -398,17 +385,18 @@ jobs:
                   for info in video_infos:
                       name = info["name"]
                       if info["chunks"] > 0:
-                          bat.write(f"echo --- Rebuilding {name} ---\r\n")
-                          bat.write(f"copy /b {name}.part* {name}\r\n")
-                          bat.write(f"if %errorlevel% equ 0 (\r\n")
-                          bat.write(f"    echo Successfully created {name}\r\n")
-                          bat.write(f"    del {name}.part*\r\n")
-                          bat.write(f"    echo Deleted temporary parts\r\n")
-                          bat.write(f") else (\r\n")
-                          bat.write(f"    echo ERROR: Failed to reassemble {name}. Parts kept intact.\r\n")
-                          bat.write(f")\r\n")
+                          # Quote the base name because it may contain spaces or brackets
+                          bat.write(f'echo --- Rebuilding "{name}" ---\r\n')
+                          bat.write(f'copy /b "{name}.part*" "{name}"\r\n')
+                          bat.write("if %errorlevel% equ 0 (\r\n")
+                          bat.write(f'    echo Successfully created "{name}"\r\n')
+                          bat.write(f'    del "{name}.part*"\r\n')
+                          bat.write("    echo Deleted temporary parts\r\n")
+                          bat.write(") else (\r\n")
+                          bat.write(f'    echo ERROR: Failed to reassemble "{name}". Parts kept intact.\r\n')
+                          bat.write(")\r\n")
                       else:
-                          bat.write(f"echo {name} was downloaded as a single file (no chunks).\r\n")
+                          bat.write(f'echo "{name}" was downloaded as a single file (no chunks).\r\n')
                   bat.write("echo ========================================\r\n")
                   bat.write("echo All done! Press any key to exit.\r\n")
                   bat.write("pause >nul\r\n")
@@ -418,7 +406,6 @@ jobs:
               else:
                   log("   ⚠️ Failed to upload reassemble.bat.")
 
-          # ── Final log ──
           log(f"\n📊 Summary")
           log(f"   Total URLs: {len(urls)}")
           log(f"   Successfully uploaded: {total_uploaded}")
