@@ -1,4 +1,4 @@
-name: YouTube Download (WARP)
+name: YouTube Download (WARP + Cookie Fallback)
 
 on:
   workflow_dispatch:
@@ -54,7 +54,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f video.* download.log video_list.txt
+          rm -f video.* download.log video_list.txt cookies.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -81,7 +81,7 @@ jobs:
           sudo apt-get install -y ffmpeg
           python3 -m pip install --upgrade yt-dlp
 
-      - name: Download all videos via yt-dlp with WARP
+      - name: Download all videos (WARP first, then cookies)
         id: download
         env:
           YT_URL_1: ${{ github.event.inputs.youtube_url1 }}
@@ -89,13 +89,15 @@ jobs:
           YT_URL_3: ${{ github.event.inputs.youtube_url3 }}
           YT_URL_4: ${{ github.event.inputs.youtube_url4 }}
           YT_URL_5: ${{ github.event.inputs.youtube_url5 }}
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
           python3 << 'PYEOF'
           import os, sys, time, subprocess
 
           quality = "${{ github.event.inputs.quality }}"
+          cookies_secret = os.environ.get("YOUTUBE_COOKIES", "").strip()
 
-          # Collect URLs from environment variables (no dynamic expressions)
+          # Collect URLs from environment variables
           urls = []
           for i in range(1, 6):
               v = os.environ.get(f"YT_URL_{i}", "").strip()
@@ -117,14 +119,8 @@ jobs:
           }
           fmt = quality_map.get(quality, "bestvideo[height<=720]+bestaudio/best[height<=720]")
 
-          video_count = 0
-          downloaded_any = 0
-
-          for idx, url in enumerate(urls):
-              video_count += 1
-              print(f"\n--- URL #{video_count}: {url} ---")
-              out_name = f"video_{video_count}.%(ext)s"
-
+          # Helper to run yt-dlp command with optional extra args
+          def run_ytdlp(url, out_name, extra_args=None):
               cmd = [
                   "yt-dlp", "--no-playlist",
                   "--format", fmt,
@@ -132,11 +128,54 @@ jobs:
                   "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                   url
               ]
-
-              print(f"  Downloading...")
+              if extra_args:
+                  # Insert any extra arguments before the URL
+                  for arg in extra_args:
+                      cmd.insert(-1, arg)
               result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+              return result
 
+          video_count = 0
+          downloaded_any = 0
+
+          for idx, url in enumerate(urls):
+              video_count += 1
+              print(f"\n--- URL #{video_count}: {url} ---")
+              out_name = f"video_{video_count}.%(ext)s"
+              success = False
+
+              # Strategy 1: WARP (no cookies)
+              print("  [Strategy 1] Downloading via Cloudflare WARP (no cookies)...")
+              result = run_ytdlp(url, out_name)
               if result.returncode == 0:
+                  success = True
+                  print("  ✓ WARP download succeeded")
+              else:
+                  lines = result.stderr.splitlines()[-5:]
+                  for line in lines:
+                      print(f"    {line}")
+                  print("  ✗ WARP download failed")
+
+              # Strategy 2: Cookies fallback (if WARP failed and cookies are available)
+              if not success and cookies_secret:
+                  print("  [Strategy 2] Attempting with cookies...")
+                  # Write cookies to file
+                  with open("cookies.txt", "w") as cf:
+                      cf.write(cookies_secret)
+                  result = run_ytdlp(url, out_name, extra_args=["--cookies", "cookies.txt"])
+                  if result.returncode == 0:
+                      success = True
+                      print("  ✓ Cookies download succeeded")
+                  else:
+                      lines = result.stderr.splitlines()[-5:]
+                      for line in lines:
+                          print(f"    {line}")
+                      print("  ✗ Cookies download failed")
+              elif not success:
+                  print("  [Strategy 2] Skipped (no cookies secret available)")
+
+              if success:
+                  # Locate the downloaded file (yt-dlp might use an extension)
                   for f in os.listdir("."):
                       if f.startswith(f"video_{video_count}.") and not f.endswith(".part"):
                           size_mb = os.path.getsize(f) / (1024 * 1024)
@@ -146,13 +185,14 @@ jobs:
                           downloaded_any += 1
                           break
               else:
-                  lines = result.stderr.splitlines()[-5:]
-                  for line in lines:
-                      print(f"    {line}")
-                  print(f"  ✗ Download failed for URL #{video_count}")
+                  print(f"  ✗ All methods failed for URL #{video_count}")
+
+          # Clean up cookies file
+          try: os.remove("cookies.txt")
+          except: pass
 
           with open("download.log", "a") as log:
-              log.write(f"=== YouTube Download Log (WARP) ===\n")
+              log.write(f"=== YouTube Download Log (WARP + Cookies) ===\n")
               log.write(f"Date: {time.ctime()}\n")
               log.write(f"Total URLs: {len(urls)}\n")
               log.write(f"Successfully downloaded: {downloaded_any}\n")
