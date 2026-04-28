@@ -1,0 +1,14 @@
+=== Cobalt Instance Test Results ===
+Test URL: https://www.youtube.com/watch?v=jNQXAC9IVRw
+Total tested: 3
+Working: 0
+
+❌ FAILED - cobalt-api.meowing.de
+       Error: Exception: Invalid URL 'cobalt-api.meowing.de/': No scheme supplied. Perhaps you meant https://cobalt-api.meowing.de/?
+
+❌ FAILED - cobalt-backend.canine.tools
+       Error: Exception: Invalid URL 'cobalt-backend.canine.tools/': No scheme supplied. Perhaps you meant https://cobalt-backend.canine.tools/?
+
+❌ FAILED - capi.3kh0.net
+       Error: Exception: Invalid URL 'capi.3kh0.net/': No scheme supplied. Perhaps you meant https://capi.3kh0.net/?
+
