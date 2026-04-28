@@ -1,0 +1,15 @@
+Processing 1 URL(s) through Cloudflare WARP
+
+--- URL #1: https://www.youtube.com/watch?v=cle-45adu50 ---
+  [Strategy 1] Cloudflare WARP (video only)...
+  ✓ WARP video download succeeded
+  ✓ Video: 23_04_2026 [cle-45adu50].mp4 (170.2 MB)
+  [Subs] Attempting subtitle download (best effort)...
+  ℹ Subtitle download failed (non‑critical).
+
+=== Summary ===
+Date: Tue Apr 28 22:36:10 2026
+Total URLs: 1
+Successfully downloaded: 1
+
+✅ Downloaded 1 video(s).
