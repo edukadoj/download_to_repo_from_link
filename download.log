@@ -1,16 +1,1 @@
 
-[2026-04-28T11:34:19.800Z] Processing 1 URL(s) with headless browser.
-[2026-04-28T11:34:19.801Z] 
---- URL #1: https://github.com/smplayer-dev/smplayer/releases/download/v25.6.0/smplayer-25.6.0-x64-unsigned.exe ---
-[2026-04-28T11:34:19.802Z] Starting browser for URL: https://github.com/smplayer-dev/smplayer/releases/download/v25.6.0/smplayer-25.6.0-x64-unsigned.exe
-[2026-04-28T11:34:20.028Z] Navigating (domcontentloaded)...
-[2026-04-28T11:34:20.245Z] First navigation failed: page.goto: Download is starting
-Call log:
-  - navigating to "https://github.com/smplayer-dev/smplayer/releases/download/v25.6.0/smplayer-25.6.0-x64-unsigned.exe", waiting until "domcontentloaded"
-. Trying SourceForge direct format...
-[2026-04-28T11:34:20.246Z] ✗ Error: page.goto: Download is starting
-Call log:
-  - navigating to "https://github.com/smplayer-dev/smplayer/releases/download/v25.6.0/smplayer-25.6.0-x64-unsigned.exe", waiting until "domcontentloaded"
-
-[2026-04-28T11:34:20.253Z] FATAL UNHANDLED ERROR: download.saveAs: canceled
-[2026-04-28 11:34:21] No files to upload. Exiting.
