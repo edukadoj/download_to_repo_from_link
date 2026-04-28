@@ -1,12 +1,1 @@
 
-[2026-04-28 03:35:01] === Download started ===
-[2026-04-28 03:35:01] Processing 1 URL(s).
-[2026-04-28 03:35:01] --- URL 1/1: https://sourceforge.net/projects/smplayer/files/SMPlayer/25.6.0/smplayer-25.6.0-x64-unsigned.exe/download ---
-[2026-04-28 03:35:02] HTTP Status: 200
-[2026-04-28 03:35:02] File: download, Size: 0.1 MB
-[2026-04-28 03:35:02] Small file, uploading directly...
-[2026-04-28 03:35:04] ✓ Uploaded: download
-[2026-04-28 03:35:04] Generating reassemble.bat...
-[2026-04-28 03:35:04] Uploading reassemble.bat...
-[2026-04-28 03:35:05] ✓ reassemble.bat uploaded.
-[2026-04-28 03:35:05] === Download completed ===
