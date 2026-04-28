@@ -150,6 +150,7 @@ jobs:
               cmd = [
                   "yt-dlp", "--no-playlist",
                   "--format", fmt,
+                  "--merge-output-format", "mp4",   # ← ENSURE MP4 OUTPUT
                   "--output", "%(title).150B [%(id)s].%(ext)s",
                   "--restrict-filenames",
                   "--windows-filenames",
@@ -202,7 +203,7 @@ jobs:
                   log("  [Strategy 2] Skipped (no cookies secret available)")
 
               if success:
-                  # Find the video file (exclude .part, .srt, .ytdl, .log)
+                  # Find the video file (exclude .part, .srt, .ytdl, .log) – will be .mp4 now
                   video_file = None
                   for f in sorted(new_files):
                       if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")):
