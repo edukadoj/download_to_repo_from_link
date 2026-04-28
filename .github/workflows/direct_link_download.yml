@@ -41,7 +41,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f download.log url_list.txt file_list.txt
+          rm -f download.log url_list.txt file_list.txt downloader.js
           echo "" > download.log
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -62,12 +62,13 @@ jobs:
           done
           echo "URL list created with $(grep -cve '^\s*$' url_list.txt) entries."
 
-      - name: Install Node.js and Playwright
+      - name: Install Node.js and Playwright (LOCAL)
         run: |
           sudo apt-get update
           sudo apt-get install -y libgbm1 libwoff1 libopus0 libwebpdemux2 libharfbuzz-icu0 libenchant-2-2 libsecret-1-0 libhyphen0 libmanette-0.2-0 libflite1
-          # Use Node.js already on the runner (v20+). Install Playwright as a global NPM package.
-          npm install -g playwright
+          # Install playwright as a LOCAL dependency so require() works
+          npm init -y  # create package.json if missing
+          npm install playwright
           npx playwright install chromium
 
       - name: Download all files via headless browser (Node.js)
@@ -80,23 +81,30 @@ jobs:
           $outDir = $env:FOLDER_NAME
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-          # Create a temporary Node.js script
+          # Create a self‑loggging Node.js script
           $script = @'
           const { chromium } = require('playwright');
           const fs = require('fs');
           const path = require('path');
-          const https = require('https');
-          const http = require('http');
 
           const urls = fs.readFileSync('url_list.txt', 'utf-8').split('\n').filter(line => line.trim() !== '');
           const outDir = process.env.FOLDER_NAME || 'Download';
 
           function log(msg) {
-              console.log(msg);
-              fs.appendFileSync('download.log', msg + '\n');
+              const time = new Date().toISOString();
+              const fullMsg = `[${time}] ${msg}`;
+              console.log(fullMsg);
+              fs.appendFileSync('download.log', fullMsg + '\n');
           }
 
+          // Catch all unhandled errors
+          process.on('uncaughtException', (err) => {
+              log(`FATAL UNHANDLED ERROR: ${err.message}`);
+              process.exit(1);
+          });
+
           async function downloadFromUrl(url, index) {
+              log(`Starting browser for URL: ${url}`);
               const browser = await chromium.launch({ headless: true });
               const context = await browser.newContext({
                   userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -104,87 +112,80 @@ jobs:
               });
               const page = await context.newPage();
 
-              // Capture download event
-              const downloadPromise = new Promise((resolve) => {
+              // Track download
+              let downloadPromise = new Promise((resolve) => {
                   page.on('download', async (download) => {
                       const fileName = download.suggestedFilename();
                       const savePath = path.join(outDir, fileName);
                       await download.saveAs(savePath);
-                      log(`✓ Downloaded via browser: ${fileName}`);
+                      log(`✓ Browser download event: saved as ${fileName}`);
+                      fs.appendFileSync('file_list.txt', fileName + '\n');
                       resolve(true);
                   });
               });
 
               try {
+                  log(`Navigating to ${url}...`);
                   const response = await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
                   const status = response.status();
                   const contentType = response.headers()['content-type'] || '';
+                  log(`Response: HTTP ${status}, Content-Type: ${contentType}`);
 
-                  // If the response is already a file (not HTML), save it directly
+                  // If it's a non‑HTML file, save directly
                   if (!contentType.includes('text/html') && status < 400) {
                       const body = await response.body();
                       let fileName = url.split('/').pop().split('?')[0];
                       if (!fileName) fileName = `downloaded_file_${index}`;
                       const filePath = path.join(outDir, fileName);
                       fs.writeFileSync(filePath, body);
-                      log(`✓ Direct file: ${fileName} (${(body.length / 1024 / 1024).toFixed(1)} MB)`);
+                      const sizeMB = (body.length / 1024 / 1024).toFixed(2);
+                      log(`✓ Direct download: ${fileName} (${sizeMB} MB)`);
                       fs.appendFileSync('file_list.txt', fileName + '\n');
                       await browser.close();
                       return;
                   }
 
-                  // Wait 5 seconds for potential JavaScript download to trigger
+                  // Wait 5 seconds for JavaScript to possibly trigger a download
+                  log('Waiting 5s for JavaScript download triggers...');
                   await page.waitForTimeout(5000);
 
-                  // If download didn't start, try extracting a direct link from the page
-                  if (!downloadPromise.isResolved) {
-                      const potentialLinks = await page.evaluate(() => {
-                          const links = Array.from(document.querySelectorAll('a[href]'));
-                          return links.map(a => a.href).filter(h => /\.(exe|zip|msi|dmg|tar\.gz|7z|rar|bin|iso|img|pdf|pkg)$/i.test(h));
-                      });
-
-                      if (potentialLinks.length > 0) {
-                          const downloadUrl = potentialLinks[0];
-                          log(`Found link: ${downloadUrl}`);
-                          // Download directly with Node.js http/https
-                          const protocol = downloadUrl.startsWith('https') ? https : http;
-                          const fileStream = (await new Promise((resolve, reject) => {
-                              protocol.get(downloadUrl, (res) => {
-                                  if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                                      // Follow redirects
-                                      return resolve({ redirect: res.headers.location });
-                                  }
-                                  resolve(res);
-                              }).on('error', reject);
-                          }));
-
-                          if (fileStream.redirect) {
-                              // Handle simple redirect (you could recurse, but for brevity just skip)
-                              log('Redirected, but not followed (for simplicity).');
-                              return;
-                          }
-
-                          let fileName = downloadUrl.split('/').pop().split('?')[0];
-                          if (!fileName) fileName = `downloaded_file_${index}`;
-                          const filePath = path.join(outDir, fileName);
-                          const writeStream = fs.createWriteStream(filePath);
-                          fileStream.pipe(writeStream);
-                          await new Promise((resolve, reject) => {
-                              writeStream.on('finish', resolve);
-                              writeStream.on('error', reject);
-                          });
-                          log(`✓ Downloaded via extracted link: ${fileName}`);
-                          fs.appendFileSync('file_list.txt', fileName + '\n');
-                      }
+                  // If no download was triggered yet, try extracting a link from the page
+                  // We can check if downloadPromise is already resolved
+                  let raceResult = await Promise.race([
+                      downloadPromise,
+                      page.waitForTimeout(1000)  // just a tiny delay to see if download resolves
+                  ]);
+                  if (raceResult === true) {
+                      log('Download already happened.');
+                      await browser.close();
+                      return;
                   }
 
-                  // Wait for the download event (may have resolved earlier)
-                  await downloadPromise;
-
+                  log('No download event caught. Extracting direct links from page...');
+                  const potentialLinks = await page.evaluate(() => {
+                      const links = Array.from(document.querySelectorAll('a[href]'));
+                      return links.map(a => a.href).filter(h => /\.(exe|zip|msi|dmg|tar\.gz|7z|rar|bin|iso|img|pdf|pkg)$/i.test(h));
+                  });
+                  if (potentialLinks.length > 0) {
+                      const downloadUrl = potentialLinks[0];
+                      log(`Found potential download link: ${downloadUrl}`);
+                      // Use page to navigate to that link, which should trigger download
+                      await page.goto(downloadUrl, { waitUntil: 'networkidle', timeout: 60000 });
+                      // Wait for download to start
+                      try {
+                          await downloadPromise;
+                          log('Download started after following extracted link.');
+                      } catch {
+                          log('No download after following extracted link.');
+                      }
+                  } else {
+                      log('No direct download link found on the page. Giving up.');
+                  }
               } catch (err) {
-                  log(`✗ Error: ${err.message}`);
+                  log(`✗ Error processing ${url}: ${err.message}`);
               } finally {
                   await browser.close();
+                  log('Browser closed for this URL.');
               }
           }
 
@@ -198,15 +199,13 @@ jobs:
                   log(`\n--- URL #${i+1}: ${urls[i]} ---`);
                   await downloadFromUrl(urls[i], i+1);
               }
-              log('\nDownload phase completed.');
+              log('Download phase completed.');
               process.exit(0);
           })();
           '@
 
-          # Write the script to a file
+          # Write the script and run it
           Set-Content -Path "downloader.js" -Value $script
-
-          # Run the script with Node.js
           node downloader.js
 
       - name: Commit download log and file list
