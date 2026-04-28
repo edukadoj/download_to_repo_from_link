@@ -1,4 +1,4 @@
-name: YouTube Download (Cobalt community instances)
+name: YouTube Download (WARP)
 
 on:
   workflow_dispatch:
@@ -27,14 +27,13 @@ on:
         description: 'Video quality'
         required: true
         type: choice
-        default: '720'
+        default: '720p'
         options:
-          - '144'
-          - '360'
-          - '480'
-          - '720'
-          - '1080'
-          - 'max'
+          - '144p'
+          - '360p'
+          - '720p'
+          - '1080p'
+          - 'best'
       folder_name:
         description: 'Folder to store downloads'
         required: false
@@ -55,7 +54,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f video.* download.log video_list.txt url_list.txt sub_list.txt
+          rm -f video.* download.log video_list.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -63,42 +62,40 @@ jobs:
           git pull --rebase
           git push || true
 
-      - name: Write all YouTube URLs to a file
+      - name: Setup Cloudflare WARP
+        uses: viperadnan-git/setup-warp@v1
+        with:
+          mode: 'client'
+          stack: 'dual'
+          configure_docker: 'false'
+
+      - name: Verify WARP connection
         run: |
-          > url_list.txt
-          for i in 1 2 3 4 5; do
-            url="${{ github.event.inputs.youtube_url }}"
-            [ -n "$url" ] && echo "$url" >> url_list.txt
-          done
-          echo "Written $(wc -l < url_list.txt) URL(s) to url_list.txt"
-        # Note: The above won't work with dynamic indices because GitHub doesn't support that.
-        # We'll instead list all inputs explicitly.
-        # Let's use a different approach: just write each input individually if non-empty.
-        # We'll do it in the next step using Python, which can access env variables.
-        # Actually, we can set env variables in this step and read them in Python.
+          echo "Checking WARP status..."
+          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
+          echo "WARP is active."
 
-      # Better approach: pass all URL inputs as environment variables to Python
-      # We'll define them in the step's env block.
+      - name: Install yt-dlp and ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python3 -m pip install --upgrade yt-dlp
 
-      - name: Install Python dependencies
-        run: python3 -m pip install --upgrade requests
-
-      - name: Download all videos via Cobalt verified instances
+      - name: Download all videos via yt-dlp with WARP
+        id: download
         env:
           YT_URL_1: ${{ github.event.inputs.youtube_url1 }}
           YT_URL_2: ${{ github.event.inputs.youtube_url2 }}
           YT_URL_3: ${{ github.event.inputs.youtube_url3 }}
           YT_URL_4: ${{ github.event.inputs.youtube_url4 }}
           YT_URL_5: ${{ github.event.inputs.youtube_url5 }}
-        id: download
         run: |
           python3 << 'PYEOF'
-          import json, os, sys, time, requests
+          import os, sys, time, subprocess
 
-          quality = os.environ.get("QUALITY", "720")
-          folder = os.environ.get("FOLDER", "YouTube Download")
+          quality = "${{ github.event.inputs.quality }}"
 
-          # Collect URLs from environment variables
+          # Collect URLs from environment variables (no dynamic expressions)
           urls = []
           for i in range(1, 6):
               v = os.environ.get(f"YT_URL_{i}", "").strip()
@@ -109,63 +106,16 @@ jobs:
               print("No URLs provided.")
               sys.exit(1)
 
-          print(f"Processing {len(urls)} URL(s)")
+          print(f"Processing {len(urls)} URL(s) through Cloudflare WARP")
 
-          # ──────────────── Fetch live instances ────────────────
-          INSTANCE_LIST_URL = "https://instances.cobalt.best/api/instances.json"
-          print(f"Fetching instance list from {INSTANCE_LIST_URL} ...")
-          try:
-              resp = requests.get(INSTANCE_LIST_URL, timeout=15)
-              resp.raise_for_status()
-              all_instances = resp.json()
-          except Exception as e:
-              print(f"ERROR: Could not fetch instance list: {e}")
-              sys.exit(1)
-
-          youtube_instances = []
-          for inst in all_instances:
-              if not inst.get("online", False):
-                  continue
-              svc = inst.get("services", {})
-              if svc.get("youtube", False):
-                  api = inst.get("api", "")
-                  if api:
-                      if not api.startswith("http"):
-                          api = "https://" + api
-                      youtube_instances.append({
-                          "api": api,
-                          "score": inst.get("score", 0)
-                      })
-
-          youtube_instances.sort(key=lambda x: x["score"], reverse=True)
-          print(f"Found {len(youtube_instances)} YouTube‑capable instances.")
-
-          if not youtube_instances:
-              print("No instances available. Exiting.")
-              sys.exit(1)
-
-          def try_one_instance(api_url, yt_url):
-              payload = {
-                  "url": yt_url,
-                  "videoQuality": "720",
-                  "youtubeVideoCodec": "h264",
-                  "filenameStyle": "basic"
-              }
-              headers = {"Accept": "application/json", "Content-Type": "application/json"}
-              try:
-                  r = requests.post(api_url + "/", json=payload, headers=headers, timeout=30)
-                  if r.status_code != 200:
-                      return None
-                  data = r.json()
-                  if data.get("status") in ("redirect", "tunnel"):
-                      return data.get("url")
-                  elif data.get("status") == "picker":
-                      picker = data.get("picker", [])
-                      if picker:
-                          return picker[0].get("url")
-                  return None
-              except Exception:
-                  return None
+          quality_map = {
+              "144p": "bestvideo[height<=144]+bestaudio/best[height<=144]",
+              "360p": "bestvideo[height<=360]+bestaudio/best[height<=360]",
+              "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]",
+              "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+              "best": "best"
+          }
+          fmt = quality_map.get(quality, "bestvideo[height<=720]+bestaudio/best[height<=720]")
 
           video_count = 0
           downloaded_any = 0
@@ -173,43 +123,36 @@ jobs:
           for idx, url in enumerate(urls):
               video_count += 1
               print(f"\n--- URL #{video_count}: {url} ---")
-              direct_url = None
-              for inst in youtube_instances:
-                  api = inst["api"]
-                  print(f"  Trying {api} ... ", end="", flush=True)
-                  direct_url = try_one_instance(api, url)
-                  if direct_url:
-                      print("✓")
-                      break
-                  else:
-                      print("✗")
-                  time.sleep(0.3)
+              out_name = f"video_{video_count}.%(ext)s"
 
-              if not direct_url:
-                  print("  All instances failed. Skipping.")
-                  continue
+              cmd = [
+                  "yt-dlp", "--no-playlist",
+                  "--format", fmt,
+                  "--output", out_name,
+                  "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                  url
+              ]
 
-              try:
-                  vid_name = f"video_{video_count}.mp4"
-                  print(f"  Downloading {vid_name} ...")
-                  r = requests.get(direct_url, stream=True, timeout=600)
-                  r.raise_for_status()
-                  total = 0
-                  with open(vid_name, "wb") as f:
-                      for chunk in r.iter_content(8192):
-                          f.write(chunk)
-                          total += len(chunk)
-                  size_mb = total / (1024 * 1024)
-                  print(f"  ✓ Downloaded: {vid_name} ({size_mb:.1f} MB)")
-                  with open("video_list.txt", "a") as vl:
-                      vl.write(vid_name + "\n")
-                  downloaded_any += 1
-              except Exception as e:
-                  print(f"  ✗ Download failed: {e}")
+              print(f"  Downloading...")
+              result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
 
-          # Write log
+              if result.returncode == 0:
+                  for f in os.listdir("."):
+                      if f.startswith(f"video_{video_count}.") and not f.endswith(".part"):
+                          size_mb = os.path.getsize(f) / (1024 * 1024)
+                          print(f"  ✓ Downloaded: {f} ({size_mb:.1f} MB)")
+                          with open("video_list.txt", "a") as vl:
+                              vl.write(f + "\n")
+                          downloaded_any += 1
+                          break
+              else:
+                  lines = result.stderr.splitlines()[-5:]
+                  for line in lines:
+                      print(f"    {line}")
+                  print(f"  ✗ Download failed for URL #{video_count}")
+
           with open("download.log", "a") as log:
-              log.write(f"=== Cobalt Download Log ===\n")
+              log.write(f"=== YouTube Download Log (WARP) ===\n")
               log.write(f"Date: {time.ctime()}\n")
               log.write(f"Total URLs: {len(urls)}\n")
               log.write(f"Successfully downloaded: {downloaded_any}\n")
