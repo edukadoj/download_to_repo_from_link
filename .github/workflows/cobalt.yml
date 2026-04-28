@@ -1,0 +1,145 @@
+name: Cobalt Instance Tester
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-instances:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Install requests
+        run: python3 -m pip install --upgrade requests
+
+      - name: Test all Cobalt YouTube instances
+        env:
+          # Hardcoded short video – you can change it later
+          TEST_URL: 'https://www.youtube.com/watch?v=jNQXAC9IVRw'
+        run: |
+          python3 << 'PYEOF'
+          import json, sys, time, requests
+
+          TEST_URL = "${{ env.TEST_URL }}"
+          INSTANCE_LIST_URL = "https://instances.cobalt.best/api/instances.json"
+
+          print(f"Fetching instance list...")
+          try:
+              resp = requests.get(INSTANCE_LIST_URL, timeout=15)
+              resp.raise_for_status()
+              all_instances = resp.json()
+          except Exception as e:
+              print(f"ERROR: {e}")
+              sys.exit(1)
+
+          # Filter YouTube-capable & online
+          youtube_instances = []
+          for inst in all_instances:
+              if not inst.get("online", False):
+                  continue
+              svc = inst.get("services", {})
+              yt = svc.get("youtube", False)
+              if yt is True:
+                  api = inst.get("api", "")
+                  if api:
+                      youtube_instances.append({
+                          "api": api,
+                          "score": inst.get("score", 0),
+                          "trust": inst.get("trust", 0)
+                      })
+
+          youtube_instances.sort(key=lambda x: x["score"], reverse=True)
+          print(f"Found {len(youtube_instances)} YouTube-capable instances.")
+
+          results = []
+          for inst in youtube_instances:
+              api = inst["api"]
+              print(f"\nTesting {api}...")
+              payload = {
+                  "url": TEST_URL,
+                  "videoQuality": "720",
+                  "youtubeVideoCodec": "h264",
+                  "filenameStyle": "basic"
+              }
+              headers = {
+                  "Accept": "application/json",
+                  "Content-Type": "application/json"
+              }
+              success = False
+              error_msg = ""
+              direct_url = None
+              start = time.time()
+              try:
+                  r = requests.post(api + "/", json=payload, headers=headers, timeout=20)
+                  elapsed = time.time() - start
+                  if r.status_code == 200:
+                      data = r.json()
+                      status = data.get("status", "")
+                      if status in ("redirect", "tunnel"):
+                          direct_url = data.get("url", "")
+                          if direct_url.startswith("http"):
+                              success = True
+                          else:
+                              error_msg = f"Invalid URL: {direct_url[:100]}"
+                      elif status == "picker":
+                          picker = data.get("picker", [])
+                          if picker:
+                              direct_url = picker[0].get("url", "")
+                              if direct_url.startswith("http"):
+                                  success = True
+                              else:
+                                  error_msg = f"Invalid URL from picker: {direct_url[:100]}"
+                          else:
+                              error_msg = "Picker returned empty"
+                      else:
+                          error_msg = f"Unknown status: {status}"
+                  else:
+                      error_msg = f"HTTP {r.status_code}: {r.text[:200]}"
+              except Exception as e:
+                  error_msg = f"Exception: {e}"
+
+              if success:
+                  print(f"  ✅ Success (direct link obtained in {elapsed:.2f}s)")
+              else:
+                  print(f"  ❌ Failed: {error_msg}")
+
+              results.append({
+                  "api": api,
+                  "success": success,
+                  "error": error_msg if not success else "",
+                  "url_sample": direct_url[:80] if success else ""
+              })
+
+          # Write results to file
+          with open("cobalt_test_results.txt", "w") as f:
+              f.write("=== Cobalt Instance Test Results ===\n")
+              f.write(f"Test URL: {TEST_URL}\n")
+              f.write(f"Total tested: {len(results)}\n")
+              working = [r for r in results if r["success"]]
+              f.write(f"Working: {len(working)}\n\n")
+              for r in results:
+                  status = "✅ WORKING" if r["success"] else "❌ FAILED"
+                  f.write(f"{status} - {r['api']}\n")
+                  if not r["success"]:
+                      f.write(f"       Error: {r['error']}\n")
+                  else:
+                      f.write(f"       Sample URL: {r['url_sample']}\n")
+                  f.write("\n")
+
+          print("\nResults written to cobalt_test_results.txt")
+          PYEOF
+
+      - name: Commit results to repository
+        if: always()
+        run: |
+          git add cobalt_test_results.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update Cobalt test results" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
