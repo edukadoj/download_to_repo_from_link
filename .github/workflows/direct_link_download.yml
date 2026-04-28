@@ -41,7 +41,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f download.log url_list.txt file_list.txt downloader.js pending_urls.txt
+          rm -f download.log url_list.txt file_list.txt pending_urls.txt downloader.js
           echo "" > download.log
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -70,191 +70,179 @@ jobs:
           npm install playwright
           npx playwright install chromium
 
-      - name: Download files (Invoke-WebRequest first, then Playwright fallback)
-        id: download
-        continue-on-error: true
-        shell: pwsh
+      - name: Phase 1 – Simple download via curl
+        shell: bash
         env:
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
         run: |
-          $ErrorActionPreference = "Continue"
-          $outDir = $env:FOLDER_NAME
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          outDir="$FOLDER_NAME"
+          mkdir -p "$outDir"
+          pending=0
+          > file_list.txt
+          > pending_urls.txt
 
-          function Write-Log {
-            param([string]$msg)
-            $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-            $logLine = "[$timestamp] $msg"
-            Write-Host $logLine
-            Add-Content "download.log" $logLine
+          while IFS= read -r url || [ -n "$url" ]; do
+            [ -z "$url" ] && continue
+            echo "Trying simple download: $url" | tee -a download.log
+            # Extract a provisional filename
+            filename=$(basename "$url" | sed 's/?.*//')
+            [ -z "$filename" ] && filename="downloaded_file_$(date +%s).bin"
+            temp_file="temp_$(date +%s)_$$.download"
+
+            # Use curl with a realistic User-Agent
+            http_code=$(curl -L -o "$temp_file" \
+              -w "%{http_code}" \
+              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+              --max-time 60 \
+              "$url" 2>/dev/null)
+
+            if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 400 ] && [ -f "$temp_file" ] && [ -s "$temp_file" ]; then
+              # Check if the result is HTML (mirror page)
+              if file -b --mime-type "$temp_file" | grep -q 'text/html' || head -c 100 "$temp_file" | grep -qiE '<!doctype html|<html|<head|<body'; then
+                echo "  → Got HTML, will use browser fallback" | tee -a download.log
+                echo "$url" >> pending_urls.txt
+                rm -f "$temp_file"
+              else
+                mv "$temp_file" "$outDir/$filename"
+                sizeMB=$(du -m "$outDir/$filename" | cut -f1)
+                echo "✓ Downloaded: $filename ($sizeMB MB)" | tee -a download.log
+                echo "$filename" >> file_list.txt
+              fi
+            else
+              echo "  → Direct download failed (HTTP $http_code), will try browser" | tee -a download.log
+              echo "$url" >> pending_urls.txt
+              rm -f "$temp_file"
+            fi
+          done < url_list.txt
+
+      - name: Phase 2 – Playwright fallback for problematic URLs
+        shell: bash
+        if: success()
+        env:
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+        run: |
+          if [ ! -s pending_urls.txt ]; then
+            echo "No URLs required browser fallback." | tee -a download.log
+            exit 0
+          fi
+
+          echo "Running headless browser for $(wc -l < pending_urls.txt) URL(s)." | tee -a download.log
+
+          # Write the Node.js downloader script using a bash heredoc
+          cat > downloader.js << 'NODEEOF'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+          const path = require('path');
+          const https = require('https');
+          const http = require('http');
+
+          const urls = fs.readFileSync('pending_urls.txt', 'utf-8').split('\n').filter(line => line.trim() !== '');
+          const outDir = process.env.FOLDER_NAME || 'Download';
+
+          function log(msg) {
+              const time = new Date().toISOString();
+              const fullMsg = `[${time}] ${msg}`;
+              console.log(fullMsg);
+              fs.appendFileSync('download.log', fullMsg + '\n');
           }
 
-          $urls  = Get-Content url_list.txt | Where-Object { $_ -and $_ -ne '' }
-          $pendingUrls = @()
+          async function downloadFromUrl(url, index) {
+              log(`Starting browser for URL: ${url}`);
+              const browser = await chromium.launch({ headless: true });
+              const context = await browser.newContext({
+                  userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                  acceptDownloads: true
+              });
+              const page = await context.newPage();
+              page.setDefaultNavigationTimeout(120000);
 
-          # ---------- Phase 1: Try Invoke-WebRequest (works for most direct links) ----------
-          foreach ($url in $urls) {
-              $tempFile = "temp_$([guid]::NewGuid().Guid).download"
+              let downloadPromise = new Promise((resolve) => {
+                  page.on('download', async (download) => {
+                      const fileName = download.suggestedFilename();
+                      const savePath = path.join(outDir, fileName);
+                      await download.saveAs(savePath);
+                      log(`✓ Browser download: saved as ${fileName}`);
+                      fs.appendFileSync('file_list.txt', fileName + '\n');
+                      resolve(true);
+                  });
+              });
+
               try {
-                  $response = Invoke-WebRequest -Uri $url -OutFile $tempFile -PassThru `
-                                                -Headers @{"User-Agent"="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"} `
-                                                -MaximumRedirection 10 -ErrorAction Stop
-                  $status = $response.StatusCode
-                  $contentType = $response.Headers['Content-Type'] -join '; '
-                  $isHtml = $contentType -match 'text/html' -or (Select-String -Path $tempFile -Pattern '<!DOCTYPE html|<html|<head|<body' -Quiet)
-                  if ($status -ge 200 -and $status -lt 400 -and -not $isHtml -and (Get-Item $tempFile).Length -gt 0) {
-                      $fileName = [System.IO.Path]::GetFileName($url) -split '\?' | Select-Object -First 1
-                      if (-not $fileName) { $fileName = "downloaded_file_$( (Get-Random) ).bin" }
-                      $finalPath = Join-Path $outDir $fileName
-                      Move-Item $tempFile $finalPath -Force
-                      $sizeMB = [math]::Round((Get-Item $finalPath).Length / 1MB, 1)
-                      Write-Log "✓ Direct download: $fileName ($sizeMB MB)"
-                      Add-Content "file_list.txt" $fileName
-                      continue
+                  log('Navigating…');
+                  try {
+                      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                  } catch (navError) {
+                      if (navError.message.includes('Download is starting')) {
+                          log('Download is starting – waiting…');
+                          await downloadPromise;
+                          await browser.close();
+                          return;
+                      } else {
+                          log(`Navigation error: ${navError.message}. Trying alternative URL…`);
+                          if (url.includes('sourceforge.net')) {
+                              const directUrl = url.replace('/download', '?download');
+                              log(`Retrying with: ${directUrl}`);
+                              await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                          }
+                      }
                   }
-              } catch {
-                  Write-Log "Invoke-WebRequest failed: $($_.Exception.Message). Will try browser."
+
+                  log('Waiting 10s for JavaScript…');
+                  await page.waitForTimeout(10000);
+
+                  if (downloadPromise.isResolved) {
+                      log('Download happened during wait.');
+                      await browser.close();
+                      return;
+                  }
+
+                  log('Extracting direct links from page…');
+                  const potentialLinks = await page.evaluate(() => {
+                      const links = Array.from(document.querySelectorAll('a[href]'));
+                      return links.map(a => a.href).filter(h => /\.(exe|zip|msi|dmg|tar\.gz|7z|rar|bin|iso|img|pdf|pkg)$/i.test(h));
+                  });
+                  if (potentialLinks.length > 0) {
+                      const downloadUrl = potentialLinks[0];
+                      log(`Found link: ${downloadUrl}`);
+                      const protocol = downloadUrl.startsWith('https') ? https : http;
+                      const fileStream = await new Promise((resolve, reject) => {
+                          protocol.get(downloadUrl, (res) => resolve(res)).on('error', reject);
+                      });
+                      let fileName = downloadUrl.split('/').pop().split('?')[0] || `downloaded_file_${index}`;
+                      const filePath = path.join(outDir, fileName);
+                      const writeStream = fs.createWriteStream(filePath);
+                      fileStream.pipe(writeStream);
+                      await new Promise((resolve, reject) => {
+                          writeStream.on('finish', resolve);
+                          writeStream.on('error', reject);
+                      });
+                      const sizeMB = (fs.statSync(filePath).size / 1024 / 1024).toFixed(2);
+                      log(`✓ Downloaded via extracted link: ${fileName} (${sizeMB} MB)`);
+                      fs.appendFileSync('file_list.txt', fileName + '\n');
+                  } else {
+                      log('No direct download link found.');
+                  }
+              } catch (err) {
+                  log(`✗ Error: ${err.message}`);
               } finally {
-                  Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                  await browser.close();
+                  log('Browser closed.');
               }
-              Write-Log "Simple download failed for $url. Adding to browser list."
-              $pendingUrls += $url
           }
 
-          # ---------- Phase 2: Playwright fallback for problematic URLs ----------
-          if ($pendingUrls.Count -gt 0) {
-              Write-Log "Running headless browser for $($pendingUrls.Count) URL(s)."
-              $pendingUrls | Out-File -Encoding ascii "pending_urls.txt"
+          (async () => {
+              if (urls.length === 0) { log('No URLs for browser.'); process.exit(0); }
+              log(`Processing ${urls.length} URL(s) with headless browser.`);
+              for (let i = 0; i < urls.length; i++) {
+                  log(`\n--- URL #${i+1}: ${urls[i]} ---`);
+                  await downloadFromUrl(urls[i], i+1);
+              }
+              log('Browser phase completed.');
+              process.exit(0);
+          })();
+          NODEEOF
 
-              # Create the Node.js script (here-string fixed: NO leading spaces before '@)
-              $script = @'
-const { chromium } = require('playwright');
-const fs = require('fs');
-const path = require('path');
-const https = require('https');
-const http = require('http');
-
-const urls = fs.readFileSync('pending_urls.txt', 'utf-8').split('\n').filter(line => line.trim() !== '');
-const outDir = process.env.FOLDER_NAME || 'Download';
-
-function log(msg) {
-    const time = new Date().toISOString();
-    const fullMsg = `[${time}] ${msg}`;
-    console.log(fullMsg);
-    fs.appendFileSync('download.log', fullMsg + '\n');
-}
-
-process.on('uncaughtException', (err) => {
-    log(`FATAL UNHANDLED ERROR: ${err.message}`);
-    process.exit(1);
-});
-
-async function downloadFromUrl(url, index) {
-    log(`Starting browser for URL: ${url}`);
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        acceptDownloads: true
-    });
-    const page = await context.newPage();
-    page.setDefaultNavigationTimeout(120000);
-
-    let downloadPromise = new Promise((resolve) => {
-        page.on('download', async (download) => {
-            const fileName = download.suggestedFilename();
-            const savePath = path.join(outDir, fileName);
-            await download.saveAs(savePath);
-            log(`✓ Browser download: saved as ${fileName}`);
-            fs.appendFileSync('file_list.txt', fileName + '\n');
-            resolve(true);
-        });
-    });
-
-    try {
-        log(`Navigating (domcontentloaded)...`);
-        try {
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        } catch (navError) {
-            if (navError.message.includes('Download is starting')) {
-                log('Download is starting – waiting for file...');
-                try { await downloadPromise; } catch (e) { log(`Download error: ${e.message}`); }
-                await browser.close();
-                return;
-            } else {
-                log(`Navigation error: ${navError.message}. Trying alternative...`);
-                if (url.includes('sourceforge.net')) {
-                    const directUrl = url.replace('/download', '?download');
-                    log(`Retrying with: ${directUrl}`);
-                    await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-                } else {
-                    // Don't give up – just proceed with the page as is
-                }
-            }
-        }
-
-        log('Page loaded. Waiting 10s for JS downloads...');
-        await page.waitForTimeout(10000);
-
-        if (downloadPromise.isResolved) {
-            log('Download happened during wait.');
-            await browser.close();
-            return;
-        }
-
-        // Extract direct links
-        log('Extracting direct links...');
-        const potentialLinks = await page.evaluate(() => {
-            const links = Array.from(document.querySelectorAll('a[href]'));
-            return links.map(a => a.href).filter(h => /\.(exe|zip|msi|dmg|tar\.gz|7z|rar|bin|iso|img|pdf|pkg)$/i.test(h));
-        });
-        if (potentialLinks.length > 0) {
-            const downloadUrl = potentialLinks[0];
-            log(`Found link: ${downloadUrl}`);
-            const protocol = downloadUrl.startsWith('https') ? https : http;
-            const fileStream = await new Promise((resolve, reject) => {
-                protocol.get(downloadUrl, (res) => resolve(res)).on('error', reject);
-            });
-            let fileName = downloadUrl.split('/').pop().split('?')[0] || `downloaded_file_${index}`;
-            const filePath = path.join(outDir, fileName);
-            const writeStream = fs.createWriteStream(filePath);
-            fileStream.pipe(writeStream);
-            await new Promise((resolve, reject) => {
-                writeStream.on('finish', resolve);
-                writeStream.on('error', reject);
-            });
-            const sizeMB = (fs.statSync(filePath).size / 1024 / 1024).toFixed(2);
-            log(`✓ Downloaded via extracted link: ${fileName} (${sizeMB} MB)`);
-            fs.appendFileSync('file_list.txt', fileName + '\n');
-        } else {
-            log('No direct download link found.');
-        }
-    } catch (err) {
-        log(`✗ Error: ${err.message}`);
-    } finally {
-        await browser.close();
-        log('Browser closed for this URL.');
-    }
-}
-
-(async () => {
-    if (urls.length === 0) { log('No URLs for browser.'); process.exit(0); }
-    log(`Processing ${urls.length} URL(s) with headless browser.`);
-    for (let i = 0; i < urls.length; i++) {
-        log(`\n--- URL #${i+1}: ${urls[i]} ---`);
-        await downloadFromUrl(urls[i], i+1);
-    }
-    log('Browser phase completed.');
-    process.exit(0);
-})();
-'@
-              # Write the script (make sure the here-string terminator is at column 0)
-              Set-Content -Path "downloader.js" -Value $script
-              node downloader.js
-          } else {
-              Write-Log "No URLs required browser fallback."
-          }
-
-          Write-Log "Download phase complete."
+          node downloader.js
 
       - name: Commit download log and file list
         if: always()
@@ -264,7 +252,7 @@ async function downloadFromUrl(url, index) {
           git pull --rebase --strategy-option ours || true
           git push || true
 
-      - name: Split and upload all files
+      - name: Split and upload all files (unchanged)
         if: success()
         shell: pwsh
         env:
