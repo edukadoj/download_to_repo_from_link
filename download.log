@@ -1,18 +1,1 @@
 
-Trying simple download: https://github.com/smplayer-dev/smplayer/releases/download/v25.6.0/smplayer-25.6.0-x64-unsigned.exe
-✓ Downloaded: smplayer-25.6.0-x64-unsigned.exe (63 MB)
-Trying simple download: https://sourceforge.net/projects/smplayer/files/SMPlayer/25.6.0/smplayer-25.6.0-x64-unsigned.exe/download
-  → Direct download failed (HTTP 403), will try browser
-Running headless browser for 1 URL(s).
-[2026-04-28T11:58:39.969Z] Processing 1 URL(s) with headless browser.
-[2026-04-28T11:58:39.971Z] 
---- URL #1: https://sourceforge.net/projects/smplayer/files/SMPlayer/25.6.0/smplayer-25.6.0-x64-unsigned.exe/download ---
-[2026-04-28T11:58:39.971Z] Starting browser for URL: https://sourceforge.net/projects/smplayer/files/SMPlayer/25.6.0/smplayer-25.6.0-x64-unsigned.exe/download
-[2026-04-28T11:58:41.705Z] Navigating…
-[2026-04-28T11:58:41.787Z] Waiting 10s for JavaScript…
-[2026-04-28T11:58:51.791Z] Extracting direct links from page…
-[2026-04-28T11:58:51.797Z] No direct download link found.
-[2026-04-28T11:58:51.835Z] Browser closed.
-[2026-04-28T11:58:51.835Z] Browser phase completed.
-[2026-04-28 11:58:57] File missing: smplayer-25.6.0-x64-unsigned.exe – skipping.
-[2026-04-28 11:58:57] No files were successfully uploaded.
