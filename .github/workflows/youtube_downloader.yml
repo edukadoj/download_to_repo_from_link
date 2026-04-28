@@ -105,6 +105,11 @@ jobs:
           python3 << 'PYEOF'
           import os, sys, time, subprocess
 
+          def log(msg):
+              print(msg)
+              with open("download.log", "a", encoding="utf-8") as f:
+                  f.write(msg + "\n")
+
           quality = "${{ github.event.inputs.quality }}"
           cookies_secret = os.environ.get("YOUTUBE_COOKIES", "").strip()
           sub_lang_input = os.environ.get("SUB_LANG", "none").strip()
@@ -116,10 +121,10 @@ jobs:
                   urls.append(v)
 
           if not urls:
-              print("No URLs provided.")
-              sys.exit(1)
+              log("No URLs provided.")
+              sys.exit(0)
 
-          print(f"Processing {len(urls)} URL(s) through Cloudflare WARP")
+          log(f"Processing {len(urls)} URL(s) through Cloudflare WARP")
 
           quality_map = {
               "144p": "bestvideo[height<=144]+bestaudio/best[height<=144]",
@@ -135,9 +140,9 @@ jobs:
           if sub_lang_input != "none":
               lang_code = sub_lang_input.split()[0]
               sub_args = ["--write-auto-subs", "--sub-lang", lang_code, "--convert-subs", "srt"]
-              print(f"Subtitles enabled: {lang_code}")
+              log(f"Subtitles enabled: {lang_code}")
           else:
-              print("Subtitles disabled.")
+              log("Subtitles disabled.")
 
           def run_ytdlp(url, extra_args=None):
               """Download with yt-dlp; return (result, set_of_new_files)."""
@@ -163,38 +168,38 @@ jobs:
 
           for idx, url in enumerate(urls):
               video_count += 1
-              print(f"\n--- URL #{video_count}: {url} ---")
+              log(f"\n--- URL #{video_count}: {url} ---")
               success = False
               new_files = set()
 
               # Strategy 1: WARP
-              print("  [Strategy 1] Downloading via Cloudflare WARP (no cookies)...")
+              log("  [Strategy 1] Downloading via Cloudflare WARP (no cookies)...")
               result, new_files = run_ytdlp(url)
               if result.returncode == 0:
                   success = True
-                  print("  ✓ WARP download succeeded")
+                  log("  ✓ WARP download succeeded")
               else:
                   lines = result.stderr.splitlines()[-5:]
                   for line in lines:
-                      print(f"    {line}")
-                  print("  ✗ WARP download failed")
+                      log(f"    {line}")
+                  log("  ✗ WARP download failed")
 
               # Strategy 2: Cookies fallback
               if not success and cookies_secret:
-                  print("  [Strategy 2] Attempting with cookies...")
+                  log("  [Strategy 2] Attempting with cookies...")
                   with open("cookies.txt", "w") as cf:
                       cf.write(cookies_secret)
                   result, new_files = run_ytdlp(url, extra_args=["--cookies", "cookies.txt"])
                   if result.returncode == 0:
                       success = True
-                      print("  ✓ Cookies download succeeded")
+                      log("  ✓ Cookies download succeeded")
                   else:
                       lines = result.stderr.splitlines()[-5:]
                       for line in lines:
-                          print(f"    {line}")
-                      print("  ✗ Cookies download failed")
+                          log(f"    {line}")
+                      log("  ✗ Cookies download failed")
               elif not success:
-                  print("  [Strategy 2] Skipped (no cookies secret available)")
+                  log("  [Strategy 2] Skipped (no cookies secret available)")
 
               if success:
                   # Find the video file (exclude .part, .srt, .ytdl, .log)
@@ -206,12 +211,12 @@ jobs:
 
                   if video_file:
                       size_mb = os.path.getsize(video_file) / (1024 * 1024)
-                      print(f"  ✓ Video: {video_file} ({size_mb:.1f} MB)")
+                      log(f"  ✓ Video: {video_file} ({size_mb:.1f} MB)")
                       with open("video_list.txt", "a") as vl:
                           vl.write(video_file + "\n")
                       downloaded_any += 1
                   else:
-                      print("  ⚠ Video file not found among new files.")
+                      log("  ⚠ Video file not found among new files.")
 
                   if sub_lang_input != "none":
                       sub_file = None
@@ -220,33 +225,32 @@ jobs:
                               sub_file = f
                               break
                       if sub_file:
-                          print(f"  ✓ Subtitle: {sub_file}")
+                          log(f"  ✓ Subtitle: {sub_file}")
                           with open("sub_list.txt", "a") as sl:
                               sl.write(sub_file + "\n")
                       else:
-                          print("  ℹ No subtitle file downloaded (may not exist for this video).")
+                          log("  ℹ No subtitle file downloaded (may not exist for this video).")
               else:
-                  print(f"  ✗ All methods failed for URL #{video_count}")
+                  log(f"  ✗ All methods failed for URL #{video_count}")
 
           try: os.remove("cookies.txt")
           except: pass
 
-          with open("download.log", "a") as log:
-              log.write(f"=== YouTube Download Log (WARP + Cookies) ===\n")
-              log.write(f"Date: {time.ctime()}\n")
-              log.write(f"Total URLs: {len(urls)}\n")
-              log.write(f"Successfully downloaded: {downloaded_any}\n")
+          log(f"\n=== Summary ===")
+          log(f"Date: {time.ctime()}")
+          log(f"Total URLs: {len(urls)}")
+          log(f"Successfully downloaded: {downloaded_any}")
 
           if downloaded_any == 0:
-              print("\n⚠️ No videos were downloaded.")
+              log("\n⚠️ No videos were downloaded.")
           else:
-              print(f"\n✅ Downloaded {downloaded_any} video(s).")
+              log(f"\n✅ Downloaded {downloaded_any} video(s).")
           PYEOF
 
-      - name: Commit download log
+      - name: Commit download.log only (no list files)
         if: always()
         run: |
-          git add download.log video_list.txt sub_list.txt 2>/dev/null || true
+          git add download.log
           git commit -m "Update download log" || true
           git pull --rebase --strategy-option ours || true
           git push || true
@@ -401,10 +405,13 @@ jobs:
           }
           Write-Log "✅ Processing complete."
 
+          # Clean up temporary list files so they never reach the repository
+          Remove-Item video_list.txt, sub_list.txt -ErrorAction SilentlyContinue
+
       - name: Final log commit (always)
         if: always()
         run: |
-          git add download.log
-          git commit -m "Final download log" || true
+          git add download.log "${{ github.event.inputs.folder_name }}" 2>/dev/null || true
+          git commit -m "Final download log and files" || true
           git pull --rebase --strategy-option ours || true
           git push || true
