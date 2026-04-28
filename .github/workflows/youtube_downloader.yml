@@ -138,8 +138,8 @@ jobs:
           }
           fmt = quality_map.get(quality, "bestvideo[height<=720]+bestaudio/best[height<=720]")
 
-          # Build the video-only command (no subtitles)
-          video_only_cmd = [
+          # Video-only command (no subtitle args)
+          video_cmd = [
               "yt-dlp", "--no-playlist",
               "--format", fmt,
               "--merge-output-format", "mp4",
@@ -154,28 +154,30 @@ jobs:
               "--sleep-interval", "5",
           ]
 
-          # Build the subtitles-only command
-          sub_only_cmd = [
-              "yt-dlp", "--no-playlist",
-              "--skip-download",
-              "--write-auto-subs",
-              "--sub-lang", sub_lang_input.split()[0] if sub_lang_input != "none" else "en",
-              "--convert-subs", "srt",
-              "--output", "%(title).150B [%(id)s].%(ext)s",
-              "--restrict-filenames",
-              "--windows-filenames",
-              "--remote-components", "ejs:github",
-              "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-              "--extractor-retries", "2",
-              "--retries", "2",
-              "--sleep-requests", "1",
-              "--sleep-interval", "5",
-          ]
+          # Subtitle-only command
+          sub_cmd = None
+          if sub_lang_input != "none":
+              lang_code = sub_lang_input.split()[0]
+              sub_cmd = [
+                  "yt-dlp", "--no-playlist",
+                  "--skip-download",
+                  "--write-auto-subs",
+                  "--sub-lang", lang_code,
+                  "--convert-subs", "srt",
+                  "--output", "%(title).150B [%(id)s].%(ext)s",
+                  "--restrict-filenames",
+                  "--windows-filenames",
+                  "--remote-components", "ejs:github",
+                  "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                  "--extractor-retries", "2",
+                  "--retries", "2",
+                  "--sleep-requests", "1",
+                  "--sleep-interval", "5",
+              ]
 
           def run_cmd(cmd, url, extra_args=None):
-              """Run a command, capture output, return (result, new_files)."""
               before = set(os.listdir("."))
-              final_cmd = list(cmd)  # copy
+              final_cmd = list(cmd)
               if extra_args:
                   final_cmd.extend(extra_args)
               final_cmd.append(url)
@@ -190,73 +192,83 @@ jobs:
           for idx, url in enumerate(urls):
               video_count += 1
               log(f"\n--- URL #{video_count}: {url} ---")
-              success = False
+              extra_args = []   # ⬅️ initialize here, safe for later use
 
-              # Strategy 1: WARP
-              log("  [Strategy 1] Cloudflare WARP (video only)...")
-              result, new_files = run_cmd(video_only_cmd, url)
-              if result.returncode == 0:
-                  success = True
-                  log("  ✓ WARP video download succeeded")
-              else:
-                  lines = result.stderr.splitlines()[-5:]
-                  for line in lines:
-                      log(f"    {line}")
-                  log("  ✗ WARP video download failed")
+              try:
+                  success = False
+                  new_files = set()
 
-              # Strategy 2: Cookies fallback
-              if not success and cookies_secret:
-                  log("  [Strategy 2] Cookies (video only)...")
-                  with open("cookies.txt", "w") as cf:
-                      cf.write(cookies_secret)
-                  result, new_files = run_cmd(video_only_cmd, url, extra_args=["--cookies", "cookies.txt"])
+                  # Strategy 1: WARP
+                  log("  [Strategy 1] Cloudflare WARP (video only)...")
+                  result, new_files = run_cmd(video_cmd, url)
                   if result.returncode == 0:
                       success = True
-                      log("  ✓ Cookies video download succeeded")
+                      log("  ✓ WARP video download succeeded")
                   else:
                       lines = result.stderr.splitlines()[-5:]
                       for line in lines:
                           log(f"    {line}")
-                      log("  ✗ Cookies video download failed")
-              elif not success:
-                  log("  [Strategy 2] Skipped (no cookies secret)")
+                      log("  ✗ WARP video download failed")
 
-              if success:
-                  # Locate the downloaded video file
-                  video_file = None
-                  for f in sorted(new_files):
-                      if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")):
-                          video_file = f
-                          break
-                  if video_file:
-                      size_mb = os.path.getsize(video_file) / (1024 * 1024)
-                      log(f"  ✓ Video: {video_file} ({size_mb:.1f} MB)")
-                      with open("video_list.txt", "a") as vl:
-                          vl.write(video_file + "\n")
-                      downloaded_any += 1
-                  else:
-                      log("  ⚠ Video file not found among new files.")
-
-                  # --- Now try to fetch subtitles (non-critical) ---
-                  if sub_lang_input != "none":
-                      log("  [Subs] Attempting subtitle download (best effort)...")
-                      sub_result, sub_new_files = run_cmd(sub_only_cmd, url, extra_args=extra_args if extra_args else None)
-                      if sub_result.returncode == 0:
-                          sub_file = None
-                          for f in sorted(sub_new_files):
-                              if f.endswith(".srt"):
-                                  sub_file = f
-                                  break
-                          if sub_file:
-                              log(f"  ✓ Subtitle: {sub_file}")
-                              with open("sub_list.txt", "a") as sl:
-                                  sl.write(sub_file + "\n")
-                          else:
-                              log("  ℹ No subtitle file found (may not exist).")
+                  # Strategy 2: Cookies fallback
+                  if not success and cookies_secret:
+                      log("  [Strategy 2] Cookies (video only)...")
+                      with open("cookies.txt", "w") as cf:
+                          cf.write(cookies_secret)
+                      extra_args = ["--cookies", "cookies.txt"]
+                      result, new_files = run_cmd(video_cmd, url, extra_args=extra_args)
+                      if result.returncode == 0:
+                          success = True
+                          log("  ✓ Cookies video download succeeded")
                       else:
-                          log("  ℹ Subtitle download failed (non-critical, video saved).")
-              else:
-                  log(f"  ✗ All methods failed for URL #{video_count}")
+                          lines = result.stderr.splitlines()[-5:]
+                          for line in lines:
+                              log(f"    {line}")
+                          log("  ✗ Cookies video download failed")
+                  elif not success:
+                      log("  [Strategy 2] Skipped (no cookies secret)")
+
+                  if success:
+                      video_file = None
+                      for f in sorted(new_files):
+                          if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")):
+                              video_file = f
+                              break
+                      if video_file:
+                          size_mb = os.path.getsize(video_file) / (1024 * 1024)
+                          log(f"  ✓ Video: {video_file} ({size_mb:.1f} MB)")
+                          with open("video_list.txt", "a") as vl:
+                              vl.write(video_file + "\n")
+                          downloaded_any += 1
+                      else:
+                          log("  ⚠ Video file not found among new files.")
+
+                      # ---- Subs (best effort) ----
+                      if sub_cmd and sub_lang_input != "none":
+                          log("  [Subs] Attempting subtitle download (best effort)...")
+                          try:
+                              sub_result, sub_new = run_cmd(sub_cmd, url, extra_args=extra_args)
+                              if sub_result.returncode == 0:
+                                  sub_file = None
+                                  for f in sorted(sub_new):
+                                      if f.endswith(".srt"):
+                                          sub_file = f
+                                          break
+                                  if sub_file:
+                                      log(f"  ✓ Subtitle: {sub_file}")
+                                      with open("sub_list.txt", "a") as sl:
+                                          sl.write(sub_file + "\n")
+                                  else:
+                                      log("  ℹ No subtitle file found.")
+                              else:
+                                  log("  ℹ Subtitle download failed (non‑critical).")
+                          except Exception as se:
+                              log(f"  ℹ Subtitle error (non‑critical): {se}")
+                  else:
+                      log(f"  ✗ All methods failed for URL #{video_count}")
+              except Exception as e:
+                  log(f"  ✗ Unexpected error processing URL #{video_count}: {e}")
+                  continue
 
           try: os.remove("cookies.txt")
           except: pass
