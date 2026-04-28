@@ -42,6 +42,8 @@ jobs:
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
           rm -f download.log url_list.txt
+          # Create a fresh empty log so it always exists
+          echo "" > download.log
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -49,9 +51,9 @@ jobs:
           git pull --rebase
           git push || true
 
-      - name: Write URLs to file
+      - name: Write URLs to file (bypass YAML expression parser)
         run: |
-          > url_list.txt
+          echo "" > url_list.txt
           for url in "${{ github.event.inputs.file_url1 }}" \
                      "${{ github.event.inputs.file_url2 }}" \
                      "${{ github.event.inputs.file_url3 }}" \
@@ -59,82 +61,15 @@ jobs:
                      "${{ github.event.inputs.file_url5 }}"; do
             [ -n "$url" ] && echo "$url" >> url_list.txt
           done
-          echo "URL list created with $(wc -l < url_list.txt) entries."
+          echo "URL list created with $(cat url_list.txt | grep -v '^[[:space:]]*$' | wc -l) entries."
 
-      - name: Download files with detailed logging
-        id: download
-        continue-on-error: true
-        run: |
-          exec > >(tee -a download.log) 2>&1
-          echo "=== Download Started at $(date) ==="
-
-          urls=$(cat url_list.txt | grep -v '^[[:space:]]*$')
-          if [ -z "$urls" ]; then
-            echo "No URLs provided."
-            exit 0
-          fi
-
-          download_count=0
-          while IFS= read -r url; do
-            [ -z "$url" ] && continue
-            download_count=$((download_count + 1))
-            echo -e "\n--- URL #$download_count: $url ---"
-
-            # Use curl with 10 redirects, a browser-like user-agent, and cookie support
-            http_code=$(curl -L -o "downloaded_${download_count}.file" \
-              -w "%{http_code}" \
-              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-              -b /tmp/cookies.txt -c /tmp/cookies.txt \
-              -s -S --max-time 60 \
-              "$url" 2>&1)
-
-            # Check if curl succeeded (http_code will be numeric or 000 on failure)
-            if [[ "$http_code" =~ ^[0-9]+$ ]] && [ "$http_code" -lt 400 ]; then
-              file="downloaded_${download_count}.file"
-              if [ -f "$file" ] && [ -s "$file" ]; then
-                # Try to extract filename from URL or Content-Disposition
-                filename=$(basename "$url" | sed 's/?.*//')
-                if [ -z "$filename" ] || [ "$filename" = "/" ]; then
-                  filename="downloaded_file_${download_count}"
-                fi
-                mv "$file" "$filename"
-                size=$(du -h "$filename" | cut -f1)
-                echo "✓ Downloaded: $filename ($size)"
-                echo "$filename" >> video_list.txt
-              else
-                echo "✗ File empty or missing after download."
-              fi
-            else
-              echo "✗ HTTP error/redirect failed (code: $http_code)"
-              # If curl output contains an error message, log it
-              if [ -n "$http_code" ]; then
-                echo "   Error detail: $http_code"
-              fi
-              # Remove empty file if exists
-              rm -f "downloaded_${download_count}.file"
-            fi
-          done <<< "$urls"
-
-          if [ $download_count -eq 0 ]; then
-            echo "No files were downloaded."
-          fi
-        shell: /usr/bin/bash {0}
-
-      - name: Commit download log & file list (always)
-        if: always()
-        run: |
-          git add download.log video_list.txt 2>/dev/null || true
-          git commit -m "Update download log" || true
-          git pull --rebase --strategy-option ours || true
-          git push || true
-
-      - name: Split and upload everything (if any)
-        if: success()
+      - name: Download, split (if needed) and upload all files
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
         run: |
+          $ErrorActionPreference = "Continue"
           $token = $env:GITHUB_TOKEN
           $repo = $env:GITHUB_REPOSITORY
           $branch = $env:GITHUB_REF_NAME
@@ -144,18 +79,25 @@ jobs:
 
           function Write-Log {
             param([string]$msg)
-            Write-Host $msg
-            Add-Content -Path $logFile -Value $msg
+            $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            $logLine = "[$timestamp] $msg"
+            Write-Host $logLine
+            Add-Content -Path $logFile -Value $logLine
           }
 
-          $videoList = @(Get-Content video_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
-          if ($videoList.Count -eq 0) {
-            Write-Log "No files to upload. Exiting."
+          Write-Log "=== Download started ==="
+
+          # Read URLs from file – force array with @()
+          $urls = @(Get-Content url_list.txt | Where-Object { $_ -and $_ -ne '' })
+          if ($urls.Count -eq 0) {
+            Write-Log "No URLs provided. Exiting."
             exit 0
           }
 
+          Write-Log "Processing $($urls.Count) URL(s)."
           New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
           $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
+
           $headers = @{ Authorization = "Bearer $token" }
           $apiBase = "https://api.github.com/repos/$repo/contents"
           $maxRetries = 3
@@ -168,39 +110,70 @@ jobs:
             try { $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $sha = $null }
             $body = @{ message = "Add $(Split-Path $localPath -Leaf)"; content = $b64; branch = $branch }
             if ($sha) { $body.sha = $sha }
+            $success = $false
             for ($retry = 0; $retry -lt $maxRetries; $retry++) {
               try {
                 Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
-                return
+                $success = $true
+                break
               } catch {
                 if ($retry -lt $maxRetries - 1) {
-                  Write-Log "Retry $($retry+1) in 10 seconds..."
+                  Write-Log "Retry $($retry+1)/$maxRetries in 10 seconds..."
                   Start-Sleep -Seconds 10
                 } else {
-                  Write-Log "FATAL: upload failed after $maxRetries attempts."
-                  exit 1
+                  Write-Log "ERROR: Upload failed after $maxRetries attempts: $($_.Exception.Message)"
                 }
               }
             }
+            return $success
           }
 
-          for ($i = 0; $i -lt $videoList.Count; $i++) {
-            $videoFile = $videoList[$i]
-            if (-not (Test-Path $videoFile)) {
-              Write-Log "File missing: $videoFile – skipping."
+          for ($i = 0; $i -lt $urls.Count; $i++) {
+            $url = $urls[$i]
+            Write-Log "--- URL $($i+1)/$($urls.Count): $url ---"
+            $tempFile = "temp_$($i).download"
+            try {
+              $response = Invoke-WebRequest -Uri $url -OutFile $tempFile -PassThru -MaximumRedirection 10 -ErrorAction Stop
+              Write-Log "HTTP Status: $($response.StatusCode)"
+            } catch {
+              Write-Log "Download FAILED: $($_.Exception.Message)"
+              Write-Log "Skipping this URL."
               continue
             }
-            $fileSize = (Get-Item $videoFile).Length
-            $fileName = [System.IO.Path]::GetFileName($videoFile)
-            Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
+
+            if (-not (Test-Path $tempFile) -or (Get-Item $tempFile).Length -eq 0) {
+              Write-Log "Download returned EMPTY file. Skipping."
+              Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+              continue
+            }
+
+            $fileName = $null
+            if ($response.Headers['Content-Disposition']) {
+              $match = [System.Text.RegularExpressions.Regex]::Match($response.Headers['Content-Disposition'], 'filename="?([^"]+)"?')
+              if ($match.Success) { $fileName = $match.Groups[1].Value }
+            }
+            if (-not $fileName) {
+              $uriObj = [System.Uri]::new($url)
+              $fileName = [System.IO.Path]::GetFileName($uriObj.AbsolutePath)
+            }
+            if (-not $fileName) { $fileName = "downloaded_file_$($i+1)" }
+            $fileName = [System.IO.Path]::GetFileName($fileName)
+
+            $fileSize = (Get-Item $tempFile).Length
+            Write-Log "File: $fileName, Size: $([math]::Round($fileSize / 1MB, 1)) MB"
 
             if ($fileSize -lt $chunkSize) {
-              Write-Log "Small file, uploading directly."
-              Upload-File -localPath $videoFile -remotePath "$chunksDir/$fileName"
-              $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+              Write-Log "Small file, uploading directly..."
+              $remotePath = "$chunksDir/$fileName"
+              if (Upload-File -localPath $tempFile -remotePath $remotePath) {
+                $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+                Write-Log "✓ Uploaded: $fileName"
+              } else {
+                Write-Log "✗ Upload failed for $fileName"
+              }
             } else {
               Write-Log "Splitting into $([math]::Round($chunkSize/1MB)) MB chunks..."
-              $stream = [System.IO.File]::OpenRead($videoFile)
+              $stream = [System.IO.File]::OpenRead($tempFile)
               $partIdx = 0
               $buffer = New-Object byte[] $chunkSize
               $uploadSuccess = $true
@@ -208,27 +181,32 @@ jobs:
                 $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
                 $chunkPath = Join-Path $chunksDir $chunkName
                 [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
-                Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)"
-                try {
-                  Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
-                } catch {
-                  Write-Log "Upload failed for $chunkName. Aborting file."
+                Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)..."
+                if (Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName") {
+                  Remove-Item $chunkPath -Force
+                  $partIdx++
+                  Start-Sleep -Milliseconds 500
+                } else {
+                  Write-Log "✗ Upload failed for $chunkName. Aborting this file."
                   $uploadSuccess = $false
                   break
                 }
-                Remove-Item $chunkPath -Force
-                $partIdx++
-                Start-Sleep -Milliseconds 500
               }
               $stream.Close()
               if ($uploadSuccess) {
                 $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
+                Write-Log "✓ Uploaded $partIdx chunks for $fileName"
+              } else {
+                Write-Log "✗ Incomplete upload for $fileName"
               }
             }
-            Remove-Item $videoFile -Force
+            Remove-Item $tempFile -Force
           }
 
-          if ($fileInfos.Count -gt 0) {
+          if ($fileInfos.Count -eq 0) {
+            Write-Log "No files were successfully uploaded."
+            Write-Log "Workflow finished with no output."
+          } else {
             Write-Log "Generating reassemble.bat..."
             $batPath = Join-Path $chunksDir "reassemble.bat"
             $batLines = @(
@@ -258,17 +236,25 @@ jobs:
             $batLines += "echo All done! Press any key to exit."
             $batLines += "pause >nul"
             $batLines | Out-File -FilePath $batPath -Encoding ASCII
+
             Write-Log "Uploading reassemble.bat..."
-            Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
-          } else {
-            Write-Log "No files were uploaded."
+            if (Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat") {
+              Write-Log "✓ reassemble.bat uploaded."
+            } else {
+              Write-Log "✗ Failed to upload reassemble.bat."
+            }
+            Write-Log "=== Download completed ==="
           }
-          Write-Log "✅ Processing complete."
 
       - name: Final log commit (always)
         if: always()
         run: |
-          git add download.log "${{ github.event.inputs.folder_name }}" 2>/dev/null || true
-          git commit -m "Final download log and files" || true
-          git pull --rebase --strategy-option ours || true
-          git push || true
+          if [ -f download.log ]; then
+            git add download.log
+            git add "${{ github.event.inputs.folder_name }}" 2>/dev/null || true
+            git commit -m "Final download log and files" || true
+            git pull --rebase --strategy-option ours || true
+            git push || true
+          else
+            echo "download.log not found, nothing to commit."
+          fi
