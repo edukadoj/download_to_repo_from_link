@@ -77,19 +77,16 @@ jobs:
         run: |
           outDir="$FOLDER_NAME"
           mkdir -p "$outDir"
-          pending=0
           > file_list.txt
           > pending_urls.txt
 
           while IFS= read -r url || [ -n "$url" ]; do
             [ -z "$url" ] && continue
             echo "Trying simple download: $url" | tee -a download.log
-            # Extract a provisional filename
             filename=$(basename "$url" | sed 's/?.*//')
             [ -z "$filename" ] && filename="downloaded_file_$(date +%s).bin"
             temp_file="temp_$(date +%s)_$$.download"
 
-            # Use curl with a realistic User-Agent
             http_code=$(curl -L -o "$temp_file" \
               -w "%{http_code}" \
               -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
@@ -97,7 +94,6 @@ jobs:
               "$url" 2>/dev/null)
 
             if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 400 ] && [ -f "$temp_file" ] && [ -s "$temp_file" ]; then
-              # Check if the result is HTML (mirror page)
               if file -b --mime-type "$temp_file" | grep -q 'text/html' || head -c 100 "$temp_file" | grep -qiE '<!doctype html|<html|<head|<body'; then
                 echo "  → Got HTML, will use browser fallback" | tee -a download.log
                 echo "$url" >> pending_urls.txt
@@ -106,7 +102,8 @@ jobs:
                 mv "$temp_file" "$outDir/$filename"
                 sizeMB=$(du -m "$outDir/$filename" | cut -f1)
                 echo "✓ Downloaded: $filename ($sizeMB MB)" | tee -a download.log
-                echo "$filename" >> file_list.txt
+                # Write the full relative path so PowerShell can find it
+                echo "$outDir/$filename" >> file_list.txt
               fi
             else
               echo "  → Direct download failed (HTTP $http_code), will try browser" | tee -a download.log
@@ -128,7 +125,6 @@ jobs:
 
           echo "Running headless browser for $(wc -l < pending_urls.txt) URL(s)." | tee -a download.log
 
-          # Write the Node.js downloader script using a bash heredoc
           cat > downloader.js << 'NODEEOF'
           const { chromium } = require('playwright');
           const fs = require('fs');
@@ -162,7 +158,8 @@ jobs:
                       const savePath = path.join(outDir, fileName);
                       await download.saveAs(savePath);
                       log(`✓ Browser download: saved as ${fileName}`);
-                      fs.appendFileSync('file_list.txt', fileName + '\n');
+                      // Write relative path for PowerShell
+                      fs.appendFileSync('file_list.txt', path.join(outDir, fileName) + '\n');
                       resolve(true);
                   });
               });
@@ -180,9 +177,15 @@ jobs:
                       } else {
                           log(`Navigation error: ${navError.message}. Trying alternative URL…`);
                           if (url.includes('sourceforge.net')) {
+                              // Try the direct ?download link; often works without mirror selection
                               const directUrl = url.replace('/download', '?download');
                               log(`Retrying with: ${directUrl}`);
-                              await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                              try {
+                                  await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                              } catch {
+                                  // If still failing, we'll let the page load wait and try extracted links
+                                  log('Direct URL also failed; will attempt to extract links.');
+                              }
                           }
                       }
                   }
@@ -218,7 +221,7 @@ jobs:
                       });
                       const sizeMB = (fs.statSync(filePath).size / 1024 / 1024).toFixed(2);
                       log(`✓ Downloaded via extracted link: ${fileName} (${sizeMB} MB)`);
-                      fs.appendFileSync('file_list.txt', fileName + '\n');
+                      fs.appendFileSync('file_list.txt', path.join(outDir, fileName) + '\n');
                   } else {
                       log('No direct download link found.');
                   }
@@ -252,7 +255,7 @@ jobs:
           git pull --rebase --strategy-option ours || true
           git push || true
 
-      - name: Split and upload all files (unchanged)
+      - name: Split and upload all files
         if: success()
         shell: pwsh
         env:
