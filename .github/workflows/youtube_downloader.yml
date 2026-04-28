@@ -72,6 +72,18 @@ jobs:
           git pull --rebase
           git push || true
 
+      # ── Cache for pip & Deno ──
+      - name: Restore pip & Deno cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            /home/runner/.deno
+          key: ${{ runner.os }}-pip-deno-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-deno-
+
       - name: Setup Cloudflare WARP
         uses: viperadnan-git/setup-warp@v1
         with:
@@ -85,12 +97,14 @@ jobs:
           curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
           echo "WARP is active."
 
-      - name: Install yt-dlp, ffmpeg, Deno, and impersonation deps
+      - name: Install yt-dlp, ffmpeg, Deno (if not cached)
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
           python3 -m pip install --upgrade yt-dlp "yt-dlp[default,curl-cffi]"
-          curl -fsSL https://deno.land/install.sh | sh
+          if [ ! -d "/home/runner/.deno" ]; then
+            curl -fsSL https://deno.land/install.sh | sh
+          fi
           echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
       - name: Download all videos (WARP first, then cookies)
@@ -138,7 +152,7 @@ jobs:
           }
           fmt = quality_map.get(quality, "bestvideo[height<=720]+bestaudio/best[height<=720]")
 
-          # Video-only command (no subtitle args)
+          # Video-only command
           video_cmd = [
               "yt-dlp", "--no-playlist",
               "--format", fmt,
@@ -192,7 +206,7 @@ jobs:
           for idx, url in enumerate(urls):
               video_count += 1
               log(f"\n--- URL #{video_count}: {url} ---")
-              extra_args = []   # ⬅️ initialize here, safe for later use
+              extra_args = []   # initialize for cookie usage
 
               try:
                   success = False
@@ -237,6 +251,7 @@ jobs:
                       if video_file:
                           size_mb = os.path.getsize(video_file) / (1024 * 1024)
                           log(f"  ✓ Video: {video_file} ({size_mb:.1f} MB)")
+                          # Write the relative path for the PowerShell step
                           with open("video_list.txt", "a") as vl:
                               vl.write(video_file + "\n")
                           downloaded_any += 1
@@ -299,7 +314,7 @@ jobs:
           echo "Download step failed – see download.log in repository."
           exit 1
 
-      - name: Split and upload everything
+      - name: Split and upload everything (verbose)
         if: success()
         shell: pwsh
         env:
@@ -315,17 +330,25 @@ jobs:
 
           function Write-Log {
             param([string]$msg)
-            Write-Host $msg
-            Add-Content -Path $logFile -Value $msg
+            $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            $line = "[$timestamp] $msg"
+            Write-Host $line
+            Add-Content -Path $logFile -Value $line
           }
 
+          Write-Log "===== Current directory content ====="
+          Get-ChildItem -Name | Write-Host
+          Write-Log "===================================="
+
           $videoList = @(Get-Content video_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
-          $subList = @(Get-Content sub_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
+          $subList   = @(Get-Content sub_list.txt   -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
 
           if ($videoList.Count -eq 0) {
             Write-Log "No video files to upload. Exiting."
             exit 0
           }
+
+          Write-Log "Files to process: $($videoList -join ', ')"
 
           New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
           $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
@@ -350,7 +373,7 @@ jobs:
                   Write-Log "Retry $($retry+1) in 10 seconds..."
                   Start-Sleep -Seconds 10
                 } else {
-                  Write-Log "FATAL: upload failed after $maxRetries attempts."
+                  Write-Log "FATAL: upload failed after $maxRetries attempts"
                   exit 1
                 }
               }
@@ -359,17 +382,18 @@ jobs:
 
           for ($i = 0; $i -lt $videoList.Count; $i++) {
             $videoFile = $videoList[$i]
-            $subFile = if ($i -lt $subList.Count) { $subList[$i] } else { $null }
+            $subFile   = if ($i -lt $subList.Count) { $subList[$i] } else { $null }
 
-            if (-not (Test-Path $videoFile)) {
-              Write-Log "Video file missing: $videoFile – skipping."
+            if (-not (Test-Path $videoFile -PathType Leaf)) {
+              Write-Log "ERROR: Video file missing: $videoFile – skipping."
               continue
             }
             $fileSize = (Get-Item $videoFile).Length
             $fileName = [System.IO.Path]::GetFileName($videoFile)
             Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
+
             if ($fileSize -lt $chunkSize) {
-              Write-Log "File smaller than chunk size; uploading directly."
+              Write-Log "Small file, uploading directly..."
               Upload-File -localPath $videoFile -remotePath "$chunksDir/$fileName"
               $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
             } else {
@@ -386,7 +410,7 @@ jobs:
                 try {
                   Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
                 } catch {
-                  Write-Log "Upload failed for $chunkName. Aborting remaining chunks for $fileName."
+                  Write-Log "Upload failed for $chunkName. Aborting file."
                   $uploadSuccess = $false
                   break
                 }
@@ -413,7 +437,7 @@ jobs:
           }
 
           if ($fileInfos.Count -gt 0) {
-            Write-Log "Creating reassemble.bat..."
+            Write-Log "Generating reassemble.bat..."
             $batPath = Join-Path $chunksDir "reassemble.bat"
             $batLines = @(
               "@echo off",
