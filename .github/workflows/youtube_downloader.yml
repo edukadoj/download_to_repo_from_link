@@ -90,7 +90,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
           python3 -m pip install --upgrade yt-dlp
-          # ── Install Deno (required by YouTube extraction) ──
           curl -fsSL https://deno.land/install.sh | sh
           echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
@@ -156,8 +155,8 @@ jobs:
                   "--output", "%(title).150B [%(id)s].%(ext)s",
                   "--restrict-filenames",
                   "--windows-filenames",
+                  "--remote-components", "ejs:github",
                   "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                  # ── Retry + throttle to avoid 429 ──
                   "--extractor-retries", "3",
                   "--retries", "3",
                   "--sleep-requests", "1",
