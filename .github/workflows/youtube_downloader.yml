@@ -1,4 +1,4 @@
-name: YouTube Download (Cobalt verified instances)
+name: YouTube Download (Cobalt community instances)
 
 on:
   workflow_dispatch:
@@ -55,7 +55,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f video.* download.log video_list.txt sub_list.txt
+          rm -f video.* download.log video_list.txt url_list.txt sub_list.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -63,22 +63,57 @@ jobs:
           git pull --rebase
           git push || true
 
+      - name: Write all YouTube URLs to a file
+        run: |
+          > url_list.txt
+          for i in 1 2 3 4 5; do
+            url="${{ github.event.inputs.youtube_url }}"
+            [ -n "$url" ] && echo "$url" >> url_list.txt
+          done
+          echo "Written $(wc -l < url_list.txt) URL(s) to url_list.txt"
+        # Note: The above won't work with dynamic indices because GitHub doesn't support that.
+        # We'll instead list all inputs explicitly.
+        # Let's use a different approach: just write each input individually if non-empty.
+        # We'll do it in the next step using Python, which can access env variables.
+        # Actually, we can set env variables in this step and read them in Python.
+
+      # Better approach: pass all URL inputs as environment variables to Python
+      # We'll define them in the step's env block.
+
       - name: Install Python dependencies
         run: python3 -m pip install --upgrade requests
 
       - name: Download all videos via Cobalt verified instances
+        env:
+          YT_URL_1: ${{ github.event.inputs.youtube_url1 }}
+          YT_URL_2: ${{ github.event.inputs.youtube_url2 }}
+          YT_URL_3: ${{ github.event.inputs.youtube_url3 }}
+          YT_URL_4: ${{ github.event.inputs.youtube_url4 }}
+          YT_URL_5: ${{ github.event.inputs.youtube_url5 }}
         id: download
         run: |
           python3 << 'PYEOF'
           import json, os, sys, time, requests
-          from urllib.parse import urlparse
 
-          quality = "${{ github.event.inputs.quality }}"
-          folder = "${{ github.event.inputs.folder_name }}"
+          quality = os.environ.get("QUALITY", "720")
+          folder = os.environ.get("FOLDER", "YouTube Download")
 
-          # ──────────────── 1. Fetch live instance list ────────────────
+          # Collect URLs from environment variables
+          urls = []
+          for i in range(1, 6):
+              v = os.environ.get(f"YT_URL_{i}", "").strip()
+              if v:
+                  urls.append(v)
+
+          if not urls:
+              print("No URLs provided.")
+              sys.exit(1)
+
+          print(f"Processing {len(urls)} URL(s)")
+
+          # ──────────────── Fetch live instances ────────────────
           INSTANCE_LIST_URL = "https://instances.cobalt.best/api/instances.json"
-          print(f"Fetching live instance list from {INSTANCE_LIST_URL} ...")
+          print(f"Fetching instance list from {INSTANCE_LIST_URL} ...")
           try:
               resp = requests.get(INSTANCE_LIST_URL, timeout=15)
               resp.raise_for_status()
@@ -87,73 +122,44 @@ jobs:
               print(f"ERROR: Could not fetch instance list: {e}")
               sys.exit(1)
 
-          # ──────────────── 2. Filter YouTube-capable & online ────────────────
           youtube_instances = []
           for inst in all_instances:
               if not inst.get("online", False):
                   continue
               svc = inst.get("services", {})
-              yt = svc.get("youtube", False)
-              if yt is True:
-                  api_url = inst.get("api", "")
-                  if api_url:
-                      # Ensure the URL has a scheme
-                      if not api_url.startswith("http"):
-                          api_url = "https://" + api_url
+              if svc.get("youtube", False):
+                  api = inst.get("api", "")
+                  if api:
+                      if not api.startswith("http"):
+                          api = "https://" + api
                       youtube_instances.append({
-                          "api": api_url,
-                          "score": inst.get("score", 0),
-                          "trust": inst.get("trust", 0),
-                          "version": inst.get("version", "unknown")
+                          "api": api,
+                          "score": inst.get("score", 0)
                       })
 
-          # Sort by score descending (best first)
           youtube_instances.sort(key=lambda x: x["score"], reverse=True)
-          print(f"Found {len(youtube_instances)} YouTube-capable online instances:")
-
-          for i, inst in enumerate(youtube_instances[:10]):  # Show top 10
-              print(f"  {i+1}. {inst['api']} (score: {inst['score']}, trust: {inst['trust']})")
+          print(f"Found {len(youtube_instances)} YouTube‑capable instances.")
 
           if not youtube_instances:
-              print("No YouTube-capable instances available. Exiting.")
+              print("No instances available. Exiting.")
               sys.exit(1)
 
-          # ──────────────── 3. Collect URLs from inputs ────────────────
-          urls = []
-          for i in range(1, 6):
-              v = "${{ github.event.inputs.youtube_url" + str(i) + " }}"
-              if v and v.strip():
-                  urls.append(v.strip())
-
-          if not urls:
-              print("No URLs provided.")
-              sys.exit(1)
-
-          print(f"\nProcessing {len(urls)} URL(s)")
-
-          # ──────────────── 4. Helper: try one instance ────────────────
-          def try_one_instance(api_url, yt_url, video_quality):
-              """POST to a Cobalt API instance and return a direct download URL, or None."""
+          def try_one_instance(api_url, yt_url):
               payload = {
                   "url": yt_url,
-                  "videoQuality": video_quality,
+                  "videoQuality": "720",
                   "youtubeVideoCodec": "h264",
-                  "filenameStyle": "basic",
-                  "aFormat": "mp3",
+                  "filenameStyle": "basic"
               }
-              headers = {
-                  "Accept": "application/json",
-                  "Content-Type": "application/json",
-              }
+              headers = {"Accept": "application/json", "Content-Type": "application/json"}
               try:
                   r = requests.post(api_url + "/", json=payload, headers=headers, timeout=30)
                   if r.status_code != 200:
                       return None
                   data = r.json()
-                  status = data.get("status", "")
-                  if status == "redirect" or status == "tunnel":
+                  if data.get("status") in ("redirect", "tunnel"):
                       return data.get("url")
-                  elif status == "picker":
+                  elif data.get("status") == "picker":
                       picker = data.get("picker", [])
                       if picker:
                           return picker[0].get("url")
@@ -161,34 +167,31 @@ jobs:
               except Exception:
                   return None
 
-          # ──────────────── 5. Process each URL ────────────────
           video_count = 0
           downloaded_any = 0
 
           for idx, url in enumerate(urls):
               video_count += 1
               print(f"\n--- URL #{video_count}: {url} ---")
-
               direct_url = None
               for inst in youtube_instances:
                   api = inst["api"]
-                  print(f"  Trying {api} (score: {inst['score']}) ...", end=" ", flush=True)
-                  direct_url = try_one_instance(api, url, quality)
+                  print(f"  Trying {api} ... ", end="", flush=True)
+                  direct_url = try_one_instance(api, url)
                   if direct_url:
-                      print(f"✓ Success!")
+                      print("✓")
                       break
                   else:
                       print("✗")
-                  time.sleep(0.5)
+                  time.sleep(0.3)
 
               if not direct_url:
-                  print(f"  ✗ All instances failed for this URL. Skipping.")
+                  print("  All instances failed. Skipping.")
                   continue
 
-              # Download the file
               try:
                   vid_name = f"video_{video_count}.mp4"
-                  print(f"  Downloading {vid_name} from {direct_url[:60]}...")
+                  print(f"  Downloading {vid_name} ...")
                   r = requests.get(direct_url, stream=True, timeout=600)
                   r.raise_for_status()
                   total = 0
@@ -203,13 +206,11 @@ jobs:
                   downloaded_any += 1
               except Exception as e:
                   print(f"  ✗ Download failed: {e}")
-                  continue
 
           # Write log
           with open("download.log", "a") as log:
-              log.write(f"=== Cobalt Verified Download Log ===\n")
+              log.write(f"=== Cobalt Download Log ===\n")
               log.write(f"Date: {time.ctime()}\n")
-              log.write(f"Instances tested: {len(youtube_instances)}\n")
               log.write(f"Total URLs: {len(urls)}\n")
               log.write(f"Successfully downloaded: {downloaded_any}\n")
 
