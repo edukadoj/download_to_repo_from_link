@@ -1,4 +1,4 @@
-name: YouTube Download (final)
+name: YouTube Download (Cobalt verified instances)
 
 on:
   workflow_dispatch:
@@ -27,24 +27,16 @@ on:
         description: 'Video quality'
         required: true
         type: choice
-        default: '720p'
+        default: '720'
         options:
-          - '144p'
-          - '360p'
-          - '720p'
-          - '1080p'
-          - 'best'
-      sub_lang:
-        description: 'Subtitles language'
-        required: true
-        type: choice
-        default: 'en (English)'
-        options:
-          - 'en (English)'
-          - 'fa (Persian)'
-          - 'none'
+          - '144'
+          - '360'
+          - '480'
+          - '720'
+          - '1080'
+          - 'max'
       folder_name:
-        description: 'Folder to store videos & subtitles'
+        description: 'Folder to store downloads'
         required: false
         default: 'YouTube Download'
 
@@ -63,7 +55,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f video.* download.log proxy_list.tmp video_list.txt sub_list.txt
+          rm -f video.* download.log video_list.txt sub_list.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -71,191 +63,163 @@ jobs:
           git pull --rebase
           git push || true
 
-      - name: Create proxylist.txt if missing
-        run: |
-          if [ ! -f proxylist.txt ]; then
-            touch proxylist.txt
-            git add proxylist.txt
-            git commit -m "Create empty proxy list" || true
-            git pull --rebase
-            git push || true
-          fi
+      - name: Install Python dependencies
+        run: python3 -m pip install --upgrade requests
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg jq
-          python3 -m pip install --upgrade yt-dlp
-          curl -fsSL https://deno.land/install.sh | sh
-          echo "/home/runner/.deno/bin" >> $GITHUB_PATH
-
-      - name: Download all videos (cookies + proxy fallback)
+      - name: Download all videos via Cobalt verified instances
         id: download
         run: |
-          exec > >(tee -a download.log) 2>&1
+          python3 << 'PYEOF'
+          import json, os, sys, time, requests
+          from urllib.parse import urlparse
 
-          echo "=== YouTube Download Log ==="
-          echo "Date: $(date)"
-          echo ""
+          quality = "${{ github.event.inputs.quality }}"
+          folder = "${{ github.event.inputs.folder_name }}"
 
-          # ---- Quality format ----
-          case "${{ github.event.inputs.quality }}" in
-            144p)  FORMAT='bestvideo[height<=144]+bestaudio/best[height<=144]' ;;
-            360p)  FORMAT='bestvideo[height<=360]+bestaudio/best[height<=360]' ;;
-            720p)  FORMAT='bestvideo[height<=720]+bestaudio/best[height<=720]' ;;
-            1080p) FORMAT='bestvideo[height<=1080]+bestaudio/best[height<=1080]' ;;
-            best)  FORMAT='best' ;;
-            *)     FORMAT='best' ;;
-          esac
+          # ──────────────── 1. Fetch live instance list ────────────────
+          INSTANCE_LIST_URL = "https://instances.cobalt.best/api/instances.json"
+          print(f"Fetching live instance list from {INSTANCE_LIST_URL} ...")
+          try:
+              resp = requests.get(INSTANCE_LIST_URL, timeout=15)
+              resp.raise_for_status()
+              all_instances = resp.json()
+          except Exception as e:
+              print(f"ERROR: Could not fetch instance list: {e}")
+              sys.exit(1)
 
-          SUB_LANG="${{ github.event.inputs.sub_lang }}"
-          if [ "$SUB_LANG" = "none" ]; then
-            SUB_ARGS=""
-          else
-            SUB_ARGS="--write-auto-subs --sub-lang ${SUB_LANG%% *} --convert-subs srt"
-          fi
-
-          # ---- Cookies ----
-          if [ -n "${{ secrets.YOUTUBE_COOKIES }}" ]; then
-            echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
-            COOKIES_ARG="--cookies cookies.txt"
-            echo "YouTube cookies loaded from secret."
-          else
-            COOKIES_ARG=""
-            echo "No cookies secret found – will rely on proxies."
-          fi
-
-          # ---- Fast proxy test ----
-          PROXY_FILE="proxylist.txt"
-
-          proxy_alive() {
-            # Return 0 if proxy responds to a quick YouTube request within 5s
-            local proxy="$1"
-            curl -x "$proxy" --max-time 5 -s -o /dev/null "https://www.youtube.com/robots.txt" 2>/dev/null
-            return $?
-          }
-
-          # ---- Download with short timeout ----
-          try_download() {
-            local proxy_arg="$1"
-            local display="$2"
-            echo "[TEST] $display"
-            timeout 120 yt-dlp \
-              --no-playlist \
-              --format "$FORMAT" \
-              --output "video.%(ext)s" \
-              $SUB_ARGS \
-              --js-runtimes deno \
-              --extractor-retries 1 \
-              --retries 3 \
-              --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-              $COOKIES_ARG \
-              $proxy_arg \
-              "$url" 2>&1
-            return $?
-          }
-
-          # ---- Main loop ----
-          VIDEO_COUNT=0
-          DOWNLOADED_ANY=0
-
-          for url in "${{ github.event.inputs.youtube_url1 }}" \
-                      "${{ github.event.inputs.youtube_url2 }}" \
-                      "${{ github.event.inputs.youtube_url3 }}" \
-                      "${{ github.event.inputs.youtube_url4 }}" \
-                      "${{ github.event.inputs.youtube_url5 }}"; do
-            [ -z "$url" ] && continue
-            VIDEO_COUNT=$((VIDEO_COUNT+1))
-            echo "--- Processing URL #$VIDEO_COUNT: $url ---"
-            SUCCESS=0
-
-            # 1. Direct (with cookies if available)
-            echo "▶ Attempting download (cookies: ${COOKIES_ARG:-no})..."
-            if try_download "" "Direct"; then
-              echo "✅ Download success"
-              SUCCESS=1
-            fi
-
-            # 2. Proxies from proxylist.txt
-            if [ $SUCCESS -eq 0 ] && [ -s "$PROXY_FILE" ]; then
-              echo "▶ Trying proxies from $PROXY_FILE ..."
-              grep -vE '^\s*(#|$)' "$PROXY_FILE" | while IFS= read -r proxy; do
-                [ -z "$proxy" ] && continue
-                if ! echo "$proxy" | grep -qE '^(http|socks4|socks5)://|^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+'; then
-                  echo "🗑️ Removing invalid proxy line: $proxy"
-                  sed -i "\|^$proxy\$|d" "$PROXY_FILE"
+          # ──────────────── 2. Filter YouTube-capable & online ────────────────
+          youtube_instances = []
+          for inst in all_instances:
+              if not inst.get("online", False):
                   continue
-                fi
+              svc = inst.get("services", {})
+              yt = svc.get("youtube", False)
+              if yt is True:
+                  api_url = inst.get("api", "")
+                  if api_url:
+                      youtube_instances.append({
+                          "api": api_url,
+                          "score": inst.get("score", 0),
+                          "trust": inst.get("trust", 0),
+                          "version": inst.get("version", "unknown")
+                      })
 
-                echo "   ⏱️ Quick alive check: $proxy"
-                if proxy_alive "$proxy"; then
-                  echo "   👍 Proxy alive, trying download ..."
-                  if try_download "--proxy $proxy" "Proxy: $proxy"; then
-                    echo "✅ Proxy success: $proxy"
-                    SUCCESS=1
-                    break
-                  else
-                    echo "❌ yt-dlp failed with proxy – removing from list."
-                    sed -i "\|^$proxy\$|d" "$PROXY_FILE"
-                  fi
-                else
-                  echo "💀 No response in 5s – removing $proxy"
-                  sed -i "\|^$proxy\$|d" "$PROXY_FILE"
-                fi
-              done
-              # If a proxy succeeded, the 'break' only breaks the inner loop; we need to break the outer for loop.
-              # Since we are in a pipeline, we can't directly break the outer loop. We'll use a flag file.
-              if [ $SUCCESS -eq 1 ]; then
-                continue 2  # skip to next URL (bash 4+)
-              fi
-            fi
+          # Sort by score descending (best first)
+          youtube_instances.sort(key=lambda x: x["score"], reverse=True)
+          print(f"Found {len(youtube_instances)} YouTube-capable online instances:")
 
-            # 3. (No third-party fallback – removed to keep it clean)
+          for i, inst in enumerate(youtube_instances[:10]):  # Show top 10
+              print(f"  {i+1}. {inst['api']} (score: {inst['score']}, trust: {inst['trust']})")
 
-            # ---- Save downloaded file ----
-            if [ $SUCCESS -eq 1 ]; then
-              DOWNLOADED_ANY=1
-              VIDEO_FILE=$(ls video.* 2>/dev/null | grep -v '\.part$' | head -n1)
-              VIDEO_EXT="${VIDEO_FILE##*.}"
-              NEW_NAME="video_${VIDEO_COUNT}.${VIDEO_EXT}"
-              mv "$VIDEO_FILE" "$NEW_NAME"
-              echo "🎉 Saved: $NEW_NAME"
-              echo "$NEW_NAME" >> video_list.txt
+          if not youtube_instances:
+              print("No YouTube-capable instances available. Exiting.")
+              sys.exit(1)
 
-              SUB_FILE=$(ls video.*.srt 2>/dev/null | head -n1)
-              if [ -n "$SUB_FILE" ]; then
-                SUB_NEW_NAME="video_${VIDEO_COUNT}.en.srt"
-                mv "$SUB_FILE" "$SUB_NEW_NAME"
-                echo "$SUB_NEW_NAME" >> sub_list.txt
-                echo "📝 Subtitle: $SUB_NEW_NAME"
-              fi
-            else
-              echo "⚠️ Could not download URL #$VIDEO_COUNT – skipping."
-            fi
-          done
+          # ──────────────── 3. Collect URLs from inputs ────────────────
+          urls = []
+          for i in range(1, 6):
+              v = "${{ github.event.inputs.youtube_url" + str(i) + " }}"
+              if v and v.strip():
+                  urls.append(v.strip())
 
-          if [ $DOWNLOADED_ANY -eq 0 ]; then
-            echo "No videos were downloaded."
-          else
-            echo "Download phase completed."
-          fi
+          if not urls:
+              print("No URLs provided.")
+              sys.exit(1)
 
-          # Clean up cookies file
-          rm -f cookies.txt
+          print(f"\nProcessing {len(urls)} URL(s)")
 
-          # Commit updated proxy list (if changed)
-          git add "$PROXY_FILE" 2>/dev/null
-          if ! git diff --cached --quiet; then
-            git commit -m "Update proxy list" || true
-            git pull --rebase --strategy-option ours || true
-            git push || true
-          fi
-        shell: /usr/bin/bash {0}
+          # ──────────────── 4. Helper: try one instance ────────────────
+          def try_one_instance(api_url, yt_url, video_quality):
+              """POST to a Cobalt API instance and return a direct download URL, or None."""
+              payload = {
+                  "url": yt_url,
+                  "videoQuality": video_quality,
+                  "youtubeVideoCodec": "h264",
+                  "filenameStyle": "basic",
+                  "aFormat": "mp3",
+              }
+              headers = {
+                  "Accept": "application/json",
+                  "Content-Type": "application/json",
+              }
+              try:
+                  r = requests.post(api_url + "/", json=payload, headers=headers, timeout=30)
+                  if r.status_code != 200:
+                      return None
+                  data = r.json()
+                  status = data.get("status", "")
+                  if status == "redirect" or status == "tunnel":
+                      return data.get("url")
+                  elif status == "picker":
+                      picker = data.get("picker", [])
+                      if picker:
+                          return picker[0].get("url")
+                  return None
+              except Exception:
+                  return None
 
-      - name: Commit download.log (always)
+          # ──────────────── 5. Process each URL ────────────────
+          video_count = 0
+          downloaded_any = 0
+
+          for idx, url in enumerate(urls):
+              video_count += 1
+              print(f"\n--- URL #{video_count}: {url} ---")
+
+              direct_url = None
+              for inst in youtube_instances:
+                  api = inst["api"]
+                  print(f"  Trying {api} (score: {inst['score']}) ...", end=" ", flush=True)
+                  direct_url = try_one_instance(api, url, quality)
+                  if direct_url:
+                      print(f"✓ Success!")
+                      break
+                  else:
+                      print("✗")
+                  time.sleep(0.5)
+
+              if not direct_url:
+                  print(f"  ✗ All instances failed for this URL. Skipping.")
+                  continue
+
+              # Download the file
+              try:
+                  vid_name = f"video_{video_count}.mp4"
+                  print(f"  Downloading {vid_name} from {direct_url[:60]}...")
+                  r = requests.get(direct_url, stream=True, timeout=600)
+                  r.raise_for_status()
+                  total = 0
+                  with open(vid_name, "wb") as f:
+                      for chunk in r.iter_content(8192):
+                          f.write(chunk)
+                          total += len(chunk)
+                  size_mb = total / (1024 * 1024)
+                  print(f"  ✓ Downloaded: {vid_name} ({size_mb:.1f} MB)")
+                  with open("video_list.txt", "a") as vl:
+                      vl.write(vid_name + "\n")
+                  downloaded_any += 1
+              except Exception as e:
+                  print(f"  ✗ Download failed: {e}")
+                  continue
+
+          # Write log
+          with open("download.log", "a") as log:
+              log.write(f"=== Cobalt Verified Download Log ===\n")
+              log.write(f"Date: {time.ctime()}\n")
+              log.write(f"Instances tested: {len(youtube_instances)}\n")
+              log.write(f"Total URLs: {len(urls)}\n")
+              log.write(f"Successfully downloaded: {downloaded_any}\n")
+
+          if downloaded_any == 0:
+              print("\n⚠️ No videos were downloaded.")
+          else:
+              print(f"\n✅ Downloaded {downloaded_any} video(s).")
+          PYEOF
+
+      - name: Commit download log
         if: always()
         run: |
-          git add download.log
+          git add download.log video_list.txt 2>/dev/null || true
           git commit -m "Update download log" || true
           git pull --rebase --strategy-option ours || true
           git push || true
@@ -281,8 +245,6 @@ jobs:
           }
 
           $videoList = @(Get-Content video_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
-          $subList = @(Get-Content sub_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
-
           if ($videoList.Count -eq 0) {
             Write-Log "No video files to upload. Exiting."
             exit 0
@@ -290,7 +252,6 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
           $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
-
           $headers = @{ Authorization = "Bearer $token" }
           $apiBase = "https://api.github.com/repos/$repo/contents"
           $maxRetries = 3
@@ -303,12 +264,10 @@ jobs:
             try { $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $sha = $null }
             $body = @{ message = "Add $(Split-Path $localPath -Leaf)"; content = $b64; branch = $branch }
             if ($sha) { $body.sha = $sha }
-            $success = $false
             for ($retry = 0; $retry -lt $maxRetries; $retry++) {
               try {
                 Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
-                $success = $true
-                break
+                return
               } catch {
                 if ($retry -lt $maxRetries - 1) {
                   Write-Log "Retry $($retry+1) in 10 seconds..."
@@ -323,25 +282,17 @@ jobs:
 
           for ($i = 0; $i -lt $videoList.Count; $i++) {
             $videoFile = $videoList[$i]
-            $subFile = if ($i -lt $subList.Count) { $subList[$i] } else { $null }
-
             if (-not (Test-Path $videoFile)) {
               Write-Log "Video file missing: $videoFile – skipping."
               continue
             }
-
             $fileSize = (Get-Item $videoFile).Length
             $fileName = [System.IO.Path]::GetFileName($videoFile)
             Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
-
             if ($fileSize -lt $chunkSize) {
               Write-Log "File smaller than chunk size; uploading directly."
-              try {
-                Upload-File -localPath $videoFile -remotePath "$chunksDir/$fileName"
-                $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
-              } catch {
-                Write-Log "Upload failed for $fileName – skipping."
-              }
+              Upload-File -localPath $videoFile -remotePath "$chunksDir/$fileName"
+              $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
             } else {
               Write-Log "Splitting into chunks..."
               $stream = [System.IO.File]::OpenRead($videoFile)
@@ -370,21 +321,6 @@ jobs:
               }
             }
             Remove-Item $videoFile -Force
-          }
-
-          # Upload subtitle files
-          if ($subList.Count -gt 0) {
-            foreach ($sub in $subList) {
-              if (Test-Path $sub) {
-                $subName = [System.IO.Path]::GetFileName($sub)
-                Write-Log "Uploading subtitle: $subName"
-                try {
-                  Upload-File -localPath $sub -remotePath "$chunksDir/$subName"
-                } catch {
-                  Write-Log "Failed to upload subtitle $subName."
-                }
-              }
-            }
           }
 
           if ($fileInfos.Count -gt 0) {
@@ -422,7 +358,6 @@ jobs:
           } else {
             Write-Log "No files were successfully uploaded."
           }
-
           Write-Log "✅ Processing complete."
 
       - name: Final log commit (always)
