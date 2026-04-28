@@ -31,6 +31,7 @@ on:
         options:
           - '144p'
           - '360p'
+          - '480p'
           - '720p'
           - '1080p'
           - 'best'
@@ -108,7 +109,6 @@ jobs:
           cookies_secret = os.environ.get("YOUTUBE_COOKIES", "").strip()
           sub_lang_input = os.environ.get("SUB_LANG", "none").strip()
 
-          # Collect URLs
           urls = []
           for i in range(1, 6):
               v = os.environ.get(f"YT_URL_{i}", "").strip()
@@ -124,16 +124,16 @@ jobs:
           quality_map = {
               "144p": "bestvideo[height<=144]+bestaudio/best[height<=144]",
               "360p": "bestvideo[height<=360]+bestaudio/best[height<=360]",
+              "480p": "bestvideo[height<=480]+bestaudio/best[height<=480]",
               "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]",
               "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
               "best": "best"
           }
           fmt = quality_map.get(quality, "bestvideo[height<=720]+bestaudio/best[height<=720]")
 
-          # Subtitle arguments
           sub_args = []
           if sub_lang_input != "none":
-              lang_code = sub_lang_input.split()[0]  # "en" or "fa"
+              lang_code = sub_lang_input.split()[0]
               sub_args = ["--write-auto-subs", "--sub-lang", lang_code, "--convert-subs", "srt"]
               print(f"Subtitles enabled: {lang_code}")
           else:
@@ -191,7 +191,6 @@ jobs:
                   print("  [Strategy 2] Skipped (no cookies secret available)")
 
               if success:
-                  # Locate the downloaded video file
                   video_file = None
                   for f in os.listdir("."):
                       if f.startswith(f"video_{video_count}.") and not f.endswith(".part") and not f.endswith(".srt"):
@@ -206,7 +205,6 @@ jobs:
                   else:
                       print("  ⚠ Video file not found after download.")
 
-                  # Locate subtitle file if any
                   if sub_lang_input != "none":
                       sub_file = None
                       for f in os.listdir("."):
@@ -222,7 +220,6 @@ jobs:
               else:
                   print(f"  ✗ All methods failed for URL #{video_count}")
 
-          # Clean up cookies file
           try: os.remove("cookies.txt")
           except: pass
 
@@ -349,7 +346,6 @@ jobs:
             Remove-Item $videoFile -Force
           }
 
-          # Upload subtitle files
           if ($subList.Count -gt 0) {
             foreach ($sub in $subList) {
               if (Test-Path $sub) {
