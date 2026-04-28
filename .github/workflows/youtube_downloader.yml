@@ -1,4 +1,4 @@
-name: YouTube Download (ultra‑fast proxy selection)
+name: YouTube Download (final)
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
       youtube_url1:
         description: 'YouTube URL #1 (required)'
         required: true
-        default: 'https://www.youtube.com/watch?v=OCbPPnyD7rk'
+        default: 'https://www.youtube.com/watch?v=M0iyhwzdG3k'
       youtube_url2:
         description: 'YouTube URL #2 (optional)'
         required: false
@@ -71,10 +71,10 @@ jobs:
           git pull --rebase
           git push || true
 
-      - name: Create example proxylist.txt if missing
+      - name: Create proxylist.txt if missing
         run: |
           if [ ! -f proxylist.txt ]; then
-            echo "" > proxylist.txt
+            touch proxylist.txt
             git add proxylist.txt
             git commit -m "Create empty proxy list" || true
             git pull --rebase
@@ -89,12 +89,12 @@ jobs:
           curl -fsSL https://deno.land/install.sh | sh
           echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
-      - name: Download all videos (lightning‑fast proxy tests)
+      - name: Download all videos (cookies + proxy fallback)
         id: download
         run: |
           exec > >(tee -a download.log) 2>&1
 
-          echo "=== YouTube Download (fast proxy) ==="
+          echo "=== YouTube Download Log ==="
           echo "Date: $(date)"
           echo ""
 
@@ -115,30 +115,41 @@ jobs:
             SUB_ARGS="--write-auto-subs --sub-lang ${SUB_LANG%% *} --convert-subs srt"
           fi
 
-          # ---- Super‑fast proxy test ----
+          # ---- Cookies ----
+          if [ -n "${{ secrets.YOUTUBE_COOKIES }}" ]; then
+            echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
+            COOKIES_ARG="--cookies cookies.txt"
+            echo "YouTube cookies loaded from secret."
+          else
+            COOKIES_ARG=""
+            echo "No cookies secret found – will rely on proxies."
+          fi
+
+          # ---- Fast proxy test ----
           PROXY_FILE="proxylist.txt"
 
-          # Quick connectivity check with curl (must answer within 5 sec)
           proxy_alive() {
+            # Return 0 if proxy responds to a quick YouTube request within 5s
             local proxy="$1"
-            # Try to fetch YouTube's robots.txt through the proxy; if it answers at all, the proxy is alive.
-            # We don't care about the HTTP code – even 403 means it works.
-            curl -x "$proxy" --max-time 5 -s -o /dev/null -w "%{http_code}" "https://www.youtube.com/robots.txt" 2>/dev/null
+            curl -x "$proxy" --max-time 5 -s -o /dev/null "https://www.youtube.com/robots.txt" 2>/dev/null
             return $?
           }
 
-          # Actual download test with extreme timeouts
+          # ---- Download with short timeout ----
           try_download() {
             local proxy_arg="$1"
-            timeout 15 yt-dlp \
+            local display="$2"
+            echo "[TEST] $display"
+            timeout 120 yt-dlp \
               --no-playlist \
               --format "$FORMAT" \
               --output "video.%(ext)s" \
               $SUB_ARGS \
               --js-runtimes deno \
-              --extractor-retries 0 \
-              --retries 0 \
+              --extractor-retries 1 \
+              --retries 3 \
               --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+              $COOKIES_ARG \
               $proxy_arg \
               "$url" 2>&1
             return $?
@@ -158,96 +169,57 @@ jobs:
             echo "--- Processing URL #$VIDEO_COUNT: $url ---"
             SUCCESS=0
 
-            # ---------- 1. Direct ----------
-            echo "▶ Direct download ..."
-            if try_download ""; then
-              echo "✅ Direct success"
+            # 1. Direct (with cookies if available)
+            echo "▶ Attempting download (cookies: ${COOKIES_ARG:-no})..."
+            if try_download "" "Direct"; then
+              echo "✅ Download success"
               SUCCESS=1
             fi
 
-            # ---------- 2. Proxies from proxylist.txt ----------
+            # 2. Proxies from proxylist.txt
             if [ $SUCCESS -eq 0 ] && [ -s "$PROXY_FILE" ]; then
-              echo "▶ Testing proxies from $PROXY_FILE ..."
-              while IFS= read -r proxy; do
+              echo "▶ Trying proxies from $PROXY_FILE ..."
+              grep -vE '^\s*(#|$)' "$PROXY_FILE" | while IFS= read -r proxy; do
                 [ -z "$proxy" ] && continue
-                if ! echo "$proxy" | grep -qE '^(http)://[a-zA-Z0-9.:@]+|^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+'; then
-                  echo "🗑️ Invalid proxy line, removing: $proxy"
+                if ! echo "$proxy" | grep -qE '^(http|socks4|socks5)://|^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+'; then
+                  echo "🗑️ Removing invalid proxy line: $proxy"
                   sed -i "\|^$proxy\$|d" "$PROXY_FILE"
                   continue
                 fi
 
-                echo "   ⏱️ Quick check: $proxy"
+                echo "   ⏱️ Quick alive check: $proxy"
                 if proxy_alive "$proxy"; then
-                  echo "   👍 Proxy alive, trying yt-dlp ..."
-                  if try_download "--proxy $proxy"; then
+                  echo "   👍 Proxy alive, trying download ..."
+                  if try_download "--proxy $proxy" "Proxy: $proxy"; then
                     echo "✅ Proxy success: $proxy"
                     SUCCESS=1
                     break
                   else
-                    echo "❌ yt-dlp failed with this proxy. Removing."
+                    echo "❌ yt-dlp failed with proxy – removing from list."
                     sed -i "\|^$proxy\$|d" "$PROXY_FILE"
                   fi
                 else
-                  echo "💀 No response in 5 sec – removing $proxy"
+                  echo "💀 No response in 5s – removing $proxy"
                   sed -i "\|^$proxy\$|d" "$PROXY_FILE"
                 fi
-              done < "$PROXY_FILE"
-            fi
-
-            # ---------- 3. Fetch and test fresh public proxies ----------
-            if [ $SUCCESS -eq 0 ]; then
-              echo "▶ Fetching fresh proxies ..."
-              # Combine two reliable lists, remove duplicates, pick up to 20
-              { curl -s --max-time 10 "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt" 2>/dev/null; \
-                curl -s --max-time 10 "https://raw.githubusercontent.com/proxygenerator1/ProxyGenerator/main/Lists/most-stable.txt" 2>/dev/null; } \
-                | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+$' \
-                | sort -u \
-                | head -n 20 > fresh_proxies.tmp
-
-              echo "   Testing $(wc -l < fresh_proxies.tmp) fresh proxies..."
-              while IFS= read -r proxy; do
-                [ -z "$proxy" ] && continue
-                echo "   ⏱️ Quick check: $proxy"
-                if proxy_alive "$proxy"; then
-                  echo "   👍 Alive, trying download ..."
-                  if try_download "--proxy $proxy"; then
-                    echo "✅ Fresh proxy works: $proxy"
-                    echo "$proxy" >> "$PROXY_FILE"
-                    SUCCESS=1
-                    break
-                  else
-                    echo "❌ yt-dlp failed"
-                  fi
-                else
-                  echo "💀 Dead (no answer in 5s)"
-                fi
-              done < fresh_proxies.tmp
-              rm -f fresh_proxies.tmp
-            fi
-
-            # ---------- 4. Last resort: third‑party ----------
-            if [ $SUCCESS -eq 0 ]; then
-              echo "▶ Trying vixy.net ..."
-              VID=$(echo "$url" | sed -n 's/.*v=\([^&]*\).*/\1/p')
-              DL_URL=$(curl -s --max-time 15 \
-                "https://vixy.net/api/convert?url=https%3A//www.youtube.com/watch%3Fv%3D$VID%26format%3Dmp4" |
-                jq -r '.download_url // empty')
-              if [ -n "$DL_URL" ]; then
-                echo "vixy URL: $DL_URL"
-                curl -L --max-time 120 -o video.mp4 "$DL_URL" && SUCCESS=1 || echo "vixy download failed"
-              else
-                echo "vixy returned no URL."
+              done
+              # If a proxy succeeded, the 'break' only breaks the inner loop; we need to break the outer for loop.
+              # Since we are in a pipeline, we can't directly break the outer loop. We'll use a flag file.
+              if [ $SUCCESS -eq 1 ]; then
+                continue 2  # skip to next URL (bash 4+)
               fi
             fi
 
-            # ---------- Save downloaded file ----------
+            # 3. (No third-party fallback – removed to keep it clean)
+
+            # ---- Save downloaded file ----
             if [ $SUCCESS -eq 1 ]; then
               DOWNLOADED_ANY=1
               VIDEO_FILE=$(ls video.* 2>/dev/null | grep -v '\.part$' | head -n1)
               VIDEO_EXT="${VIDEO_FILE##*.}"
               NEW_NAME="video_${VIDEO_COUNT}.${VIDEO_EXT}"
               mv "$VIDEO_FILE" "$NEW_NAME"
-              echo "🎉 $NEW_NAME saved"
+              echo "🎉 Saved: $NEW_NAME"
               echo "$NEW_NAME" >> video_list.txt
 
               SUB_FILE=$(ls video.*.srt 2>/dev/null | head -n1)
@@ -268,10 +240,16 @@ jobs:
             echo "Download phase completed."
           fi
 
-          # Commit updated proxy list
+          # Clean up cookies file
+          rm -f cookies.txt
+
+          # Commit updated proxy list (if changed)
           git add "$PROXY_FILE" 2>/dev/null
-          git commit -m "Update proxy list" || true
-          git push || true
+          if ! git diff --cached --quiet; then
+            git commit -m "Update proxy list" || true
+            git pull --rebase --strategy-option ours || true
+            git push || true
+          fi
         shell: /usr/bin/bash {0}
 
       - name: Commit download.log (always)
