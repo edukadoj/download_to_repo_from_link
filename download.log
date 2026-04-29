@@ -1,0 +1,19 @@
+🚀 Processing 1 URL(s) through Cloudflare WARP
+   Quality: 720p
+   Subtitles: en (English)
+   Burn subtitles: True
+
+📥 URL #1: https://www.youtube.com/watch?v=cle-45adu50
+   🔍 Fetching video title ...
+   📝 Title: اهل سنت و جمهوری اسلامی همسو باهم یا در تقاطع!  چشم انداز  23042026
+   [Strategy 1] Cloudflare WARP (video only) ...
+   ❌ WARP download failed
+   [Strategy 2] Cookies (video only) ...
+   ❌ Cookies download failed
+   ❌ All download methods failed for this URL. Skipping.
+
+📊 Summary
+   Total URLs: 1
+   Successfully uploaded: 0
+
+❌ No videos were uploaded. The workflow will be marked as failed.
