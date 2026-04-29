@@ -1,11 +1,16 @@
 # =============================================================================
-# Workflow version: 1.0.0
+# Workflow version: 1.1.0
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser, creates a self-contained offline copy, zips it,
 #              splits the archive if needed, and uploads everything to the
 #              repository. A Windows batch file (reassemble.bat) is generated
 #              that rebuilds the archive (with chcp 65001 for UTF‑8 support).
+#
+# Changelog:
+#   1.1.0 – Replaced wget with Puppeteer for dynamic sites; added Telegram support;
+#           introduced single-file-cli for full page snapshots.
+#   1.0.0 – Initial version using wget mirror mode.
 # =============================================================================
 
 name: Make a website offline
@@ -124,12 +129,11 @@ jobs:
           const outDir = path.resolve(FOLDER);
           if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
-          // Detect Telegram
           const isTelegram = /^(https?:\/\/)?(www\.)?t(elegram)?\.me\//.test(SITE_URL) && parseInt(TELEGRAM_POSTS) > 0;
 
           function parseSize(str) {
             const match = str.match(/^(\d+(?:\.\d+)?)\s*(K|M|G|T)?B?$/i);
-            if (!match) return 2 * 1024 * 1024 * 1024; // default 2G
+            if (!match) return 2 * 1024 * 1024 * 1024;
             const num = parseFloat(match[1]);
             const unit = (match[2] || 'M').toUpperCase();
             const multiplier = { K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 };
@@ -157,7 +161,6 @@ jobs:
             await page.setUserAgent(USER_AGENT);
             await page.goto(SITE_URL, { waitUntil: 'networkidle2', timeout: 60000 });
 
-            // Auto-scroll to load more posts
             const postsToLoad = parseInt(TELEGRAM_POSTS, 10);
             let prevScrollHeight = 0;
             let loadedPosts = 0;
@@ -172,10 +175,9 @@ jobs:
               prevScrollHeight = newScrollHeight;
             }
 
-            // Extract posts
-            const posts = await page.evaluate(() => {
+            const posts = await page.evaluate((limit) => {
               const wraps = document.querySelectorAll('.tgme_widget_message_wrap');
-              return Array.from(wraps).slice(0, parseInt(process.env.TELEGRAM_POSTS) || 20).map(wrap => {
+              return Array.from(wraps).slice(0, limit).map(wrap => {
                 const textEl = wrap.querySelector('.tgme_widget_message_text');
                 const text = textEl ? textEl.innerText : '';
                 const dateEl = wrap.querySelector('.tgme_widget_message_date time');
@@ -196,9 +198,8 @@ jobs:
                 }).filter(Boolean);
                 return { text, date, media };
               });
-            });
+            }, postsToLoad);
 
-            // Build a static HTML page with all posts
             let html = `<html><head><meta charset="utf-8"><title>Telegram Channel Mirror</title><style>body{font-family:sans-serif;max-width:800px;margin:auto;padding:20px;}.post{border-bottom:1px solid #ccc;padding:15px 0;}</style></head><body><h1>Telegram Channel Mirror</h1>`;
             for (const p of posts) {
               html += `<div class="post">`;
@@ -232,12 +233,10 @@ jobs:
                 visited.add(url);
                 try {
                   console.log(`Downloading: ${url}`);
-                  // Use single-file-cli to save self-contained HTML
                   const sanitized = url.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 100);
                   const outFile = path.join(outDir, `${sanitized}.html`);
                   execSync(`npx single-file ${url} ${outFile}`, { stdio: 'inherit' });
 
-                  // Check size
                   const stat = fs.statSync(outFile);
                   downloadedBytes += stat.size;
                   if (downloadedBytes > maxBytes) {
@@ -245,7 +244,6 @@ jobs:
                     return;
                   }
 
-                  // Extract links from the saved file for further crawling
                   const content = fs.readFileSync(outFile, 'utf8');
                   const linkRegex = /<a[^>]+href="([^"]*)"/gi;
                   let match;
@@ -359,7 +357,6 @@ jobs:
               return $false
           }
 
-          # Prepare list of files (only the ZIP or its parts)
           $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
           New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
 
@@ -436,7 +433,6 @@ jobs:
               $batLines += "echo All done! You can now extract the ZIP archive."
               $batLines += "pause >nul"
 
-              # Save as ASCII (no BOM) to match the original pattern
               $batLines | Out-File -FilePath $batPath -Encoding ASCII
               if (Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat") {
                   Write-Log "✓ reassemble.bat uploaded."
