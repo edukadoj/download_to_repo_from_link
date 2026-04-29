@@ -1,5 +1,5 @@
 # =============================================================================
-# Workflow version: 1.2.1
+# Workflow version: 1.2.2
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser, creates a self-contained offline copy, zips it,
@@ -8,6 +8,8 @@
 #              that rebuilds the archive (with chcp 65001 for UTF‑8 support).
 #
 # Changelog:
+#   1.2.2 – Fixed ZIP path; replaced PowerShell upload with Python (PyGithub);
+#           added pip caching.
 #   1.2.1 – Fixed npm install error when package.json is missing; use
 #           `npm install` only (no `npm ci`).
 #   1.2.0 – Fixed Puppeteer `waitForTimeout` error (replaced with setTimeout);
@@ -75,7 +77,7 @@ jobs:
       - name: Clean up previous runs and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f download.log url_list.txt file_list.txt pending_urls.txt
+          rm -f download.log url_list.txt file_list.txt pending_urls.txt "${{ github.event.inputs.folder_name }}.zip"
           echo "" > download.log
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -132,7 +134,6 @@ jobs:
 
       - name: Install Node dependencies
         run: |
-          # Install directly – will create package.json if missing
           npm install puppeteer single-file-cli
 
       # -------------------------------------------------------------------
@@ -211,7 +212,7 @@ jobs:
               console.log(`Loaded ${loadedPosts} posts so far...`);
               if (loadedPosts >= postsToLoad) break;
               await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-              // Workaround for removed page.waitForTimeout in newer Puppeteer
+              // Replacing page.waitForTimeout with a simple Promise sleep
               await new Promise(resolve => setTimeout(resolve, 2000));
               const newScrollHeight = await page.evaluate(() => document.body.scrollHeight);
               if (newScrollHeight === prevScrollHeight) break;
@@ -317,7 +318,7 @@ jobs:
           node crawl_and_save.js
 
       # -------------------------------------------------------------------
-      #  Zip the whole output folder
+      #  Zip the whole output folder (save at workspace root)
       # -------------------------------------------------------------------
       - name: Create ZIP archive
         env:
@@ -330,163 +331,142 @@ jobs:
           echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
 
       # -------------------------------------------------------------------
-      #  Split and upload using PowerShell (mirrors direct_link_download pattern)
+      #  Cache pip packages for faster future runs
       # -------------------------------------------------------------------
-      - name: Split and upload all files
-        if: success()
-        shell: pwsh
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyGithub
+
+      # -------------------------------------------------------------------
+      #  Upload ZIP (split if needed) and generate reassemble.bat
+      # -------------------------------------------------------------------
+      - name: Upload ZIP to repository and create reassemble.bat
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+          ZIPFILE: ${{ env.ZIPFILE }}
         run: |
-          $token = $env:GITHUB_TOKEN
-          $repo = $env:GITHUB_REPOSITORY
-          $branch = $env:GITHUB_REF_NAME
-          $chunksDir = $env:FOLDER_NAME
-          $chunkSize = 20MB
-          $logFile = "download.log"
+          python << 'PYEOF'
+          import os, sys, base64, math, time
+          from github import Github, GithubException
 
-          function Write-Log {
-              param([string]$msg)
-              $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-              $logLine = "[$timestamp] $msg"
-              Write-Host $logLine
-              Add-Content -Path $logFile -Value $logLine
-          }
+          token = os.environ["GITHUB_TOKEN"]
+          repo_name = os.environ["GITHUB_REPOSITORY"]
+          branch = os.environ["GITHUB_REF_NAME"]
+          folder_name = os.environ["FOLDER_NAME"]
+          zipfile = os.environ["ZIPFILE"]  # e.g., offline_site.zip
 
-          $zipFile = Join-Path $chunksDir "$env:FOLDER_NAME.zip"
-          if (-not (Test-Path $zipFile)) {
-              Write-Log "ZIP file not found: $zipFile"
-              exit 1
-          }
+          if not os.path.exists(zipfile):
+              print(f"ZIP file not found: {zipfile}")
+              sys.exit(1)
 
-          $fileSize = (Get-Item $zipFile).Length
-          $fileName = Split-Path $zipFile -Leaf
-          Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
+          g = Github(token)
+          repo = g.get_repo(repo_name)
 
-          $headers = @{ Authorization = "Bearer $token" }
-          $apiBase = "https://api.github.com/repos/$repo/contents"
-          $maxRetries = 3
+          chunk_size = 20 * 1024 * 1024  # 20 MB
+          file_size = os.path.getsize(zipfile)
+          fname = os.path.basename(zipfile)
+          print(f"Processing {fname} ({file_size / 1024 / 1024:.1f} MB)")
 
-          function Upload-File {
-              param([string]$localPath, [string]$remotePath)
-              $bytes = [System.IO.File]::ReadAllBytes($localPath)
-              $b64 = [Convert]::ToBase64String($bytes)
-              $url = "$apiBase/$($remotePath -replace '\\','/')"
-              try {
-                  $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha
-              } catch {
-                  $sha = $null
-              }
-              $body = @{
-                  message = "Add $(Split-Path $localPath -Leaf)"
-                  content = $b64
-                  branch  = $branch
-              }
-              if ($sha) { $body.sha = $sha }
-              for ($retry = 0; $retry -lt $maxRetries; $retry++) {
-                  try {
-                      Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
-                      return $true
-                  } catch {
-                      if ($retry -lt $maxRetries - 1) {
-                          Write-Log "Retry $($retry+1)/$maxRetries in 10s..."
-                          Start-Sleep -Seconds 10
-                      } else {
-                          Write-Log "ERROR: Upload failed after $maxRetries attempts"
-                      }
-                  }
-              }
-              return $false
-          }
+          # Helper to upload a single file
+          def upload_file(local_path: str, remote_path: str):
+              with open(local_path, "rb") as f:
+                  content_bytes = f.read()
+              b64 = base64.b64encode(content_bytes).decode("utf-8")
+              try:
+                  contents = repo.get_contents(remote_path, ref=branch)
+                  repo.update_file(
+                      contents.path,
+                      f"Update {os.path.basename(local_path)}",
+                      b64,
+                      contents.sha,
+                      branch=branch
+                  )
+                  print(f"✓ Updated {remote_path}")
+              except GithubException as e:
+                  if e.status == 404:
+                      repo.create_file(
+                          remote_path,
+                          f"Add {os.path.basename(local_path)}",
+                          b64,
+                          branch=branch
+                      )
+                      print(f"✓ Created {remote_path}")
+                  else:
+                      raise
 
-          $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
-          New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
+          uploaded_parts = []
+          if file_size < chunk_size:
+              # Upload directly
+              remote = f"{folder_name}/{fname}"
+              upload_file(zipfile, remote)
+              uploaded_parts.append((fname, False))
+          else:
+              # Split and upload chunks
+              chunk_index = 0
+              with open(zipfile, "rb") as f:
+                  while True:
+                      chunk = f.read(chunk_size)
+                      if not chunk:
+                          break
+                      chunk_name = f"{fname}.part{chunk_index:04d}"
+                      chunk_path = os.path.join(folder_name, chunk_name)
+                      # Write chunk to temporary file
+                      with open(chunk_path, "wb") as cf:
+                          cf.write(chunk)
+                      upload_file(chunk_path, f"{folder_name}/{chunk_name}")
+                      os.remove(chunk_path)
+                      chunk_index += 1
+                      time.sleep(0.5)  # be kind to API rate limits
+              uploaded_parts.append((fname, True))
 
-          if ($fileSize -lt $chunkSize) {
-              Write-Log "Small file, uploading directly..."
-              if (Upload-File -localPath $zipFile -remotePath "$chunksDir/$fileName") {
-                  $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
-                  Write-Log "✓ Uploaded: $fileName"
-              } else {
-                  Write-Log "✗ Upload failed for $fileName"
-              }
-          } else {
-              Write-Log "Splitting into chunks..."
-              $stream = [System.IO.File]::OpenRead($zipFile)
-              $partIdx = 0
-              $buffer = New-Object byte[] $chunkSize
-              $uploadSuccess = $true
+          # Generate reassemble.bat (Windows batch file)
+          bat_lines = [
+              "@echo off",
+              "chcp 65001 >nul",
+              "setlocal enabledelayedexpansion",
+              "echo ========================================",
+              "echo Reassembling downloaded archive...",
+              "echo ========================================"
+          ]
+          for fname, has_chunks in uploaded_parts:
+              if has_chunks:
+                  bat_lines.append(f"echo --- Rebuilding {fname} ---")
+                  bat_lines.append(f"copy /b {fname}.part* {fname}")
+                  bat_lines.append("if %errorlevel% equ 0 (")
+                  bat_lines.append(f"    echo Successfully created {fname}")
+                  bat_lines.append(f"    del {fname}.part*")
+                  bat_lines.append(f"    echo Deleted temporary parts for {fname}")
+                  bat_lines.append(") else (")
+                  bat_lines.append(f"    echo ERROR: Failed to reassemble {fname}. Parts kept intact.")
+                  bat_lines.append(")")
+              else:
+                  bat_lines.append(f"echo {fname} was downloaded as a single file (no chunks).")
+          bat_lines.append("echo ========================================")
+          bat_lines.append("echo All done! You can now extract the ZIP archive.")
+          bat_lines.append("pause >nul")
 
-              while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-                  $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
-                  $chunkPath = Join-Path $chunksDir $chunkName
-                  [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
-                  Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)..."
-                  if (Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName") {
-                      Remove-Item $chunkPath -Force
-                      $partIdx++
-                      Start-Sleep -Milliseconds 500
-                  } else {
-                      Write-Log "✗ Upload failed for $chunkName. Aborting this file."
-                      $uploadSuccess = $false
-                      break
-                  }
-              }
-              $stream.Close()
+          bat_content = "\r\n".join(bat_lines)  # Windows line endings
+          bat_path = os.path.join(folder_name, "reassemble.bat")
+          with open(bat_path, "wb") as bf:
+              # Write without BOM (raw bytes, UTF-8 encoding ensures chcp 65001 works)
+              bf.write(bat_content.encode("utf-8"))
 
-              if ($uploadSuccess) {
-                  $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
-                  Write-Log "✓ Uploaded $partIdx chunks for $fileName"
-              } else {
-                  Write-Log "✗ Incomplete upload for $fileName"
-              }
-          }
-
-          Remove-Item $zipFile -Force
-
-          if ($fileInfos.Count -gt 0) {
-              Write-Log "Generating reassemble.bat (chcp 65001 >nul for UTF‑8 support)"
-              $batPath = Join-Path $chunksDir "reassemble.bat"
-              $batLines = @(
-                  "@echo off",
-                  "chcp 65001 >nul",
-                  "setlocal enabledelayedexpansion",
-                  "echo ========================================",
-                  "echo Reassembling downloaded archive...",
-                  "echo ========================================"
-              )
-              foreach ($fi in $fileInfos) {
-                  $name = $fi.Name
-                  if ($fi.HasChunks) {
-                      $batLines += "echo --- Rebuilding $name ---"
-                      $batLines += "copy /b $name.part* $name"
-                      $batLines += "if %errorlevel% equ 0 ("
-                      $batLines += "    echo Successfully created $name"
-                      $batLines += "    del $name.part*"
-                      $batLines += "    echo Deleted temporary parts for $name"
-                      $batLines += ") else ("
-                      $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
-                      $batLines += ")"
-                  } else {
-                      $batLines += "echo $name was downloaded as a single file (no chunks)."
-                  }
-              }
-              $batLines += "echo ========================================"
-              $batLines += "echo All done! You can now extract the ZIP archive."
-              $batLines += "pause >nul"
-
-              $batLines | Out-File -FilePath $batPath -Encoding ASCII
-              if (Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat") {
-                  Write-Log "✓ reassemble.bat uploaded."
-              } else {
-                  Write-Log "✗ Failed to upload reassemble.bat."
-              }
-          }
-          Write-Log "=== Download completed ==="
+          upload_file(bat_path, f"{folder_name}/reassemble.bat")
+          print("=== Upload completed ===")
+          PYEOF
 
       # -------------------------------------------------------------------
-      #  Commit logs and remaining files
+      #  Commit remaining files (logs, etc.)
       # -------------------------------------------------------------------
       - name: Commit download log and file list
         if: always()
