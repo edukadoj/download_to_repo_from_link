@@ -1,10 +1,11 @@
 # =============================================================================
 # Workflow version: 1.0.0
 # Name: Make a website offline
-# Description: Mirrors a website (up to configurable depth/size), creates a ZIP
-#              archive, splits it if necessary, and uploads everything to the
+# Description: Downloads dynamic websites (including Telegram channels) using a
+#              headless browser, creates a self-contained offline copy, zips it,
+#              splits the archive if needed, and uploads everything to the
 #              repository. A Windows batch file (reassemble.bat) is generated
-#              that rebuilds the archive (using chcp 65001 for UTF-8 support).
+#              that rebuilds the archive (with chcp 65001 for UTF‑8 support).
 # =============================================================================
 
 name: Make a website offline
@@ -13,39 +14,39 @@ on:
   workflow_dispatch:
     inputs:
       website_url:
-        description: 'Website URL (required)'
+        description: 'Website or Telegram channel URL (required)'
         required: true
         type: string
       max_depth:
-        description: 'Maximum link depth (1-5)'
+        description: 'Maximum link depth (1-5) – ignored for Telegram'
         required: false
-        default: '3'
+        default: '2'
         type: choice
-        options:
-          - '1'
-          - '2'
-          - '3'
-          - '4'
-          - '5'
+        options: ['1', '2', '3', '4', '5']
       max_total_size:
         description: 'Maximum total download size (e.g., 500M, 2G)'
         required: false
         default: '2G'
         type: string
       folder_name:
-        description: 'Folder to store the website (default: offline_site)'
+        description: 'Output folder (default: offline_site)'
         required: false
         default: 'offline_site'
         type: string
       include_assets:
-        description: 'Download page requisites (CSS, JS, images)?'
+        description: 'Download CSS/JS/images? (always true for headless)'
         required: false
         default: true
         type: boolean
       user_agent:
-        description: 'User-Agent string for requests'
+        description: 'User-Agent string'
         required: false
         default: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        type: string
+      telegram_posts:
+        description: 'Number of recent Telegram posts to download (0 = not a Telegram URL)'
+        required: false
+        default: '20'
         type: string
 
 jobs:
@@ -55,23 +56,16 @@ jobs:
       contents: write
 
     steps:
-      # -----------------------------------------------------------------------
-      # 1. Checkout repository
-      # -----------------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
 
-      # -----------------------------------------------------------------------
-      # 2. Clean up previous runs and log
-      # -----------------------------------------------------------------------
-      - name: Clean up old downloads and log
+      - name: Clean up previous runs and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
           rm -f download.log url_list.txt file_list.txt pending_urls.txt
           echo "" > download.log
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -79,26 +73,26 @@ jobs:
           git pull --rebase
           git push || true
 
-      # -----------------------------------------------------------------------
-      # 3. Install required tools (wget, zip, pwsh)
-      # -----------------------------------------------------------------------
-      - name: Install required tools
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install system dependencies (Chromium)
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget zip unzip
+          sudo apt-get install -y chromium-browser zip unzip
+          echo "CHROMIUM_PATH=$(which chromium-browser)" >> $GITHUB_ENV
 
-          # Install PowerShell (pwsh) for the upload script
-          # Source: https://docs.microsoft.com/powershell/scripting/install/install-ubuntu
-          wget -q https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
-          sudo dpkg -i packages-microsoft-prod.deb
-          sudo apt-get update
-          sudo apt-get install -y powershell
-          rm packages-microsoft-prod.deb
+      - name: Install Node dependencies
+        run: |
+          npm install puppeteer single-file-cli
 
-      # -----------------------------------------------------------------------
-      # 4. Mirror the website with wget
-      # -----------------------------------------------------------------------
-      - name: Mirror website with wget
+      # -------------------------------------------------------------------
+      #  Node.js driver – crawls the site or Telegram channel
+      # -------------------------------------------------------------------
+      - name: Download website with headless browser
+        shell: bash
         env:
           SITE_URL: ${{ github.event.inputs.website_url }}
           MAX_DEPTH: ${{ github.event.inputs.max_depth }}
@@ -106,43 +100,184 @@ jobs:
           FOLDER: ${{ github.event.inputs.folder_name }}
           INCLUDE_ASSETS: ${{ github.event.inputs.include_assets }}
           USER_AGENT: ${{ github.event.inputs.user_agent }}
+          TELEGRAM_POSTS: ${{ github.event.inputs.telegram_posts }}
         run: |
-          set -e
-          echo "=== Mirroring website ==="
-          echo "URL: $SITE_URL"
-          echo "Depth: $MAX_DEPTH"
-          echo "Max size: $MAX_SIZE"
-          echo "Output folder: $FOLDER"
+          cat << 'SCRIPT' > crawl_and_save.js
+          const puppeteer = require('puppeteer');
+          const fs = require('fs');
+          const path = require('path');
+          const { execSync } = require('child_process');
 
-          # Build wget arguments
-          WGET_ARGS=(
-            "--mirror"
-            "--convert-links"
-            "--adjust-extension"
-            "--no-parent"
-            "--level=$MAX_DEPTH"
-            "--quota=$MAX_SIZE"
-            "--user-agent=$USER_AGENT"
-            "--wait=1"
-            "--random-wait"
-            "--directory-prefix=$FOLDER"
-            "--no-verbose"
-          )
+          const {
+            SITE_URL,
+            MAX_DEPTH = '2',
+            MAX_SIZE = '2G',
+            FOLDER,
+            INCLUDE_ASSETS = 'true',
+            USER_AGENT,
+            TELEGRAM_POSTS = '20'
+          } = process.env;
 
-          if [[ "$INCLUDE_ASSETS" == "true" ]]; then
-            WGET_ARGS+=("--page-requisites")
-          fi
+          const maxDepth = parseInt(MAX_DEPTH, 10);
+          const maxBytes = parseSize(MAX_SIZE);
+          let downloadedBytes = 0;
+          const outDir = path.resolve(FOLDER);
+          if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
-          # Run wget
-          wget "${WGET_ARGS[@]}" "$SITE_URL" || true
+          // Detect Telegram
+          const isTelegram = /^(https?:\/\/)?(www\.)?t(elegram)?\.me\//.test(SITE_URL) && parseInt(TELEGRAM_POSTS) > 0;
 
-          echo "=== Mirroring finished ==="
-          echo "Downloaded files:"
-          find "$FOLDER" -type f -exec ls -lh {} \; | head -50
+          function parseSize(str) {
+            const match = str.match(/^(\d+(?:\.\d+)?)\s*(K|M|G|T)?B?$/i);
+            if (!match) return 2 * 1024 * 1024 * 1024; // default 2G
+            const num = parseFloat(match[1]);
+            const unit = (match[2] || 'M').toUpperCase();
+            const multiplier = { K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 };
+            return num * multiplier[unit];
+          }
 
-      # -----------------------------------------------------------------------
-      # 5. Create ZIP archive of the mirrored folder
-      # -----------------------------------------------------------------------
+          async function main() {
+            const browser = await puppeteer.launch({
+              headless: 'new',
+              executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser',
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            });
+
+            if (isTelegram) {
+              await handleTelegram(browser);
+            } else {
+              await handleGenericSite(browser);
+            }
+            await browser.close();
+          }
+
+          async function handleTelegram(browser) {
+            console.log('📡 Downloading Telegram channel using headless browser...');
+            const page = await browser.newPage();
+            await page.setUserAgent(USER_AGENT);
+            await page.goto(SITE_URL, { waitUntil: 'networkidle2', timeout: 60000 });
+
+            // Auto-scroll to load more posts
+            const postsToLoad = parseInt(TELEGRAM_POSTS, 10);
+            let prevScrollHeight = 0;
+            let loadedPosts = 0;
+            while (loadedPosts < postsToLoad) {
+              loadedPosts = await page.evaluate(() => document.querySelectorAll('.tgme_widget_message_wrap').length);
+              console.log(`Loaded ${loadedPosts} posts so far...`);
+              if (loadedPosts >= postsToLoad) break;
+              await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+              await page.waitForTimeout(2000);
+              const newScrollHeight = await page.evaluate(() => document.body.scrollHeight);
+              if (newScrollHeight === prevScrollHeight) break;
+              prevScrollHeight = newScrollHeight;
+            }
+
+            // Extract posts
+            const posts = await page.evaluate(() => {
+              const wraps = document.querySelectorAll('.tgme_widget_message_wrap');
+              return Array.from(wraps).slice(0, parseInt(process.env.TELEGRAM_POSTS) || 20).map(wrap => {
+                const textEl = wrap.querySelector('.tgme_widget_message_text');
+                const text = textEl ? textEl.innerText : '';
+                const dateEl = wrap.querySelector('.tgme_widget_message_date time');
+                const date = dateEl ? dateEl.getAttribute('datetime') : '';
+                const mediaEls = wrap.querySelectorAll('.tgme_widget_message_photo_wrap, .tgme_widget_message_video, .tgme_widget_message_document');
+                const media = Array.from(mediaEls).map(el => {
+                  if (el.classList.contains('tgme_widget_message_photo_wrap')) {
+                    const img = el.querySelector('img');
+                    return { type: 'photo', src: img ? img.src : '' };
+                  } else if (el.classList.contains('tgme_widget_message_video')) {
+                    const video = el.querySelector('video');
+                    return { type: 'video', src: video ? video.src : '', poster: video ? video.poster : '' };
+                  } else if (el.classList.contains('tgme_widget_message_document')) {
+                    const a = el.querySelector('.tgme_widget_message_document_wrap a');
+                    return { type: 'document', href: a ? a.href : '', title: a ? a.innerText : '' };
+                  }
+                  return null;
+                }).filter(Boolean);
+                return { text, date, media };
+              });
+            });
+
+            // Build a static HTML page with all posts
+            let html = `<html><head><meta charset="utf-8"><title>Telegram Channel Mirror</title><style>body{font-family:sans-serif;max-width:800px;margin:auto;padding:20px;}.post{border-bottom:1px solid #ccc;padding:15px 0;}</style></head><body><h1>Telegram Channel Mirror</h1>`;
+            for (const p of posts) {
+              html += `<div class="post">`;
+              if (p.date) html += `<p><small>${p.date}</small></p>`;
+              if (p.text) html += `<p>${p.text}</p>`;
+              for (const m of p.media) {
+                if (m.type === 'photo' && m.src) html += `<img src="${m.src}" style="max-width:100%;"><br>`;
+                if (m.type === 'video' && m.src) html += `<video src="${m.src}" controls style="max-width:100%;"></video><br>`;
+                if (m.type === 'document' && m.href) html += `<a href="${m.href}">📄 ${m.title || m.href}</a><br>`;
+              }
+              html += `</div>`;
+            }
+            html += `</body></html>`;
+
+            const filePath = path.join(outDir, 'telegram_channel.html');
+            fs.writeFileSync(filePath, html, 'utf8');
+            console.log(`Telegram channel saved to ${filePath}`);
+          }
+
+          async function handleGenericSite(browser) {
+            console.log('🌐 Crawling generic website with SingleFile (depth ' + maxDepth + ')...');
+            const visited = new Set();
+            const queue = [SITE_URL];
+            let depth = 0;
+
+            while (queue.length > 0 && depth <= maxDepth) {
+              const levelSize = queue.length;
+              for (let i = 0; i < levelSize; i++) {
+                const url = queue.shift();
+                if (visited.has(url)) continue;
+                visited.add(url);
+                try {
+                  console.log(`Downloading: ${url}`);
+                  // Use single-file-cli to save self-contained HTML
+                  const sanitized = url.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 100);
+                  const outFile = path.join(outDir, `${sanitized}.html`);
+                  execSync(`npx single-file ${url} ${outFile}`, { stdio: 'inherit' });
+
+                  // Check size
+                  const stat = fs.statSync(outFile);
+                  downloadedBytes += stat.size;
+                  if (downloadedBytes > maxBytes) {
+                    console.log('Reached size limit. Stopping crawl.');
+                    return;
+                  }
+
+                  // Extract links from the saved file for further crawling
+                  const content = fs.readFileSync(outFile, 'utf8');
+                  const linkRegex = /<a[^>]+href="([^"]*)"/gi;
+                  let match;
+                  while ((match = linkRegex.exec(content)) !== null) {
+                    const link = match[1];
+                    try {
+                      const absolute = new URL(link, url).href;
+                      if (absolute.startsWith(SITE_URL) && !visited.has(absolute)) {
+                        queue.push(absolute);
+                      }
+                    } catch (_) {}
+                  }
+                } catch (err) {
+                  console.error(`Failed to download ${url}: ${err.message}`);
+                }
+              }
+              depth++;
+            }
+            console.log('Crawl finished.');
+          }
+
+          main().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          SCRIPT
+
+          node crawl_and_save.js
+
+      # -------------------------------------------------------------------
+      #  Zip the whole output folder
+      # -------------------------------------------------------------------
       - name: Create ZIP archive
         env:
           FOLDER: ${{ github.event.inputs.folder_name }}
@@ -151,23 +286,11 @@ jobs:
           echo "Creating $ZIPFILE..."
           zip -r "$ZIPFILE" "$FOLDER"
           echo "Archive size: $(du -h "$ZIPFILE" | cut -f1)"
-
-          # Store ZIP filename for later steps
           echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
 
-      # -----------------------------------------------------------------------
-      # 6. Prepare file list for upload (just the ZIP, but we follow the
-      #    pattern of the original workflow)
-      # -----------------------------------------------------------------------
-      - name: Prepare file list
-        env:
-          ZIPFILE: ${{ env.ZIPFILE }}
-        run: |
-          echo "$ZIPFILE" > file_list.txt
-
-      # -----------------------------------------------------------------------
-      # 7. Split and upload files (PowerShell, following the original pattern)
-      # -----------------------------------------------------------------------
+      # -------------------------------------------------------------------
+      #  Split and upload using PowerShell (mirrors direct_link_download pattern)
+      # -------------------------------------------------------------------
       - name: Split and upload all files
         if: success()
         shell: pwsh
@@ -190,14 +313,16 @@ jobs:
               Add-Content -Path $logFile -Value $logLine
           }
 
-          $fileList = @(Get-Content file_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
-          if ($fileList.Count -eq 0) {
-              Write-Log "No files to upload. Exiting."
-              exit 0
+          $zipFile = Join-Path $chunksDir "$env:FOLDER_NAME.zip"
+          if (-not (Test-Path $zipFile)) {
+              Write-Log "ZIP file not found: $zipFile"
+              exit 1
           }
 
-          New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
-          $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
+          $fileSize = (Get-Item $zipFile).Length
+          $fileName = Split-Path $zipFile -Leaf
+          Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
+
           $headers = @{ Authorization = "Bearer $token" }
           $apiBase = "https://api.github.com/repos/$repo/contents"
           $maxRetries = 3
@@ -234,72 +359,63 @@ jobs:
               return $false
           }
 
-          for ($i = 0; $i -lt $fileList.Count; $i++) {
-              $filePath = $fileList[$i]
-              if (-not (Test-Path $filePath)) {
-                  Write-Log "File missing: $filePath – skipping."
-                  continue
-              }
-              $fileSize = (Get-Item $filePath).Length
-              $fileName = [System.IO.Path]::GetFileName($filePath)
-              Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
+          # Prepare list of files (only the ZIP or its parts)
+          $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
+          New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
 
-              if ($fileSize -lt $chunkSize) {
-                  Write-Log "Small file, uploading directly..."
-                  if (Upload-File -localPath $filePath -remotePath "$chunksDir/$fileName") {
-                      $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
-                      Write-Log "✓ Uploaded: $fileName"
-                  } else {
-                      Write-Log "✗ Upload failed for $fileName"
-                  }
+          if ($fileSize -lt $chunkSize) {
+              Write-Log "Small file, uploading directly..."
+              if (Upload-File -localPath $zipFile -remotePath "$chunksDir/$fileName") {
+                  $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+                  Write-Log "✓ Uploaded: $fileName"
               } else {
-                  Write-Log "Splitting into chunks..."
-                  $stream = [System.IO.File]::OpenRead($filePath)
-                  $partIdx = 0
-                  $buffer = New-Object byte[] $chunkSize
-                  $uploadSuccess = $true
+                  Write-Log "✗ Upload failed for $fileName"
+              }
+          } else {
+              Write-Log "Splitting into chunks..."
+              $stream = [System.IO.File]::OpenRead($zipFile)
+              $partIdx = 0
+              $buffer = New-Object byte[] $chunkSize
+              $uploadSuccess = $true
 
-                  while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-                      $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
-                      $chunkPath = Join-Path $chunksDir $chunkName
-                      [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
-                      Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)..."
-                      if (Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName") {
-                          Remove-Item $chunkPath -Force
-                          $partIdx++
-                          Start-Sleep -Milliseconds 500
-                      } else {
-                          Write-Log "✗ Upload failed for $chunkName. Aborting this file."
-                          $uploadSuccess = $false
-                          break
-                      }
-                  }
-                  $stream.Close()
-
-                  if ($uploadSuccess) {
-                      $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
-                      Write-Log "✓ Uploaded $partIdx chunks for $fileName"
+              while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                  $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
+                  $chunkPath = Join-Path $chunksDir $chunkName
+                  [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
+                  Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)..."
+                  if (Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName") {
+                      Remove-Item $chunkPath -Force
+                      $partIdx++
+                      Start-Sleep -Milliseconds 500
                   } else {
-                      Write-Log "✗ Incomplete upload for $fileName"
+                      Write-Log "✗ Upload failed for $chunkName. Aborting this file."
+                      $uploadSuccess = $false
+                      break
                   }
               }
-              Remove-Item $filePath -Force
+              $stream.Close()
+
+              if ($uploadSuccess) {
+                  $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
+                  Write-Log "✓ Uploaded $partIdx chunks for $fileName"
+              } else {
+                  Write-Log "✗ Incomplete upload for $fileName"
+              }
           }
 
-          if ($fileInfos.Count -eq 0) {
-              Write-Log "No files were successfully uploaded."
-          } else {
-              Write-Log "Generating reassemble.bat (with chcp 65001 for UTF-8)..."
+          Remove-Item $zipFile -Force
+
+          if ($fileInfos.Count -gt 0) {
+              Write-Log "Generating reassemble.bat (chcp 65001 >nul for UTF‑8 support)"
               $batPath = Join-Path $chunksDir "reassemble.bat"
               $batLines = @(
                   "@echo off",
                   "chcp 65001 >nul",
                   "setlocal enabledelayedexpansion",
                   "echo ========================================",
-                  "echo Reassembling all downloaded files...",
+                  "echo Reassembling downloaded archive...",
                   "echo ========================================"
               )
-
               foreach ($fi in $fileInfos) {
                   $name = $fi.Name
                   if ($fi.HasChunks) {
@@ -317,24 +433,22 @@ jobs:
                   }
               }
               $batLines += "echo ========================================"
-              $batLines += "echo All done! Press any key to exit."
+              $batLines += "echo All done! You can now extract the ZIP archive."
               $batLines += "pause >nul"
 
-              # Save as ASCII without BOM (equivalent to UTF-8 without BOM)
+              # Save as ASCII (no BOM) to match the original pattern
               $batLines | Out-File -FilePath $batPath -Encoding ASCII
-
-              Write-Log "Uploading reassemble.bat..."
               if (Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat") {
                   Write-Log "✓ reassemble.bat uploaded."
               } else {
                   Write-Log "✗ Failed to upload reassemble.bat."
               }
-              Write-Log "=== Download completed ==="
           }
+          Write-Log "=== Download completed ==="
 
-      # -----------------------------------------------------------------------
-      # 8. Commit download log and folder (if any files were placed there)
-      # -----------------------------------------------------------------------
+      # -------------------------------------------------------------------
+      #  Commit logs and remaining files
+      # -------------------------------------------------------------------
       - name: Commit download log and file list
         if: always()
         run: |
@@ -343,9 +457,6 @@ jobs:
           git pull --rebase --strategy-option ours || true
           git push || true
 
-      # -----------------------------------------------------------------------
-      # 9. Final log commit
-      # -----------------------------------------------------------------------
       - name: Final log commit
         if: always()
         run: |
