@@ -182,9 +182,6 @@ jobs:
           out_dir = Path(folder_name)
           out_dir.mkdir(exist_ok=True)
 
-          # ------------------------------------------------------------
-          # Live command runner – returns (exit code, set of new files, all output)
-          # ------------------------------------------------------------
           def run_cmd_live(cmd, timeout=600):
               before = set(os.listdir("."))
               output_lines = []
@@ -212,9 +209,6 @@ jobs:
                   log(f"   ❌ {attempt_name} download FAILED (exit code {exit_code}). Last output lines:\n{tail}")
               return exit_code == 0, new_files
 
-          # ------------------------------------------------------------
-          # Get video metadata (title + upload_date) via JSON
-          # ------------------------------------------------------------
           def get_video_metadata(url, extra_args=None):
               title_cmd = [
                   "yt-dlp", "--no-playlist", "--dump-json",
@@ -229,21 +223,19 @@ jobs:
                   try:
                       metadata = json.loads(proc.stdout.strip())
                       title = metadata.get("title", None)
-                      upload_date = metadata.get("upload_date", None)  # YYYYMMDD
+                      upload_date = metadata.get("upload_date", None)
                       return title, upload_date
                   except:
                       pass
               return None, None
 
-          # ------------------------------------------------------------
-          # Subtitle command builder
-          # ------------------------------------------------------------
-          def make_sub_cmd(lang):
+          def make_sub_cmd(lang, output_template):
+              # Use the same output template as the video so that the .srt file name matches the video base name
               return [
                   "yt-dlp", "--no-playlist", "--skip-download",
                   "--write-auto-subs", "--sub-lang", lang,
                   "--convert-subs", "srt",
-                  "--output", "%(title).150B [%(id)s].%(ext)s",
+                  "--output", output_template,
                   "--restrict-filenames", "--windows-filenames",
                   "--remote-components", "ejs:github",
                   "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -251,9 +243,6 @@ jobs:
                   "--sleep-requests", "1", "--sleep-interval", "5",
               ]
 
-          # ------------------------------------------------------------
-          # Video download command builder
-          # ------------------------------------------------------------
           def build_video_cmd(output_filename):
               return [
                   "yt-dlp", "--no-playlist",
@@ -267,9 +256,6 @@ jobs:
                   "--sleep-requests", "1", "--sleep-interval", "5",
               ]
 
-          # ------------------------------------------------------------
-          # GitHub upload
-          # ------------------------------------------------------------
           def upload_to_github(local_path, remote_path):
               log(f"   ⬆️  Uploading {Path(local_path).name} ...")
               with open(local_path, "rb") as f:
@@ -294,9 +280,6 @@ jobs:
               log(f"   ❌ Upload failed after 3 attempts")
               return False
 
-          # ====================================================================
-          #                         MAIN LOOP
-          # ====================================================================
           video_count = 0
           total_uploaded = 0
           chunk_size = 20 * 1024 * 1024
@@ -308,9 +291,6 @@ jobs:
               video_file = None
               subtitle_file = None
 
-              # ---------------------------------------------------------------
-              #  DOWNLOAD STAGE
-              # ---------------------------------------------------------------
               log("")
               log("╔══════════════════════════════════════════════════════════╗")
               log(f"║               DOWNLOAD  STAGE  —  #{video_count}               ║")
@@ -326,7 +306,6 @@ jobs:
                   safe_title = None
                   log("   ⚠️ Could not fetch title, will use default naming.")
 
-              # Format upload date
               if upload_date and len(upload_date) == 8:
                   try:
                       date_obj = datetime.strptime(upload_date, "%Y%m%d")
@@ -338,23 +317,23 @@ jobs:
                   formatted_date = None
                   log("   ℹ️ Upload date not available.")
 
-              # Build filename: [date] title [id].ext
+              # Build the filename template (used for both video and subtitles)
               if formatted_date and safe_title:
                   output_file = f"{formatted_date} {safe_title} [%(id)s].%(ext)s"
               elif safe_title:
                   output_file = f"{safe_title} [%(id)s].%(ext)s"
               else:
                   output_file = "%(title).150B [%(id)s].%(ext)s"
+
               video_cmd = build_video_cmd(output_file)
 
-              # ---------- WARP attempt ----------
+              # --- Video download ---
               ok, new_files = run_ytdlp_and_log(video_cmd, url, attempt_name="WARP")
               if ok:
                   log("   ✅ WARP download succeeded")
               else:
                   log("   ❌ WARP download failed")
 
-              # ---------- Cookies fallback ----------
               if not ok and cookies_secret:
                   with open("cookies.txt", "w") as cf:
                       cf.write(cookies_secret)
@@ -371,7 +350,6 @@ jobs:
                   log("   ❌ All download methods failed for this URL. Skipping.")
                   continue
 
-              # Find downloaded video file
               for f in sorted(new_files):
                   if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")) and os.path.exists(f):
                       video_file = f
@@ -383,14 +361,14 @@ jobs:
               file_size = os.path.getsize(video_file)
               log(f"   📦 Video file: {video_file} ({file_size/1024**2:.1f} MB)")
 
-              # ---------- Subtitle download ----------
+              # --- Subtitle download (now uses the same output_file template) ---
               if sub_lang_input != "none":
                   lang_code = sub_lang_input.split()[0]
                   fallback_lang = "fa" if lang_code == "en" else "en"
                   subtitle_success = False
 
                   log(f"   📝 Attempting subtitle download for '{lang_code}' ...")
-                  sub_cmd = make_sub_cmd(lang_code)
+                  sub_cmd = make_sub_cmd(lang_code, output_file)
                   sub_ok, sub_new = run_ytdlp_and_log(sub_cmd, url, extra_args=extra_args, attempt_name=f"Sub ({lang_code})")
                   if sub_ok:
                       for f in sorted(sub_new):
@@ -402,7 +380,7 @@ jobs:
                   if not subtitle_success:
                       log(f"   ⚠️ Subtitle for '{lang_code}' not available.")
                       log(f"   📝 Attempting fallback subtitle language '{fallback_lang}' ...")
-                      sub_cmd_fallback = make_sub_cmd(fallback_lang)
+                      sub_cmd_fallback = make_sub_cmd(fallback_lang, output_file)
                       sub_ok2, sub_new2 = run_ytdlp_and_log(sub_cmd_fallback, url, extra_args=extra_args, attempt_name=f"Sub ({fallback_lang})")
                       if sub_ok2:
                           for f in sorted(sub_new2):
@@ -416,9 +394,7 @@ jobs:
                   else:
                       pass
 
-              # ---------------------------------------------------------------
-              #  CONVERSION STAGE
-              # ---------------------------------------------------------------
+              # --- Conversion ---
               log("")
               log("╔══════════════════════════════════════════════════════════╗")
               log(f"║              CONVERSION  STAGE  —  #{video_count}              ║")
@@ -457,9 +433,7 @@ jobs:
                   if burn_subs and subtitle_file:
                       log("   ℹ️ Subtitle file will be uploaded separately.")
 
-              # ---------------------------------------------------------------
-              #  UPLOAD STAGE
-              # ---------------------------------------------------------------
+              # --- Upload ---
               log("")
               log("╔══════════════════════════════════════════════════════════╗")
               log(f"║               UPLOAD  STAGE  —  #{video_count}                ║")
@@ -499,24 +473,21 @@ jobs:
                   else:
                       log("   ❌ No chunks uploaded, skipping.")
 
-              # Always upload subtitle file if it exists
               if subtitle_file:
                   log(f"   ⬆️  Uploading subtitle file ...")
                   remote_sub = f"{folder_name}/{subtitle_file}"
                   upload_to_github(subtitle_file, remote_sub)
 
-              # Clean up local video
               try: os.remove(video_file)
               except: pass
 
-          # ====================================================================
-          #  Generate reassemble.bat (UTF-8 with BOM to preserve Persian names)
-          # ====================================================================
+          # --- reassemble.bat generation ---
           if video_infos:
               log("\n📄 Creating reassemble.bat ...")
               bat_path = out_dir / "reassemble.bat"
               bat_lines = []
               bat_lines.append("@echo off")
+              bat_lines.append("chcp 65001 >nul")
               bat_lines.append("setlocal enabledelayedexpansion")
               bat_lines.append("echo ========================================")
               bat_lines.append("echo  Reassembling all downloaded files...")
@@ -539,8 +510,7 @@ jobs:
               bat_lines.append("echo All done! Press any key to exit.")
               bat_lines.append("pause >nul")
 
-              # Write with UTF-8 BOM – this fixes Persian character display in cmd.exe
-              with open(bat_path, "w", encoding="utf-8-sig") as bat:
+              with open(bat_path, "w", encoding="utf-8") as bat:
                   bat.write("\r\n".join(bat_lines) + "\r\n")
 
               log("   ⬆️ Uploading reassemble.bat ...")
