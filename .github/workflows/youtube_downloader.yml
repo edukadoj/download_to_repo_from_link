@@ -183,24 +183,35 @@ jobs:
           out_dir.mkdir(exist_ok=True)
 
           # ------------------------------------------------------------
-          # Live command runner
+          # Live command runner – returns (exit code, set of new files, all output)
           # ------------------------------------------------------------
           def run_cmd_live(cmd, timeout=600):
               before = set(os.listdir("."))
+              output_lines = []
               proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
               for line in proc.stdout:
                   print(line, end="", flush=True)
+                  output_lines.append(line)
               proc.wait(timeout=timeout)
               after = set(os.listdir("."))
               new_files = after - before
-              return proc.returncode, new_files
+              return proc.returncode, new_files, "".join(output_lines)
 
-          def run_ytdlp(base_cmd, url, extra_args=None):
+          def run_ytdlp_and_log(base_cmd, url, extra_args=None, attempt_name=""):
+              log(f"   ▶️ Starting {attempt_name} download...")
               final_cmd = list(base_cmd)
               if extra_args:
                   final_cmd.extend(extra_args)
               final_cmd.append(url)
-              return run_cmd_live(final_cmd)
+              log(f"   🔧 Command: {' '.join(final_cmd)}")
+              exit_code, new_files, all_output = run_cmd_live(final_cmd)
+              if exit_code == 0:
+                  log(f"   ✅ {attempt_name} download finished successfully")
+              else:
+                  # Print the last few lines as the error summary
+                  tail = "\n".join(line.rstrip() for line in all_output.splitlines()[-10:])
+                  log(f"   ❌ {attempt_name} download FAILED (exit code {exit_code}). Last output lines:\n{tail}")
+              return exit_code == 0, new_files
 
           # ------------------------------------------------------------
           # Get video title (JSON, no download)
@@ -259,6 +270,7 @@ jobs:
           # GitHub upload
           # ------------------------------------------------------------
           def upload_to_github(local_path, remote_path):
+              log(f"   ⬆️  Uploading {Path(local_path).name} ...")
               with open(local_path, "rb") as f:
                   b64 = base64.b64encode(f.read()).decode("utf-8")
               url = f"https://api.github.com/repos/{repo}/contents/{quote(remote_path)}"
@@ -275,8 +287,10 @@ jobs:
               for attempt in range(3):
                   r = requests.put(url, headers=headers, json=body)
                   if r.status_code in (200, 201):
+                      log(f"   ✅ Upload successful")
                       return True
                   time.sleep(5)
+              log(f"   ❌ Upload failed after 3 attempts")
               return False
 
           # ------------------------------------------------------------
@@ -303,24 +317,25 @@ jobs:
                   safe_title = None
                   log("   ⚠️ Could not fetch title, will use default naming.")
 
-              log("   [Strategy 1] Cloudflare WARP (video only) ...")
               if safe_title:
                   output_file = f"{safe_title} [%(id)s].%(ext)s"
               else:
                   output_file = "%(title).150B [%(id)s].%(ext)s"
               video_cmd = build_video_cmd(output_file)
-              ok, new_files = run_ytdlp(video_cmd, url)
+
+              # ---------- WARP attempt ----------
+              ok, new_files = run_ytdlp_and_log(video_cmd, url, attempt_name="WARP")
               if ok:
                   log("   ✅ WARP download succeeded")
               else:
                   log("   ❌ WARP download failed")
 
+              # ---------- Cookies fallback ----------
               if not ok and cookies_secret:
-                  log("   [Strategy 2] Cookies (video only) ...")
                   with open("cookies.txt", "w") as cf:
                       cf.write(cookies_secret)
                   extra_args = ["--cookies", "cookies.txt"]
-                  ok, new_files = run_ytdlp(video_cmd, url, extra_args=extra_args)
+                  ok, new_files = run_ytdlp_and_log(video_cmd, url, extra_args=extra_args, attempt_name="Cookies")
                   if ok:
                       log("   ✅ Cookies download succeeded")
                   else:
@@ -332,6 +347,7 @@ jobs:
                   log("   ❌ All download methods failed for this URL. Skipping.")
                   continue
 
+              # Find downloaded video file
               for f in sorted(new_files):
                   if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")) and os.path.exists(f):
                       video_file = f
@@ -341,7 +357,7 @@ jobs:
                   continue
 
               file_size = os.path.getsize(video_file)
-              log(f"   📦 Video: {video_file} ({file_size/1024**2:.1f} MB)")
+              log(f"   📦 Video file: {video_file} ({file_size/1024**2:.1f} MB)")
 
               # ---------- Subtitle handling ----------
               if sub_lang_input != "none":
@@ -351,7 +367,7 @@ jobs:
 
                   log(f"   📝 Attempting subtitle download for '{lang_code}' ...")
                   sub_cmd = make_sub_cmd(lang_code)
-                  sub_ok, sub_new = run_ytdlp(sub_cmd, url, extra_args=extra_args)
+                  sub_ok, sub_new = run_ytdlp_and_log(sub_cmd, url, extra_args=extra_args, attempt_name=f"Sub ({lang_code})")
                   if sub_ok:
                       for f in sorted(sub_new):
                           if f.endswith(".srt"):
@@ -363,7 +379,7 @@ jobs:
                       log(f"   ⚠️ Subtitle for '{lang_code}' not available.")
                       log(f"   📝 Attempting fallback subtitle language '{fallback_lang}' ...")
                       sub_cmd_fallback = make_sub_cmd(fallback_lang)
-                      sub_ok2, sub_new2 = run_ytdlp(sub_cmd_fallback, url, extra_args=extra_args)
+                      sub_ok2, sub_new2 = run_ytdlp_and_log(sub_cmd_fallback, url, extra_args=extra_args, attempt_name=f"Sub ({fallback_lang})")
                       if sub_ok2:
                           for f in sorted(sub_new2):
                               if f.endswith(".srt"):
@@ -380,7 +396,6 @@ jobs:
               if burn_subs and subtitle_file:
                   log("   🔥 Burning subtitles into video with 60% opacity box ...")
                   burned_video = f"burned_{video_file}"
-                  # Use absolute path to subtitle to avoid working-directory issues
                   sub_abs = os.path.abspath(subtitle_file)
                   cmd_ffmpeg = [
                       "ffmpeg", "-y",
@@ -390,7 +405,7 @@ jobs:
                       "-c:a", "copy",
                       burned_video
                   ]
-                  log(f"   Running: {' '.join(cmd_ffmpeg)}")
+                  log(f"   🔧 Running: {' '.join(cmd_ffmpeg)}")
                   proc = subprocess.run(cmd_ffmpeg, capture_output=True, text=True)
                   if proc.returncode == 0:
                       os.remove(video_file)
@@ -401,14 +416,12 @@ jobs:
 
               # ---------- Split & upload ----------
               if file_size < chunk_size:
-                  log("   ⬆️ Uploading small file directly ...")
+                  log("   🚀 Uploading small file directly ...")
                   remote_path = f"{folder_name}/{video_file}"
                   if upload_to_github(video_file, remote_path):
-                      log("   ✅ Uploaded small file")
                       video_infos.append({"name": video_file, "chunks": 0})
                       total_uploaded += 1
                   else:
-                      log("   ❌ Small file upload failed")
                       continue
               else:
                   log(f"   ✂️ Splitting into {chunk_size//1024//1024} MB chunks ...")
@@ -422,7 +435,7 @@ jobs:
                           chunk_path = out_dir / chunk_name
                           with open(chunk_path, "wb") as cf:
                               cf.write(data)
-                          log(f"      ⬆️ Uploading chunk {part_idx+1}: {chunk_name} ({len(data)/1024**2:.1f} MB)")
+                          log(f"      ⬆️ Chunk {part_idx+1}: {chunk_name} ({len(data)/1024**2:.1f} MB)")
                           if not upload_to_github(str(chunk_path), f"{folder_name}/{chunk_name}"):
                               log(f"      ❌ Upload failed for {chunk_name}. Skipping remaining chunks.")
                               break
@@ -431,7 +444,7 @@ jobs:
                           time.sleep(0.3)
                   if part_idx > 0:
                       video_infos.append({"name": video_file, "chunks": part_idx})
-                      log(f"   ✅ Uploaded {part_idx} chunks")
+                      log(f"   ✅ {part_idx} chunks uploaded")
                       total_uploaded += 1
                   else:
                       log("   ❌ No chunks uploaded, skipping.")
@@ -439,17 +452,14 @@ jobs:
               # ---------- Upload subtitle file (always, even if burned) ----------
               if subtitle_file:
                   remote_sub = f"{folder_name}/{subtitle_file}"
-                  if upload_to_github(subtitle_file, remote_sub):
-                      log(f"   ✅ Subtitle file uploaded: {subtitle_file}")
-                  else:
-                      log("   ⚠️ Subtitle upload failed")
+                  upload_to_github(subtitle_file, remote_sub)
 
               # Clean up
               try: os.remove(video_file)
               except: pass
 
           # ------------------------------------------------------------
-          # Generate reassemble.bat
+          # Generate reassemble.bat (proper quoting)
           # ------------------------------------------------------------
           if video_infos:
               log("\n📄 Creating reassemble.bat ...")
@@ -477,10 +487,7 @@ jobs:
                   bat.write("echo All done! Press any key to exit.\r\n")
                   bat.write("pause >nul\r\n")
               log("   ⬆️ Uploading reassemble.bat ...")
-              if upload_to_github(str(bat_path), f"{folder_name}/reassemble.bat"):
-                  log("   ✅ reassemble.bat uploaded.")
-              else:
-                  log("   ⚠️ Failed to upload reassemble.bat.")
+              upload_to_github(str(bat_path), f"{folder_name}/reassemble.bat")
 
           log(f"\n📊 Summary")
           log(f"   Total URLs: {len(urls)}")
