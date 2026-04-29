@@ -1,5 +1,5 @@
 # =============================================================================
-# Workflow version: 1.2.0
+# Workflow version: 1.2.1
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser, creates a self-contained offline copy, zips it,
@@ -8,6 +8,8 @@
 #              that rebuilds the archive (with chcp 65001 for UTF‑8 support).
 #
 # Changelog:
+#   1.2.1 – Fixed npm install error when package.json is missing; use
+#           `npm install` only (no `npm ci`).
 #   1.2.0 – Fixed Puppeteer `waitForTimeout` error (replaced with setTimeout);
 #           added caching of Node modules and Chromium for faster re-runs.
 #   1.1.1 – Added URL normalization (automatically adds https:// if missing)
@@ -130,8 +132,7 @@ jobs:
 
       - name: Install Node dependencies
         run: |
-          # Only installs if not already cached; repeated runs will be fast
-          npm ci || npm install
+          # Install directly – will create package.json if missing
           npm install puppeteer single-file-cli
 
       # -------------------------------------------------------------------
@@ -210,7 +211,7 @@ jobs:
               console.log(`Loaded ${loadedPosts} posts so far...`);
               if (loadedPosts >= postsToLoad) break;
               await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-              // Fixed: waitForTimeout removed in newer Puppeteer, use promise sleep
+              // Workaround for removed page.waitForTimeout in newer Puppeteer
               await new Promise(resolve => setTimeout(resolve, 2000));
               const newScrollHeight = await page.evaluate(() => document.body.scrollHeight);
               if (newScrollHeight === prevScrollHeight) break;
