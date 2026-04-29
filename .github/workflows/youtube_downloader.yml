@@ -83,16 +83,15 @@ jobs:
           git push || true
 
       - name: Restore pip & Deno cache
-        if: ${{ inputs.use_cache == 'true' }}
+        if: inputs.use_cache == 'true'
         id: cache
         uses: actions/cache@v4
         with:
           path: |
             ~/.cache/pip
             /home/runner/.deno
-          key: ${{ runner.os }}-pip-deno-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-deno-
+          key: pip-deno-cache-v1          # fixed key, always reused
+          restore-keys: pip-deno-cache-v1
 
       - name: Setup Cloudflare WARP
         uses: viperadnan-git/setup-warp@v1
@@ -117,7 +116,7 @@ jobs:
           fi
           echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
-      - name: Download, split & upload (verbose)
+      - name: Download, convert, split & upload (verbose)
         id: process
         env:
           YT_URL_1: ${{ github.event.inputs.youtube_url1 }}
@@ -208,7 +207,6 @@ jobs:
               if exit_code == 0:
                   log(f"   ✅ {attempt_name} download finished successfully")
               else:
-                  # Print the last few lines as the error summary
                   tail = "\n".join(line.rstrip() for line in all_output.splitlines()[-10:])
                   log(f"   ❌ {attempt_name} download FAILED (exit code {exit_code}). Last output lines:\n{tail}")
               return exit_code == 0, new_files
@@ -293,9 +291,9 @@ jobs:
               log(f"   ❌ Upload failed after 3 attempts")
               return False
 
-          # ------------------------------------------------------------
-          # Main loop
-          # ------------------------------------------------------------
+          # ====================================================================
+          #                              DOWNLOAD STAGE
+          # ====================================================================
           video_count = 0
           total_uploaded = 0
           chunk_size = 20 * 1024 * 1024
@@ -303,7 +301,8 @@ jobs:
 
           for idx, url in enumerate(urls):
               video_count += 1
-              log(f"\n📥 URL #{video_count}: {url}")
+              log(f"\n==== DOWNLOAD STAGE ====")
+              log(f"📥 URL #{video_count}: {url}")
               extra_args = []
               video_file = None
               subtitle_file = None
@@ -359,7 +358,7 @@ jobs:
               file_size = os.path.getsize(video_file)
               log(f"   📦 Video file: {video_file} ({file_size/1024**2:.1f} MB)")
 
-              # ---------- Subtitle handling ----------
+              # ---------- Subtitle download (still part of download stage) ----------
               if sub_lang_input != "none":
                   lang_code = sub_lang_input.split()[0]
                   fallback_lang = "fa" if lang_code == "en" else "en"
@@ -392,37 +391,60 @@ jobs:
                   else:
                       pass
 
-              # ---------- Burn subtitles if requested ----------
+              # ====================================================================
+              #                         CONVERSION STAGE
+              # ====================================================================
+              log(f"\n==== CONVERSION STAGE ====")
+              # Normalize / compress via ffmpeg (CRF 26)
+              normalized = f"normalized_{video_file}"
               if burn_subs and subtitle_file:
-                  log("   🔥 Burning subtitles into video with 60% opacity box ...")
-                  burned_video = f"burned_{video_file}"
+                  # Burn + compress in one step
+                  log("   🔥 Burning subtitles and compressing (CRF 26) ...")
                   sub_abs = os.path.abspath(subtitle_file)
                   cmd_ffmpeg = [
                       "ffmpeg", "-y",
                       "-i", video_file,
                       "-vf", f"subtitles='{sub_abs}':force_style='FontName=Arial,FontSize=18,BackColour=&H66000000&,BorderStyle=4,Outline=1,Shadow=1'",
-                      "-c:v", "libx264", "-crf", "22",
+                      "-c:v", "libx264", "-crf", "26", "-preset", "medium",
                       "-c:a", "copy",
-                      burned_video
+                      normalized
                   ]
-                  log(f"   🔧 Running: {' '.join(cmd_ffmpeg)}")
-                  proc = subprocess.run(cmd_ffmpeg, capture_output=True, text=True)
-                  if proc.returncode == 0:
-                      os.remove(video_file)
-                      os.rename(burned_video, video_file)
-                      log("   ✅ Subtitles burned into video")
-                  else:
-                      log(f"   ⚠️ Burning failed (video kept unchanged): {proc.stderr.strip()[-200:]}")
+              else:
+                  # Compress only (normalize)
+                  log("   🎞️  Compressing video (CRF 26) for playability ...")
+                  cmd_ffmpeg = [
+                      "ffmpeg", "-y",
+                      "-i", video_file,
+                      "-c:v", "libx264", "-crf", "26", "-preset", "medium",
+                      "-c:a", "copy",
+                      normalized
+                  ]
+              log(f"   🔧 Running: {' '.join(cmd_ffmpeg)}")
+              proc = subprocess.run(cmd_ffmpeg, capture_output=True, text=True)
+              if proc.returncode == 0:
+                  os.remove(video_file)
+                  os.rename(normalized, video_file)
+                  new_size = os.path.getsize(video_file)
+                  log(f"   ✅ Conversion complete. New size: {new_size/1024**2:.1f} MB")
+              else:
+                  log(f"   ⚠️ Conversion failed (video kept unchanged): {proc.stderr.strip()[-200:]}")
+                  # If burning failed but we have subtitle, we still keep the subtitle file
+                  if burn_subs and subtitle_file:
+                      log("   ℹ️ Subtitle file will be uploaded separately.")
 
-              # ---------- Split & upload ----------
+              # ====================================================================
+              #                         UPLOAD STAGE
+              # ====================================================================
+              log(f"\n==== UPLOAD STAGE ====")
+              # Update file size after possible conversion
+              file_size = os.path.getsize(video_file)
+
               if file_size < chunk_size:
                   log("   🚀 Uploading small file directly ...")
                   remote_path = f"{folder_name}/{video_file}"
                   if upload_to_github(video_file, remote_path):
                       video_infos.append({"name": video_file, "chunks": 0})
                       total_uploaded += 1
-                  else:
-                      continue
               else:
                   log(f"   ✂️ Splitting into {chunk_size//1024//1024} MB chunks ...")
                   part_idx = 0
@@ -449,18 +471,17 @@ jobs:
                   else:
                       log("   ❌ No chunks uploaded, skipping.")
 
-              # ---------- Upload subtitle file (always, even if burned) ----------
+              # Always upload subtitle file if it exists
               if subtitle_file:
+                  log(f"   ⬆️  Uploading subtitle file ...")
                   remote_sub = f"{folder_name}/{subtitle_file}"
                   upload_to_github(subtitle_file, remote_sub)
 
-              # Clean up
+              # Clean up local video
               try: os.remove(video_file)
               except: pass
 
-          # ------------------------------------------------------------
-          # Generate reassemble.bat (proper quoting)
-          # ------------------------------------------------------------
+          # Generate reassemble.bat
           if video_infos:
               log("\n📄 Creating reassemble.bat ...")
               bat_path = out_dir / "reassemble.bat"
