@@ -90,7 +90,7 @@ jobs:
           path: |
             ~/.cache/pip
             /home/runner/.deno
-          key: pip-deno-cache-v1          # fixed key, always reused
+          key: pip-deno-cache-v1
           restore-keys: pip-deno-cache-v1
 
       - name: Setup Cloudflare WARP
@@ -292,7 +292,7 @@ jobs:
               return False
 
           # ====================================================================
-          #                              DOWNLOAD STAGE
+          #                         MAIN LOOP
           # ====================================================================
           video_count = 0
           total_uploaded = 0
@@ -301,11 +301,18 @@ jobs:
 
           for idx, url in enumerate(urls):
               video_count += 1
-              log(f"\n==== DOWNLOAD STAGE ====")
-              log(f"📥 URL #{video_count}: {url}")
               extra_args = []
               video_file = None
               subtitle_file = None
+
+              # ---------------------------------------------------------------
+              #  DOWNLOAD STAGE
+              # ---------------------------------------------------------------
+              log("")
+              log("╔══════════════════════════════════════════════════════════╗")
+              log(f"║               DOWNLOAD  STAGE  —  #{video_count}               ║")
+              log("╚══════════════════════════════════════════════════════════╝")
+              log(f"📥 URL: {url}")
 
               log("   🔍 Fetching video title ...")
               title = get_video_title(url)
@@ -358,7 +365,7 @@ jobs:
               file_size = os.path.getsize(video_file)
               log(f"   📦 Video file: {video_file} ({file_size/1024**2:.1f} MB)")
 
-              # ---------- Subtitle download (still part of download stage) ----------
+              # ---------- Subtitle download ----------
               if sub_lang_input != "none":
                   lang_code = sub_lang_input.split()[0]
                   fallback_lang = "fa" if lang_code == "en" else "en"
@@ -391,14 +398,16 @@ jobs:
                   else:
                       pass
 
-              # ====================================================================
-              #                         CONVERSION STAGE
-              # ====================================================================
-              log(f"\n==== CONVERSION STAGE ====")
-              # Normalize / compress via ffmpeg (CRF 26)
+              # ---------------------------------------------------------------
+              #  CONVERSION STAGE
+              # ---------------------------------------------------------------
+              log("")
+              log("╔══════════════════════════════════════════════════════════╗")
+              log(f"║              CONVERSION  STAGE  —  #{video_count}              ║")
+              log("╚══════════════════════════════════════════════════════════╝")
+
               normalized = f"normalized_{video_file}"
               if burn_subs and subtitle_file:
-                  # Burn + compress in one step
                   log("   🔥 Burning subtitles and compressing (CRF 26) ...")
                   sub_abs = os.path.abspath(subtitle_file)
                   cmd_ffmpeg = [
@@ -410,7 +419,6 @@ jobs:
                       normalized
                   ]
               else:
-                  # Compress only (normalize)
                   log("   🎞️  Compressing video (CRF 26) for playability ...")
                   cmd_ffmpeg = [
                       "ffmpeg", "-y",
@@ -428,15 +436,17 @@ jobs:
                   log(f"   ✅ Conversion complete. New size: {new_size/1024**2:.1f} MB")
               else:
                   log(f"   ⚠️ Conversion failed (video kept unchanged): {proc.stderr.strip()[-200:]}")
-                  # If burning failed but we have subtitle, we still keep the subtitle file
                   if burn_subs and subtitle_file:
                       log("   ℹ️ Subtitle file will be uploaded separately.")
 
-              # ====================================================================
-              #                         UPLOAD STAGE
-              # ====================================================================
-              log(f"\n==== UPLOAD STAGE ====")
-              # Update file size after possible conversion
+              # ---------------------------------------------------------------
+              #  UPLOAD STAGE
+              # ---------------------------------------------------------------
+              log("")
+              log("╔══════════════════════════════════════════════════════════╗")
+              log(f"║               UPLOAD  STAGE  —  #{video_count}                ║")
+              log("╚══════════════════════════════════════════════════════════╝")
+
               file_size = os.path.getsize(video_file)
 
               if file_size < chunk_size:
@@ -481,32 +491,39 @@ jobs:
               try: os.remove(video_file)
               except: pass
 
-          # Generate reassemble.bat
+          # ====================================================================
+          #  Generate reassemble.bat  (FIXED: build lines list, join with \r\n)
+          # ====================================================================
           if video_infos:
               log("\n📄 Creating reassemble.bat ...")
               bat_path = out_dir / "reassemble.bat"
+              bat_lines = []
+              bat_lines.append("@echo off")
+              bat_lines.append("setlocal enabledelayedexpansion")
+              bat_lines.append("echo ========================================")
+              bat_lines.append("echo  Reassembling all downloaded files...")
+              bat_lines.append("echo ========================================")
+              for info in video_infos:
+                  name = info["name"]
+                  if info["chunks"] > 0:
+                      bat_lines.append(f'echo --- Rebuilding "{name}" ---')
+                      bat_lines.append(f'copy /b "{name}.part*" "{name}"')
+                      bat_lines.append("if %errorlevel% equ 0 (")
+                      bat_lines.append(f'    echo Successfully created "{name}"')
+                      bat_lines.append(f'    del "{name}.part*"')
+                      bat_lines.append("    echo Deleted temporary parts")
+                      bat_lines.append(") else (")
+                      bat_lines.append(f'    echo ERROR: Failed to reassemble "{name}". Parts kept intact.')
+                      bat_lines.append(")")
+                  else:
+                      bat_lines.append(f'echo "{name}" was downloaded as a single file (no chunks).')
+              bat_lines.append("echo ========================================")
+              bat_lines.append("echo All done! Press any key to exit.")
+              bat_lines.append("pause >nul")
+
               with open(bat_path, "w", encoding="utf-8") as bat:
-                  bat.write("@echo off\r\nsetlocal enabledelayedexpansion\r\n")
-                  bat.write("echo ========================================\r\n")
-                  bat.write("echo  Reassembling all downloaded files...\r\n")
-                  bat.write("echo ========================================\r\n")
-                  for info in video_infos:
-                      name = info["name"]
-                      if info["chunks"] > 0:
-                          bat.write(f'echo --- Rebuilding "{name}" ---\r\n')
-                          bat.write(f'copy /b "{name}.part*" "{name}"\r\n')
-                          bat.write("if %errorlevel% equ 0 (\r\n")
-                          bat.write(f'    echo Successfully created "{name}"\r\n')
-                          bat.write(f'    del "{name}.part*"\r\n')
-                          bat.write("    echo Deleted temporary parts\r\n")
-                          bat.write(") else (\r\n")
-                          bat.write(f'    echo ERROR: Failed to reassemble "{name}". Parts kept intact.\r\n')
-                          bat.write(")\r\n")
-                      else:
-                          bat.write(f'echo "{name}" was downloaded as a single file (no chunks).\r\n')
-                  bat.write("echo ========================================\r\n")
-                  bat.write("echo All done! Press any key to exit.\r\n")
-                  bat.write("pause >nul\r\n")
+                  bat.write("\r\n".join(bat_lines) + "\r\n")
+
               log("   ⬆️ Uploading reassemble.bat ...")
               upload_to_github(str(bat_path), f"{folder_name}/reassemble.bat")
 
