@@ -1,0 +1,355 @@
+# =============================================================================
+# Workflow version: 1.0.0
+# Name: Make a website offline
+# Description: Mirrors a website (up to configurable depth/size), creates a ZIP
+#              archive, splits it if necessary, and uploads everything to the
+#              repository. A Windows batch file (reassemble.bat) is generated
+#              that rebuilds the archive (using chcp 65001 for UTF-8 support).
+# =============================================================================
+
+name: Make a website offline
+
+on:
+  workflow_dispatch:
+    inputs:
+      website_url:
+        description: 'Website URL (required)'
+        required: true
+        type: string
+      max_depth:
+        description: 'Maximum link depth (1-5)'
+        required: false
+        default: '3'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+      max_total_size:
+        description: 'Maximum total download size (e.g., 500M, 2G)'
+        required: false
+        default: '2G'
+        type: string
+      folder_name:
+        description: 'Folder to store the website (default: offline_site)'
+        required: false
+        default: 'offline_site'
+        type: string
+      include_assets:
+        description: 'Download page requisites (CSS, JS, images)?'
+        required: false
+        default: true
+        type: boolean
+      user_agent:
+        description: 'User-Agent string for requests'
+        required: false
+        default: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        type: string
+
+jobs:
+  mirror-and-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout repository
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      # -----------------------------------------------------------------------
+      # 2. Clean up previous runs and log
+      # -----------------------------------------------------------------------
+      - name: Clean up old downloads and log
+        run: |
+          rm -rf "${{ github.event.inputs.folder_name }}"
+          rm -f download.log url_list.txt file_list.txt pending_urls.txt
+          echo "" > download.log
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Clean up old downloads" || true
+          git pull --rebase
+          git push || true
+
+      # -----------------------------------------------------------------------
+      # 3. Install required tools (wget, zip, pwsh)
+      # -----------------------------------------------------------------------
+      - name: Install required tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget zip unzip
+
+          # Install PowerShell (pwsh) for the upload script
+          # Source: https://docs.microsoft.com/powershell/scripting/install/install-ubuntu
+          wget -q https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
+          sudo dpkg -i packages-microsoft-prod.deb
+          sudo apt-get update
+          sudo apt-get install -y powershell
+          rm packages-microsoft-prod.deb
+
+      # -----------------------------------------------------------------------
+      # 4. Mirror the website with wget
+      # -----------------------------------------------------------------------
+      - name: Mirror website with wget
+        env:
+          SITE_URL: ${{ github.event.inputs.website_url }}
+          MAX_DEPTH: ${{ github.event.inputs.max_depth }}
+          MAX_SIZE: ${{ github.event.inputs.max_total_size }}
+          FOLDER: ${{ github.event.inputs.folder_name }}
+          INCLUDE_ASSETS: ${{ github.event.inputs.include_assets }}
+          USER_AGENT: ${{ github.event.inputs.user_agent }}
+        run: |
+          set -e
+          echo "=== Mirroring website ==="
+          echo "URL: $SITE_URL"
+          echo "Depth: $MAX_DEPTH"
+          echo "Max size: $MAX_SIZE"
+          echo "Output folder: $FOLDER"
+
+          # Build wget arguments
+          WGET_ARGS=(
+            "--mirror"
+            "--convert-links"
+            "--adjust-extension"
+            "--no-parent"
+            "--level=$MAX_DEPTH"
+            "--quota=$MAX_SIZE"
+            "--user-agent=$USER_AGENT"
+            "--wait=1"
+            "--random-wait"
+            "--directory-prefix=$FOLDER"
+            "--no-verbose"
+          )
+
+          if [[ "$INCLUDE_ASSETS" == "true" ]]; then
+            WGET_ARGS+=("--page-requisites")
+          fi
+
+          # Run wget
+          wget "${WGET_ARGS[@]}" "$SITE_URL" || true
+
+          echo "=== Mirroring finished ==="
+          echo "Downloaded files:"
+          find "$FOLDER" -type f -exec ls -lh {} \; | head -50
+
+      # -----------------------------------------------------------------------
+      # 5. Create ZIP archive of the mirrored folder
+      # -----------------------------------------------------------------------
+      - name: Create ZIP archive
+        env:
+          FOLDER: ${{ github.event.inputs.folder_name }}
+        run: |
+          ZIPFILE="${FOLDER}.zip"
+          echo "Creating $ZIPFILE..."
+          zip -r "$ZIPFILE" "$FOLDER"
+          echo "Archive size: $(du -h "$ZIPFILE" | cut -f1)"
+
+          # Store ZIP filename for later steps
+          echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
+
+      # -----------------------------------------------------------------------
+      # 6. Prepare file list for upload (just the ZIP, but we follow the
+      #    pattern of the original workflow)
+      # -----------------------------------------------------------------------
+      - name: Prepare file list
+        env:
+          ZIPFILE: ${{ env.ZIPFILE }}
+        run: |
+          echo "$ZIPFILE" > file_list.txt
+
+      # -----------------------------------------------------------------------
+      # 7. Split and upload files (PowerShell, following the original pattern)
+      # -----------------------------------------------------------------------
+      - name: Split and upload all files
+        if: success()
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+        run: |
+          $token = $env:GITHUB_TOKEN
+          $repo = $env:GITHUB_REPOSITORY
+          $branch = $env:GITHUB_REF_NAME
+          $chunksDir = $env:FOLDER_NAME
+          $chunkSize = 20MB
+          $logFile = "download.log"
+
+          function Write-Log {
+              param([string]$msg)
+              $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+              $logLine = "[$timestamp] $msg"
+              Write-Host $logLine
+              Add-Content -Path $logFile -Value $logLine
+          }
+
+          $fileList = @(Get-Content file_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
+          if ($fileList.Count -eq 0) {
+              Write-Log "No files to upload. Exiting."
+              exit 0
+          }
+
+          New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
+          $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
+          $headers = @{ Authorization = "Bearer $token" }
+          $apiBase = "https://api.github.com/repos/$repo/contents"
+          $maxRetries = 3
+
+          function Upload-File {
+              param([string]$localPath, [string]$remotePath)
+              $bytes = [System.IO.File]::ReadAllBytes($localPath)
+              $b64 = [Convert]::ToBase64String($bytes)
+              $url = "$apiBase/$($remotePath -replace '\\','/')"
+              try {
+                  $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha
+              } catch {
+                  $sha = $null
+              }
+              $body = @{
+                  message = "Add $(Split-Path $localPath -Leaf)"
+                  content = $b64
+                  branch  = $branch
+              }
+              if ($sha) { $body.sha = $sha }
+              for ($retry = 0; $retry -lt $maxRetries; $retry++) {
+                  try {
+                      Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
+                      return $true
+                  } catch {
+                      if ($retry -lt $maxRetries - 1) {
+                          Write-Log "Retry $($retry+1)/$maxRetries in 10s..."
+                          Start-Sleep -Seconds 10
+                      } else {
+                          Write-Log "ERROR: Upload failed after $maxRetries attempts"
+                      }
+                  }
+              }
+              return $false
+          }
+
+          for ($i = 0; $i -lt $fileList.Count; $i++) {
+              $filePath = $fileList[$i]
+              if (-not (Test-Path $filePath)) {
+                  Write-Log "File missing: $filePath – skipping."
+                  continue
+              }
+              $fileSize = (Get-Item $filePath).Length
+              $fileName = [System.IO.Path]::GetFileName($filePath)
+              Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
+
+              if ($fileSize -lt $chunkSize) {
+                  Write-Log "Small file, uploading directly..."
+                  if (Upload-File -localPath $filePath -remotePath "$chunksDir/$fileName") {
+                      $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+                      Write-Log "✓ Uploaded: $fileName"
+                  } else {
+                      Write-Log "✗ Upload failed for $fileName"
+                  }
+              } else {
+                  Write-Log "Splitting into chunks..."
+                  $stream = [System.IO.File]::OpenRead($filePath)
+                  $partIdx = 0
+                  $buffer = New-Object byte[] $chunkSize
+                  $uploadSuccess = $true
+
+                  while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                      $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
+                      $chunkPath = Join-Path $chunksDir $chunkName
+                      [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
+                      Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)..."
+                      if (Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName") {
+                          Remove-Item $chunkPath -Force
+                          $partIdx++
+                          Start-Sleep -Milliseconds 500
+                      } else {
+                          Write-Log "✗ Upload failed for $chunkName. Aborting this file."
+                          $uploadSuccess = $false
+                          break
+                      }
+                  }
+                  $stream.Close()
+
+                  if ($uploadSuccess) {
+                      $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
+                      Write-Log "✓ Uploaded $partIdx chunks for $fileName"
+                  } else {
+                      Write-Log "✗ Incomplete upload for $fileName"
+                  }
+              }
+              Remove-Item $filePath -Force
+          }
+
+          if ($fileInfos.Count -eq 0) {
+              Write-Log "No files were successfully uploaded."
+          } else {
+              Write-Log "Generating reassemble.bat (with chcp 65001 for UTF-8)..."
+              $batPath = Join-Path $chunksDir "reassemble.bat"
+              $batLines = @(
+                  "@echo off",
+                  "chcp 65001 >nul",
+                  "setlocal enabledelayedexpansion",
+                  "echo ========================================",
+                  "echo Reassembling all downloaded files...",
+                  "echo ========================================"
+              )
+
+              foreach ($fi in $fileInfos) {
+                  $name = $fi.Name
+                  if ($fi.HasChunks) {
+                      $batLines += "echo --- Rebuilding $name ---"
+                      $batLines += "copy /b $name.part* $name"
+                      $batLines += "if %errorlevel% equ 0 ("
+                      $batLines += "    echo Successfully created $name"
+                      $batLines += "    del $name.part*"
+                      $batLines += "    echo Deleted temporary parts for $name"
+                      $batLines += ") else ("
+                      $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
+                      $batLines += ")"
+                  } else {
+                      $batLines += "echo $name was downloaded as a single file (no chunks)."
+                  }
+              }
+              $batLines += "echo ========================================"
+              $batLines += "echo All done! Press any key to exit."
+              $batLines += "pause >nul"
+
+              # Save as ASCII without BOM (equivalent to UTF-8 without BOM)
+              $batLines | Out-File -FilePath $batPath -Encoding ASCII
+
+              Write-Log "Uploading reassemble.bat..."
+              if (Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat") {
+                  Write-Log "✓ reassemble.bat uploaded."
+              } else {
+                  Write-Log "✗ Failed to upload reassemble.bat."
+              }
+              Write-Log "=== Download completed ==="
+          }
+
+      # -----------------------------------------------------------------------
+      # 8. Commit download log and folder (if any files were placed there)
+      # -----------------------------------------------------------------------
+      - name: Commit download log and file list
+        if: always()
+        run: |
+          git add download.log file_list.txt 2>/dev/null || true
+          git commit -m "Update download log" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
+
+      # -----------------------------------------------------------------------
+      # 9. Final log commit
+      # -----------------------------------------------------------------------
+      - name: Final log commit
+        if: always()
+        run: |
+          git add download.log "${{ github.event.inputs.folder_name }}" 2>/dev/null || true
+          git commit -m "Final download log and files" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
