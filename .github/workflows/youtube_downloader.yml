@@ -137,7 +137,6 @@ jobs:
           from pathlib import Path
           from urllib.parse import quote
 
-          # Force line-buffered output
           sys.stdout.reconfigure(line_buffering=True)
           sys.stderr.reconfigure(line_buffering=True)
 
@@ -169,7 +168,6 @@ jobs:
           log(f"   Quality: {quality}")
           log(f"   Subtitles: {sub_lang_input}")
           log(f"   Burn subtitles: {burn_subs}")
-          log(f"   Caching enabled: {'Yes' if '${{ inputs.use_cache }}' == 'true' else 'No'}")
 
           quality_map = {
               "144p": "bestvideo[height<=144]+bestaudio/best[height<=144]",
@@ -185,10 +183,9 @@ jobs:
           out_dir.mkdir(exist_ok=True)
 
           # ------------------------------------------------------------
-          # Helper: run command while printing output live
+          # Live command runner
           # ------------------------------------------------------------
           def run_cmd_live(cmd, timeout=600):
-              """Run a command, print its output live, return exit code and set of new files."""
               before = set(os.listdir("."))
               proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
               for line in proc.stdout:
@@ -198,9 +195,6 @@ jobs:
               new_files = after - before
               return proc.returncode, new_files
 
-          # ------------------------------------------------------------
-          # Helper: run a yt-dlp command with optional extra args
-          # ------------------------------------------------------------
           def run_ytdlp(base_cmd, url, extra_args=None):
               final_cmd = list(base_cmd)
               if extra_args:
@@ -209,7 +203,7 @@ jobs:
               return run_cmd_live(final_cmd)
 
           # ------------------------------------------------------------
-          # Get video title using --dump-json (without downloading)
+          # Get video title (JSON, no download)
           # ------------------------------------------------------------
           def get_video_title(url, extra_args=None):
               title_cmd = [
@@ -230,7 +224,7 @@ jobs:
               return None
 
           # ------------------------------------------------------------
-          # Prepare subtitle commands
+          # Subtitle command builder
           # ------------------------------------------------------------
           def make_sub_cmd(lang):
               return [
@@ -246,7 +240,7 @@ jobs:
               ]
 
           # ------------------------------------------------------------
-          # Video download command (generic, will be built per URL)
+          # Video download command builder
           # ------------------------------------------------------------
           def build_video_cmd(output_filename):
               return [
@@ -262,7 +256,7 @@ jobs:
               ]
 
           # ------------------------------------------------------------
-          # Upload helper
+          # GitHub upload
           # ------------------------------------------------------------
           def upload_to_github(local_path, remote_path):
               with open(local_path, "rb") as f:
@@ -286,7 +280,7 @@ jobs:
               return False
 
           # ------------------------------------------------------------
-          # Main processing loop
+          # Main loop
           # ------------------------------------------------------------
           video_count = 0
           total_uploaded = 0
@@ -300,21 +294,16 @@ jobs:
               video_file = None
               subtitle_file = None
 
-              # ---------- extract title ----------
               log("   🔍 Fetching video title ...")
               title = get_video_title(url)
               if title:
-                  # Sanitize title for filename (keep alphanumeric, spaces, Persian chars, etc.)
-                  # We already use --restrict-filenames later, so a simple cleaning is fine.
                   safe_title = re.sub(r'[<>:"/\\|?*]', '', title)[:150]
                   log(f"   📝 Title: {safe_title}")
               else:
                   safe_title = None
                   log("   ⚠️ Could not fetch title, will use default naming.")
 
-              # ---------- Download ----------
               log("   [Strategy 1] Cloudflare WARP (video only) ...")
-              # Build output filename using the fetched title, or fallback to the original template
               if safe_title:
                   output_file = f"{safe_title} [%(id)s].%(ext)s"
               else:
@@ -343,7 +332,6 @@ jobs:
                   log("   ❌ All download methods failed for this URL. Skipping.")
                   continue
 
-              # Find the downloaded video file
               for f in sorted(new_files):
                   if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")) and os.path.exists(f):
                       video_file = f
@@ -357,11 +345,10 @@ jobs:
 
               # ---------- Subtitle handling ----------
               if sub_lang_input != "none":
-                  lang_code = sub_lang_input.split()[0]   # "en" or "fa"
+                  lang_code = sub_lang_input.split()[0]
                   fallback_lang = "fa" if lang_code == "en" else "en"
                   subtitle_success = False
 
-                  # Try selected language
                   log(f"   📝 Attempting subtitle download for '{lang_code}' ...")
                   sub_cmd = make_sub_cmd(lang_code)
                   sub_ok, sub_new = run_ytdlp(sub_cmd, url, extra_args=extra_args)
@@ -374,7 +361,6 @@ jobs:
                               break
                   if not subtitle_success:
                       log(f"   ⚠️ Subtitle for '{lang_code}' not available.")
-                      # Try fallback language
                       log(f"   📝 Attempting fallback subtitle language '{fallback_lang}' ...")
                       sub_cmd_fallback = make_sub_cmd(fallback_lang)
                       sub_ok2, sub_new2 = run_ytdlp(sub_cmd_fallback, url, extra_args=extra_args)
@@ -388,26 +374,30 @@ jobs:
                       if not subtitle_success:
                           log("   ℹ️ No subtitle file found for either language.")
                   else:
-                      # Already succeeded with primary language
                       pass
 
               # ---------- Burn subtitles if requested ----------
               if burn_subs and subtitle_file:
-                  log("   🔥 Burning subtitles into video ...")
+                  log("   🔥 Burning subtitles into video with 60% opacity box ...")
                   burned_video = f"burned_{video_file}"
+                  # Use absolute path to subtitle to avoid working-directory issues
+                  sub_abs = os.path.abspath(subtitle_file)
                   cmd_ffmpeg = [
-                      "ffmpeg", "-y", "-i", video_file,
-                      "-vf", f"subtitles={subtitle_file}",
-                      "-c:v", "libx264", "-crf", "22", "-c:a", "copy",
+                      "ffmpeg", "-y",
+                      "-i", video_file,
+                      "-vf", f"subtitles='{sub_abs}':force_style='FontName=Arial,FontSize=18,BackColour=&H66000000&,BorderStyle=4,Outline=1,Shadow=1'",
+                      "-c:v", "libx264", "-crf", "22",
+                      "-c:a", "copy",
                       burned_video
                   ]
+                  log(f"   Running: {' '.join(cmd_ffmpeg)}")
                   proc = subprocess.run(cmd_ffmpeg, capture_output=True, text=True)
                   if proc.returncode == 0:
                       os.remove(video_file)
                       os.rename(burned_video, video_file)
                       log("   ✅ Subtitles burned into video")
                   else:
-                      log(f"   ⚠️ Burning failed: {proc.stderr.strip()}")
+                      log(f"   ⚠️ Burning failed (video kept unchanged): {proc.stderr.strip()[-200:]}")
 
               # ---------- Split & upload ----------
               if file_size < chunk_size:
@@ -446,8 +436,8 @@ jobs:
                   else:
                       log("   ❌ No chunks uploaded, skipping.")
 
-              # Upload subtitle file separately (if not burned)
-              if subtitle_file and not burn_subs:
+              # ---------- Upload subtitle file (always, even if burned) ----------
+              if subtitle_file:
                   remote_sub = f"{folder_name}/{subtitle_file}"
                   if upload_to_github(subtitle_file, remote_sub):
                       log(f"   ✅ Subtitle file uploaded: {subtitle_file}")
@@ -459,7 +449,7 @@ jobs:
               except: pass
 
           # ------------------------------------------------------------
-          # Generate reassemble.bat (with proper quoting)
+          # Generate reassemble.bat
           # ------------------------------------------------------------
           if video_infos:
               log("\n📄 Creating reassemble.bat ...")
