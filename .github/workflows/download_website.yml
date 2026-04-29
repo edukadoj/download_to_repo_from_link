@@ -1,5 +1,5 @@
 # =============================================================================
-# Workflow version: 1.1.1
+# Workflow version: 1.2.0
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser, creates a self-contained offline copy, zips it,
@@ -8,6 +8,8 @@
 #              that rebuilds the archive (with chcp 65001 for UTF‑8 support).
 #
 # Changelog:
+#   1.2.0 – Fixed Puppeteer `waitForTimeout` error (replaced with setTimeout);
+#           added caching of Node modules and Chromium for faster re-runs.
 #   1.1.1 – Added URL normalization (automatically adds https:// if missing)
 #           to prevent Puppeteer "invalid URL" errors.
 #   1.1.0 – Replaced wget with Puppeteer for dynamic sites; added Telegram support;
@@ -99,6 +101,27 @@ jobs:
         with:
           node-version: '20'
 
+      # -------------------------------------------------------------------
+      # Cache Node modules and Chromium for faster subsequent runs
+      # -------------------------------------------------------------------
+      - name: Cache Node modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Cache Puppeteer Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: ${{ runner.os }}-puppeteer
+          restore-keys: |
+            ${{ runner.os }}-puppeteer
+
       - name: Install system dependencies (Chromium)
         run: |
           sudo apt-get update
@@ -107,6 +130,8 @@ jobs:
 
       - name: Install Node dependencies
         run: |
+          # Only installs if not already cached; repeated runs will be fast
+          npm ci || npm install
           npm install puppeteer single-file-cli
 
       # -------------------------------------------------------------------
@@ -185,7 +210,8 @@ jobs:
               console.log(`Loaded ${loadedPosts} posts so far...`);
               if (loadedPosts >= postsToLoad) break;
               await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-              await page.waitForTimeout(2000);
+              // Fixed: waitForTimeout removed in newer Puppeteer, use promise sleep
+              await new Promise(resolve => setTimeout(resolve, 2000));
               const newScrollHeight = await page.evaluate(() => document.body.scrollHeight);
               if (newScrollHeight === prevScrollHeight) break;
               prevScrollHeight = newScrollHeight;
