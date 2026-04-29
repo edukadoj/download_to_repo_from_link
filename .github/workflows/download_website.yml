@@ -1,24 +1,22 @@
 # =============================================================================
-# Workflow version: 1.2.2
+# Workflow version: 1.3.0
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser, creates a self-contained offline copy, zips it,
-#              splits the archive if needed, and uploads everything to the
-#              repository. A Windows batch file (reassemble.bat) is generated
-#              that rebuilds the archive (with chcp 65001 for UTF‑8 support).
+#              splits the archive if needed, and uploads everything directly to
+#              the repository via GitHub API. A Windows batch file
+#              (reassemble.bat) is generated inside the folder.
 #
 # Changelog:
-#   1.2.2 – Fixed ZIP path; replaced PowerShell upload with Python (PyGithub);
-#           added pip caching.
-#   1.2.1 – Fixed npm install error when package.json is missing; use
-#           `npm install` only (no `npm ci`).
-#   1.2.0 – Fixed Puppeteer `waitForTimeout` error (replaced with setTimeout);
-#           added caching of Node modules and Chromium for faster re-runs.
-#   1.1.1 – Added URL normalization (automatically adds https:// if missing)
-#           to prevent Puppeteer "invalid URL" errors.
-#   1.1.0 – Replaced wget with Puppeteer for dynamic sites; added Telegram support;
-#           introduced single-file-cli for full page snapshots.
-#   1.0.0 – Initial version using wget mirror mode.
+#   1.3.0 – Removed unnecessary `checkout` step and all Git operations.
+#           Everything is now uploaded via GitHub API (PyGithub).
+#           The workflow is leaner and faster.
+#   1.2.2 – Fixed ZIP path; replaced PowerShell upload with Python (PyGithub).
+#   1.2.1 – Fixed npm install error.
+#   1.2.0 – Fixed Puppeteer `waitForTimeout`; added caching.
+#   1.1.1 – URL normalization.
+#   1.1.0 – Replaced wget with Puppeteer; Telegram support.
+#   1.0.0 – Initial wget-based version.
 # =============================================================================
 
 name: Make a website offline
@@ -42,7 +40,7 @@ on:
         default: '2G'
         type: string
       folder_name:
-        description: 'Output folder (default: offline_site)'
+        description: 'Output folder in the repository (default: offline_site)'
         required: false
         default: 'offline_site'
         type: string
@@ -57,7 +55,7 @@ on:
         default: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         type: string
       telegram_posts:
-        description: 'Number of recent Telegram posts to download (0 = not a Telegram URL)'
+        description: 'Number of recent Telegram posts (0 = not a Telegram URL)'
         required: false
         default: '20'
         type: string
@@ -65,29 +63,14 @@ on:
 jobs:
   mirror-and-upload:
     runs-on: ubuntu-latest
+    # No permissions needed for checkout; we only use GITHUB_TOKEN for API.
+    # The default token has write access if 'contents: write' is set.
     permissions:
       contents: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref_name }}
-
-      - name: Clean up previous runs and log
-        run: |
-          rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f download.log url_list.txt file_list.txt pending_urls.txt "${{ github.event.inputs.folder_name }}.zip"
-          echo "" > download.log
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Clean up old downloads" || true
-          git pull --rebase
-          git push || true
-
       # -------------------------------------------------------------------
-      # Normalise the URL: add https:// if missing (Puppeteer requirement)
+      # Normalise the URL (add https:// if missing)
       # -------------------------------------------------------------------
       - name: Normalize URL
         id: normalize
@@ -100,14 +83,14 @@ jobs:
           fi
           echo "SITE_URL=$normalized_url" >> $GITHUB_ENV
 
+      # -------------------------------------------------------------------
+      # Setup Node.js + cache for faster repeat runs
+      # -------------------------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # -------------------------------------------------------------------
-      # Cache Node modules and Chromium for faster subsequent runs
-      # -------------------------------------------------------------------
       - name: Cache Node modules
         uses: actions/cache@v4
         with:
@@ -126,18 +109,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-puppeteer
 
-      - name: Install system dependencies (Chromium)
+      - name: Install system dependencies (Chromium, zip)
         run: |
           sudo apt-get update
           sudo apt-get install -y chromium-browser zip unzip
           echo "CHROMIUM_PATH=$(which chromium-browser)" >> $GITHUB_ENV
 
       - name: Install Node dependencies
-        run: |
-          npm install puppeteer single-file-cli
+        run: npm install puppeteer single-file-cli
 
       # -------------------------------------------------------------------
-      #  Node.js driver – crawls the site or Telegram channel
+      # Download the website (Puppeteer + single-file)
       # -------------------------------------------------------------------
       - name: Download website with headless browser
         shell: bash
@@ -212,7 +194,6 @@ jobs:
               console.log(`Loaded ${loadedPosts} posts so far...`);
               if (loadedPosts >= postsToLoad) break;
               await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-              // Replacing page.waitForTimeout with a simple Promise sleep
               await new Promise(resolve => setTimeout(resolve, 2000));
               const newScrollHeight = await page.evaluate(() => document.body.scrollHeight);
               if (newScrollHeight === prevScrollHeight) break;
@@ -318,7 +299,7 @@ jobs:
           node crawl_and_save.js
 
       # -------------------------------------------------------------------
-      #  Zip the whole output folder (save at workspace root)
+      # Zip the downloaded folder
       # -------------------------------------------------------------------
       - name: Create ZIP archive
         env:
@@ -331,7 +312,7 @@ jobs:
           echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
 
       # -------------------------------------------------------------------
-      #  Cache pip packages for faster future runs
+      # Cache pip packages
       # -------------------------------------------------------------------
       - name: Cache pip packages
         uses: actions/cache@v4
@@ -347,9 +328,9 @@ jobs:
           pip install PyGithub
 
       # -------------------------------------------------------------------
-      #  Upload ZIP (split if needed) and generate reassemble.bat
+      # Upload ZIP + reassemble.bat directly to repository folder via API
       # -------------------------------------------------------------------
-      - name: Upload ZIP to repository and create reassemble.bat
+      - name: Upload ZIP and create reassemble.bat
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
@@ -362,8 +343,8 @@ jobs:
           token = os.environ["GITHUB_TOKEN"]
           repo_name = os.environ["GITHUB_REPOSITORY"]
           branch = os.environ["GITHUB_REF_NAME"]
-          folder_name = os.environ["FOLDER_NAME"]
-          zipfile = os.environ["ZIPFILE"]  # e.g., offline_site.zip
+          folder = os.environ["FOLDER_NAME"]
+          zipfile = os.environ["ZIPFILE"]
 
           if not os.path.exists(zipfile):
               print(f"ZIP file not found: {zipfile}")
@@ -372,64 +353,48 @@ jobs:
           g = Github(token)
           repo = g.get_repo(repo_name)
 
-          chunk_size = 20 * 1024 * 1024  # 20 MB
+          chunk_size = 20 * 1024 * 1024
           file_size = os.path.getsize(zipfile)
           fname = os.path.basename(zipfile)
           print(f"Processing {fname} ({file_size / 1024 / 1024:.1f} MB)")
 
-          # Helper to upload a single file
-          def upload_file(local_path: str, remote_path: str):
+          def upload_file(local_path, remote_path):
               with open(local_path, "rb") as f:
                   content_bytes = f.read()
               b64 = base64.b64encode(content_bytes).decode("utf-8")
               try:
                   contents = repo.get_contents(remote_path, ref=branch)
-                  repo.update_file(
-                      contents.path,
-                      f"Update {os.path.basename(local_path)}",
-                      b64,
-                      contents.sha,
-                      branch=branch
-                  )
+                  repo.update_file(contents.path, f"Update {os.path.basename(local_path)}", b64, contents.sha, branch=branch)
                   print(f"✓ Updated {remote_path}")
               except GithubException as e:
                   if e.status == 404:
-                      repo.create_file(
-                          remote_path,
-                          f"Add {os.path.basename(local_path)}",
-                          b64,
-                          branch=branch
-                      )
+                      repo.create_file(remote_path, f"Add {os.path.basename(local_path)}", b64, branch=branch)
                       print(f"✓ Created {remote_path}")
                   else:
                       raise
 
           uploaded_parts = []
           if file_size < chunk_size:
-              # Upload directly
-              remote = f"{folder_name}/{fname}"
-              upload_file(zipfile, remote)
+              upload_file(zipfile, f"{folder}/{fname}")
               uploaded_parts.append((fname, False))
           else:
-              # Split and upload chunks
-              chunk_index = 0
+              part_idx = 0
               with open(zipfile, "rb") as f:
                   while True:
                       chunk = f.read(chunk_size)
                       if not chunk:
                           break
-                      chunk_name = f"{fname}.part{chunk_index:04d}"
-                      chunk_path = os.path.join(folder_name, chunk_name)
-                      # Write chunk to temporary file
-                      with open(chunk_path, "wb") as cf:
+                      part_name = f"{fname}.part{part_idx:04d}"
+                      part_path = os.path.join(folder, part_name)
+                      with open(part_path, "wb") as cf:
                           cf.write(chunk)
-                      upload_file(chunk_path, f"{folder_name}/{chunk_name}")
-                      os.remove(chunk_path)
-                      chunk_index += 1
-                      time.sleep(0.5)  # be kind to API rate limits
+                      upload_file(part_path, f"{folder}/{part_name}")
+                      os.remove(part_path)
+                      part_idx += 1
+                      time.sleep(0.5)
               uploaded_parts.append((fname, True))
 
-          # Generate reassemble.bat (Windows batch file)
+          # Generate reassemble.bat (Windows batch file, UTF-8 without BOM)
           bat_lines = [
               "@echo off",
               "chcp 65001 >nul",
@@ -438,48 +403,28 @@ jobs:
               "echo Reassembling downloaded archive...",
               "echo ========================================"
           ]
-          for fname, has_chunks in uploaded_parts:
+          for name, has_chunks in uploaded_parts:
               if has_chunks:
-                  bat_lines.append(f"echo --- Rebuilding {fname} ---")
-                  bat_lines.append(f"copy /b {fname}.part* {fname}")
+                  bat_lines.append(f"echo --- Rebuilding {name} ---")
+                  bat_lines.append(f"copy /b {name}.part* {name}")
                   bat_lines.append("if %errorlevel% equ 0 (")
-                  bat_lines.append(f"    echo Successfully created {fname}")
-                  bat_lines.append(f"    del {fname}.part*")
-                  bat_lines.append(f"    echo Deleted temporary parts for {fname}")
+                  bat_lines.append(f"    echo Successfully created {name}")
+                  bat_lines.append(f"    del {name}.part*")
+                  bat_lines.append(f"    echo Deleted temporary parts for {name}")
                   bat_lines.append(") else (")
-                  bat_lines.append(f"    echo ERROR: Failed to reassemble {fname}. Parts kept intact.")
+                  bat_lines.append(f"    echo ERROR: Failed to reassemble {name}. Parts kept intact.")
                   bat_lines.append(")")
               else:
-                  bat_lines.append(f"echo {fname} was downloaded as a single file (no chunks).")
+                  bat_lines.append(f"echo {name} was downloaded as a single file (no chunks).")
           bat_lines.append("echo ========================================")
           bat_lines.append("echo All done! You can now extract the ZIP archive.")
           bat_lines.append("pause >nul")
 
-          bat_content = "\r\n".join(bat_lines)  # Windows line endings
-          bat_path = os.path.join(folder_name, "reassemble.bat")
+          bat_content = "\r\n".join(bat_lines)
+          bat_path = os.path.join(folder, "reassemble.bat")
           with open(bat_path, "wb") as bf:
-              # Write without BOM (raw bytes, UTF-8 encoding ensures chcp 65001 works)
               bf.write(bat_content.encode("utf-8"))
 
-          upload_file(bat_path, f"{folder_name}/reassemble.bat")
+          upload_file(bat_path, f"{folder}/reassemble.bat")
           print("=== Upload completed ===")
           PYEOF
-
-      # -------------------------------------------------------------------
-      #  Commit remaining files (logs, etc.)
-      # -------------------------------------------------------------------
-      - name: Commit download log and file list
-        if: always()
-        run: |
-          git add download.log file_list.txt 2>/dev/null || true
-          git commit -m "Update download log" || true
-          git pull --rebase --strategy-option ours || true
-          git push || true
-
-      - name: Final log commit
-        if: always()
-        run: |
-          git add download.log "${{ github.event.inputs.folder_name }}" 2>/dev/null || true
-          git commit -m "Final download log and files" || true
-          git pull --rebase --strategy-option ours || true
-          git push || true
