@@ -1,9 +1,8 @@
 # ==============================================================================
-#  version: 2.5
+#  version: 2.6
 #  Offline NuGet Feed Builder for Visual Studio 2026 Community
-#  Priority packages are now comma‑separated (survives any whitespace collapse).
-#  Everything else identical to v2.4 (workloads, individual top‑pkg processing,
-#  size limit, chunk upload).
+#  Priority packages are comma‑separated (survives any whitespace collapse).
+#  Chunk folder is cleaned before every run (avoids leftover parts).
 # ==============================================================================
 
 name: Download NuGet Packages Offline (Priority + Top by Downloads)
@@ -67,7 +66,7 @@ jobs:
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-v25-" +
+          $key = "nuget-offline-feed-v26-" +
             "search-${{ inputs.search_term }}" +
             "-maxGB-${{ inputs.max_size_gb }}"
           "key=$key" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
@@ -231,7 +230,21 @@ jobs:
           echo "ZIP_PATH=$zipPath" >> $env:GITHUB_ENV
 
       # ---------------------------------------------------------------
-      # 5. Split and upload chunks (exact same mechanism as VS 2026 workflow)
+      # 5. Clean old chunk folder (NEW – prevents leftover parts)
+      # ---------------------------------------------------------------
+      - name: Clean up old chunk folder
+        shell: powershell
+        run: |
+          $chunks = "nuget_offline_chunks"
+          if (Test-Path $chunks) {
+            Remove-Item -Recurse -Force $chunks
+            Write-Host "Cleaned old chunk folder."
+          } else {
+            Write-Host "No old chunk folder found."
+          }
+
+      # ---------------------------------------------------------------
+      # 6. Split and upload chunks
       # ---------------------------------------------------------------
       - name: Split zip and upload chunks
         shell: powershell
