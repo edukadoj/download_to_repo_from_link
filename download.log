@@ -1,0 +1,132 @@
+🚀 Processing 1 URL(s) through Cloudflare WARP
+   Quality: 720p
+   Subtitles: fa (Persian)
+   Burn subtitles: False
+
+╔══════════════════════════════════════════════════════════╗
+║               DOWNLOAD  STAGE  —  #1               ║
+╚══════════════════════════════════════════════════════════╝
+📥 URL: https://www.youtube.com/watch?v=LfMDkHc7178
+   🔍 Fetching video metadata ...
+   📝 Title: پول ایرانی‌ها برای لبنانی‌ها
+   📅 Upload date: 2026-04-29
+   ▶️ Starting WARP download...
+   🔧 Command: yt-dlp --no-playlist --format bestvideo[height<=720]+bestaudio/best[height<=720] --merge-output-format mp4 --output 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [%(id)s].%(ext)s --restrict-filenames --windows-filenames --remote-components ejs:github --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 --extractor-retries 3 --retries 3 --sleep-requests 1 --sleep-interval 5 https://www.youtube.com/watch?v=LfMDkHc7178
+   ❌ WARP download FAILED (exit code 1). Last output lines:
+[download]  88.0% of  366.01MiB at    1.37MiB/s ETA 00:32
+[download]  88.0% of  366.01MiB at    1.40MiB/s ETA 00:31
+[download]  88.0% of  366.01MiB at    1.88MiB/s ETA 00:23
+[download]  88.0% of  366.01MiB at    2.83MiB/s ETA 00:15
+[download]  88.1% of  366.01MiB at    4.54MiB/s ETA 00:09
+[download]  88.2% of  366.01MiB at    5.71MiB/s ETA 00:07
+[download]  88.5% of  366.01MiB at    9.84MiB/s ETA 00:04
+[download]  89.0% of  366.01MiB at   15.12MiB/s ETA 00:02
+[download]  90.1% of  366.01MiB at   18.93MiB/s ETA 00:01
+[download]  90.6% of  366.01MiB at   19.33MiB/s ETA 00:01ERROR: unable to download video data: HTTP Error 403: Forbidden
+   ❌ WARP download failed
+   ▶️ Starting Cookies download...
+   🔧 Command: yt-dlp --no-playlist --format bestvideo[height<=720]+bestaudio/best[height<=720] --merge-output-format mp4 --output 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [%(id)s].%(ext)s --restrict-filenames --windows-filenames --remote-components ejs:github --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 --extractor-retries 3 --retries 3 --sleep-requests 1 --sleep-interval 5 --cookies cookies.txt https://www.youtube.com/watch?v=LfMDkHc7178
+   ✅ Cookies download finished successfully
+   ✅ Cookies download succeeded
+   📦 Video file: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4 (411.8 MB)
+   📝 Attempting subtitle download for 'fa' ...
+   ▶️ Starting Sub (fa) download...
+   🔧 Command: yt-dlp --no-playlist --skip-download --write-auto-subs --sub-lang fa --convert-subs srt --output %(title).150B [%(id)s].%(ext)s --restrict-filenames --windows-filenames --remote-components ejs:github --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 --extractor-retries 2 --retries 2 --sleep-requests 1 --sleep-interval 5 --cookies cookies.txt https://www.youtube.com/watch?v=LfMDkHc7178
+   ❌ Sub (fa) download FAILED (exit code 1). Last output lines:
+[youtube] Extracting URL: https://www.youtube.com/watch?v=LfMDkHc7178
+[youtube] LfMDkHc7178: Downloading webpage
+[youtube] Sleeping 1.0 seconds ...
+[youtube] LfMDkHc7178: Downloading android vr player API JSON
+WARNING: [youtube] No title found in player responses; falling back to title from initial data. Other metadata may also be missing
+ERROR: [youtube] LfMDkHc7178: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
+   ⚠️ Subtitle for 'fa' not available.
+   📝 Attempting fallback subtitle language 'en' ...
+   ▶️ Starting Sub (en) download...
+   🔧 Command: yt-dlp --no-playlist --skip-download --write-auto-subs --sub-lang en --convert-subs srt --output %(title).150B [%(id)s].%(ext)s --restrict-filenames --windows-filenames --remote-components ejs:github --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 --extractor-retries 2 --retries 2 --sleep-requests 1 --sleep-interval 5 --cookies cookies.txt https://www.youtube.com/watch?v=LfMDkHc7178
+   ❌ Sub (en) download FAILED (exit code 1). Last output lines:
+[youtube] LfMDkHc7178: Downloading android vr player API JSON
+[youtube] Sleeping 1.0 seconds ...
+[youtube] LfMDkHc7178: Downloading player 8456c9de-main
+[youtube] [jsc:deno] Solving JS challenges using deno
+[youtube] Sleeping 1.0 seconds ...
+[youtube] LfMDkHc7178: Downloading m3u8 information
+[info] LfMDkHc7178: Downloading subtitles: en
+[info] LfMDkHc7178: Downloading 1 format(s): 248+251
+[info] Writing video subtitles to: _ [LfMDkHc7178].en.vtt
+ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests
+   ℹ️ No subtitle file found for either language.
+
+╔══════════════════════════════════════════════════════════╗
+║              CONVERSION  STAGE  —  #1              ║
+╚══════════════════════════════════════════════════════════╝
+   🎞️  Compressing video (CRF 26) for playability ...
+   🔧 Running: ffmpeg -y -i 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4 -c:v libx264 -crf 26 -preset medium -c:a copy normalized_2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4
+   ✅ Conversion complete. New size: 330.2 MB
+
+╔══════════════════════════════════════════════════════════╗
+║               UPLOAD  STAGE  —  #1                ║
+╚══════════════════════════════════════════════════════════╝
+   ✂️ Splitting into 20 MB chunks ...
+      ⬆️ Chunk 1: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0000 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0000 ...
+   ✅ Upload successful
+      ⬆️ Chunk 2: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0001 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0001 ...
+   ✅ Upload successful
+      ⬆️ Chunk 3: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0002 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0002 ...
+   ✅ Upload successful
+      ⬆️ Chunk 4: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0003 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0003 ...
+   ✅ Upload successful
+      ⬆️ Chunk 5: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0004 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0004 ...
+   ✅ Upload successful
+      ⬆️ Chunk 6: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0005 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0005 ...
+   ✅ Upload successful
+      ⬆️ Chunk 7: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0006 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0006 ...
+   ✅ Upload successful
+      ⬆️ Chunk 8: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0007 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0007 ...
+   ✅ Upload successful
+      ⬆️ Chunk 9: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0008 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0008 ...
+   ✅ Upload successful
+      ⬆️ Chunk 10: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0009 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0009 ...
+   ✅ Upload successful
+      ⬆️ Chunk 11: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0010 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0010 ...
+   ✅ Upload successful
+      ⬆️ Chunk 12: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0011 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0011 ...
+   ✅ Upload successful
+      ⬆️ Chunk 13: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0012 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0012 ...
+   ✅ Upload successful
+      ⬆️ Chunk 14: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0013 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0013 ...
+   ✅ Upload successful
+      ⬆️ Chunk 15: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0014 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0014 ...
+   ✅ Upload successful
+      ⬆️ Chunk 16: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0015 (20.0 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0015 ...
+   ✅ Upload successful
+      ⬆️ Chunk 17: 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0016 (10.2 MB)
+   ⬆️  Uploading 2026-04-29 پول ایرانی‌ها برای لبنانی‌ها [LfMDkHc7178].mp4.part0016 ...
+   ✅ Upload successful
+   ✅ 17 chunks uploaded
+
+📄 Creating reassemble.bat ...
+   ⬆️ Uploading reassemble.bat ...
+   ⬆️  Uploading reassemble.bat ...
+   ✅ Upload successful
+
+📊 Summary
+   Total URLs: 1
+   Successfully uploaded: 1
+
+✅ Uploaded 1 video(s) successfully.
