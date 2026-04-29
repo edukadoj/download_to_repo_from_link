@@ -41,7 +41,7 @@ jobs:
       - name: Clean up old downloads and log
         run: |
           rm -rf "${{ github.event.inputs.folder_name }}"
-          rm -f download.log url_list.txt file_list.txt pending_urls.txt downloader.js
+          rm -f download.log url_list.txt file_list.txt downloader.js pending_urls.txt
           echo "" > download.log
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -102,7 +102,6 @@ jobs:
                 mv "$temp_file" "$outDir/$filename"
                 sizeMB=$(du -m "$outDir/$filename" | cut -f1)
                 echo "✓ Downloaded: $filename ($sizeMB MB)" | tee -a download.log
-                # Write the full relative path so PowerShell can find it
                 echo "$outDir/$filename" >> file_list.txt
               fi
             else
@@ -158,7 +157,6 @@ jobs:
                       const savePath = path.join(outDir, fileName);
                       await download.saveAs(savePath);
                       log(`✓ Browser download: saved as ${fileName}`);
-                      // Write relative path for PowerShell
                       fs.appendFileSync('file_list.txt', path.join(outDir, fileName) + '\n');
                       resolve(true);
                   });
@@ -177,15 +175,9 @@ jobs:
                       } else {
                           log(`Navigation error: ${navError.message}. Trying alternative URL…`);
                           if (url.includes('sourceforge.net')) {
-                              // Try the direct ?download link; often works without mirror selection
                               const directUrl = url.replace('/download', '?download');
                               log(`Retrying with: ${directUrl}`);
-                              try {
-                                  await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-                              } catch {
-                                  // If still failing, we'll let the page load wait and try extracted links
-                                  log('Direct URL also failed; will attempt to extract links.');
-                              }
+                              await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
                           }
                       }
                   }
@@ -262,6 +254,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
         run: |
+          $ErrorActionPreference = "Continue"
           $token = $env:GITHUB_TOKEN
           $repo = $env:GITHUB_REPOSITORY
           $branch = $env:GITHUB_REF_NAME
@@ -272,9 +265,9 @@ jobs:
           function Write-Log {
             param([string]$msg)
             $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-            $logLine = "[$timestamp] $msg"
-            Write-Host $logLine
-            Add-Content -Path $logFile -Value $logLine
+            $line = "[$timestamp] $msg"
+            Write-Host $line
+            Add-Content -Path $logFile -Value $line
           }
 
           $fileList = @(Get-Content file_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
@@ -285,7 +278,6 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
           $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
-
           $headers = @{ Authorization = "Bearer $token" }
           $apiBase = "https://api.github.com/repos/$repo/contents"
           $maxRetries = 3
@@ -301,22 +293,22 @@ jobs:
             for ($retry = 0; $retry -lt $maxRetries; $retry++) {
               try {
                 Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
-                return $true
+                return
               } catch {
                 if ($retry -lt $maxRetries - 1) {
-                  Write-Log "Retry $($retry+1)/$maxRetries in 10s..."
+                  Write-Log "Retry $($retry+1) in 10 seconds..."
                   Start-Sleep -Seconds 10
                 } else {
-                  Write-Log "ERROR: Upload failed after $maxRetries attempts"
+                  Write-Log "FATAL: upload failed after $maxRetries attempts"
+                  exit 1
                 }
               }
             }
-            return $false
           }
 
           for ($i = 0; $i -lt $fileList.Count; $i++) {
             $filePath = $fileList[$i]
-            if (-not (Test-Path $filePath)) {
+            if (-not (Test-Path $filePath -PathType Leaf)) {
               Write-Log "File missing: $filePath – skipping."
               continue
             }
@@ -326,12 +318,8 @@ jobs:
 
             if ($fileSize -lt $chunkSize) {
               Write-Log "Small file, uploading directly..."
-              if (Upload-File -localPath $filePath -remotePath "$chunksDir/$fileName") {
-                $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
-                Write-Log "✓ Uploaded: $fileName"
-              } else {
-                Write-Log "✗ Upload failed for $fileName"
-              }
+              Upload-File -localPath $filePath -remotePath "$chunksDir/$fileName"
+              $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
             } else {
               Write-Log "Splitting into chunks..."
               $stream = [System.IO.File]::OpenRead($filePath)
@@ -342,69 +330,69 @@ jobs:
                 $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
                 $chunkPath = Join-Path $chunksDir $chunkName
                 [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
-                Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)..."
-                if (Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName") {
-                  Remove-Item $chunkPath -Force
-                  $partIdx++
-                  Start-Sleep -Milliseconds 500
-                } else {
-                  Write-Log "✗ Upload failed for $chunkName. Aborting this file."
+                Write-Log "Uploading $chunkName ($([math]::Round($n/1MB,1)) MB)"
+                try {
+                  Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
+                } catch {
+                  Write-Log "Upload failed for $chunkName. Aborting file."
                   $uploadSuccess = $false
                   break
                 }
+                Remove-Item $chunkPath -Force
+                $partIdx++
+                Start-Sleep -Milliseconds 500
               }
               $stream.Close()
               if ($uploadSuccess) {
                 $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
-                Write-Log "✓ Uploaded $partIdx chunks for $fileName"
-              } else {
-                Write-Log "✗ Incomplete upload for $fileName"
               }
             }
             Remove-Item $filePath -Force
           }
 
-          if ($fileInfos.Count -eq 0) {
-            Write-Log "No files were successfully uploaded."
-          } else {
-            Write-Log "Generating reassemble.bat..."
+          if ($fileInfos.Count -gt 0) {
+            Write-Log "Generating reassemble.bat (UTF‑8 no BOM, chcp 65001)..."
             $batPath = Join-Path $chunksDir "reassemble.bat"
-            $batLines = @(
-              "@echo off",
-              "setlocal enabledelayedexpansion",
-              "echo ========================================",
-              "echo  Reassembling all downloaded files...",
-              "echo ========================================"
-            )
+
+            # Build lines in a list, then join with \r\n and write with UTF‑8 (no BOM)
+            $batLines = [System.Collections.Generic.List[string]]::new()
+            $batLines.Add("@echo off")
+            $batLines.Add("chcp 65001 >nul")
+            $batLines.Add("setlocal enabledelayedexpansion")
+            $batLines.Add("echo ========================================")
+            $batLines.Add("echo  Reassembling all downloaded files...")
+            $batLines.Add("echo ========================================")
             foreach ($fi in $fileInfos) {
               $name = $fi.Name
               if ($fi.HasChunks) {
-                $batLines += "echo --- Rebuilding $name ---"
-                $batLines += "copy /b $name.part* $name"
-                $batLines += "if %errorlevel% equ 0 ("
-                $batLines += "    echo Successfully created $name"
-                $batLines += "    del $name.part*"
-                $batLines += "    echo Deleted temporary parts for $name"
-                $batLines += ") else ("
-                $batLines += "    echo ERROR: Failed to reassemble $name. Parts kept intact."
-                $batLines += ")"
+                # Quoted to handle non‑ASCII and spaces
+                $batLines.Add("echo --- Rebuilding `"$name`" ---")
+                $batLines.Add("copy /b `"$name.part*`" `"$name`"")
+                $batLines.Add("if %errorlevel% equ 0 (")
+                $batLines.Add("    echo Successfully created `"$name`"")
+                $batLines.Add("    del `"$name.part*`"")
+                $batLines.Add("    echo Deleted temporary parts")
+                $batLines.Add(") else (")
+                $batLines.Add("    echo ERROR: Failed to reassemble `"$name`". Parts kept intact.")
+                $batLines.Add(")")
               } else {
-                $batLines += "echo $name was downloaded as a single file (no chunks)."
+                $batLines.Add("echo `"$name`" was downloaded as a single file (no chunks).")
               }
             }
-            $batLines += "echo ========================================"
-            $batLines += "echo All done! Press any key to exit."
-            $batLines += "pause >nul"
-            $batLines | Out-File -FilePath $batPath -Encoding ASCII
+            $batLines.Add("echo ========================================")
+            $batLines.Add("echo All done! Press any key to exit.")
+            $batLines.Add("pause >nul")
+
+            # Join with Windows line endings and write as UTF‑8 (no BOM)
+            $joined = $batLines -join "`r`n"
+            [System.IO.File]::WriteAllText($batPath, $joined, [System.Text.Encoding]::UTF8)
 
             Write-Log "Uploading reassemble.bat..."
-            if (Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat") {
-              Write-Log "✓ reassemble.bat uploaded."
-            } else {
-              Write-Log "✗ Failed to upload reassemble.bat."
-            }
-            Write-Log "=== Download completed ==="
+            Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
+          } else {
+            Write-Log "No files were successfully uploaded."
           }
+          Write-Log "✅ Processing complete."
 
       - name: Final log commit
         if: always()
