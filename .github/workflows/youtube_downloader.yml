@@ -510,7 +510,7 @@ jobs:
               except: pass
 
           # ====================================================================
-          #  Generate reassemble.bat
+          #  Generate reassemble.bat (UTF-8 with BOM to preserve Persian names)
           # ====================================================================
           if video_infos:
               log("\n📄 Creating reassemble.bat ...")
@@ -539,7 +539,8 @@ jobs:
               bat_lines.append("echo All done! Press any key to exit.")
               bat_lines.append("pause >nul")
 
-              with open(bat_path, "w", encoding="utf-8") as bat:
+              # Write with UTF-8 BOM – this fixes Persian character display in cmd.exe
+              with open(bat_path, "w", encoding="utf-8-sig") as bat:
                   bat.write("\r\n".join(bat_lines) + "\r\n")
 
               log("   ⬆️ Uploading reassemble.bat ...")
