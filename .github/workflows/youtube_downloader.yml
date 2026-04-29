@@ -83,7 +83,7 @@ jobs:
           git push || true
 
       - name: Restore pip & Deno cache
-        if: inputs.use_cache == 'true'
+        if: ${{ inputs.use_cache }}
         id: cache
         uses: actions/cache@v4
         with:
@@ -135,6 +135,7 @@ jobs:
           import os, sys, time, subprocess, base64, requests, json, re, traceback
           from pathlib import Path
           from urllib.parse import quote
+          from datetime import datetime
 
           sys.stdout.reconfigure(line_buffering=True)
           sys.stderr.reconfigure(line_buffering=True)
@@ -212,9 +213,9 @@ jobs:
               return exit_code == 0, new_files
 
           # ------------------------------------------------------------
-          # Get video title (JSON, no download)
+          # Get video metadata (title + upload_date) via JSON
           # ------------------------------------------------------------
-          def get_video_title(url, extra_args=None):
+          def get_video_metadata(url, extra_args=None):
               title_cmd = [
                   "yt-dlp", "--no-playlist", "--dump-json",
                   "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -227,10 +228,12 @@ jobs:
               if proc.returncode == 0 and proc.stdout.strip():
                   try:
                       metadata = json.loads(proc.stdout.strip())
-                      return metadata.get("title", None)
+                      title = metadata.get("title", None)
+                      upload_date = metadata.get("upload_date", None)  # YYYYMMDD
+                      return title, upload_date
                   except:
                       pass
-              return None
+              return None, None
 
           # ------------------------------------------------------------
           # Subtitle command builder
@@ -314,8 +317,8 @@ jobs:
               log("╚══════════════════════════════════════════════════════════╝")
               log(f"📥 URL: {url}")
 
-              log("   🔍 Fetching video title ...")
-              title = get_video_title(url)
+              log("   🔍 Fetching video metadata ...")
+              title, upload_date = get_video_metadata(url)
               if title:
                   safe_title = re.sub(r'[<>:"/\\|?*]', '', title)[:150]
                   log(f"   📝 Title: {safe_title}")
@@ -323,7 +326,22 @@ jobs:
                   safe_title = None
                   log("   ⚠️ Could not fetch title, will use default naming.")
 
-              if safe_title:
+              # Format upload date
+              if upload_date and len(upload_date) == 8:
+                  try:
+                      date_obj = datetime.strptime(upload_date, "%Y%m%d")
+                      formatted_date = date_obj.strftime("%Y-%m-%d")
+                      log(f"   📅 Upload date: {formatted_date}")
+                  except:
+                      formatted_date = upload_date
+              else:
+                  formatted_date = None
+                  log("   ℹ️ Upload date not available.")
+
+              # Build filename: [date] title [id].ext
+              if formatted_date and safe_title:
+                  output_file = f"{formatted_date} {safe_title} [%(id)s].%(ext)s"
+              elif safe_title:
                   output_file = f"{safe_title} [%(id)s].%(ext)s"
               else:
                   output_file = "%(title).150B [%(id)s].%(ext)s"
@@ -492,7 +510,7 @@ jobs:
               except: pass
 
           # ====================================================================
-          #  Generate reassemble.bat  (FIXED: build lines list, join with \r\n)
+          #  Generate reassemble.bat
           # ====================================================================
           if video_infos:
               log("\n📄 Creating reassemble.bat ...")
