@@ -1,0 +1,82 @@
+# version 1.0
+name: Gmail Sign-In
+
+on: workflow_dispatch
+
+jobs:
+  signin:
+    runs-on: ubuntu-latest
+    env:
+      EMAIL: ${{ secrets.EMAIL }}
+      PASS: ${{ secrets.PASS }}
+      KEY: ${{ secrets.KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Chrome & Python deps
+        run: |
+          sudo apt update
+          sudo apt install -y wget gnupg python3-pip
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+          sudo apt update
+          sudo apt install -y google-chrome-stable
+          pip3 install selenium webdriver-manager
+
+      - name: Decode security code & sign in
+        run: |
+          python3 << 'PYEOF'
+          import os, time, sys
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.chrome.options import Options
+
+          # --- Replicate C# digit mapping ---
+          key = os.environ["KEY"]
+          seed = hash(key)  # Python's hash() isn't stable across runs; we need consistent seed.
+          # We must match C#'s GetHashCode on a string. That's platform‑specific.
+          # So we'll use a deterministic hash (e.g., SHA256→int) to derive the mapping.
+          import hashlib, struct
+          h = hashlib.sha256(key.encode()).digest()
+          seed = struct.unpack("i", h[:4])[0]
+          import random
+          rng = random.Random(seed)
+          digits = list(range(10))
+          rng.shuffle(digits)  # same permutation as C# (if C# uses the same shuffle)
+
+          # Build reverse mapping
+          rev = {v: k for k, v in enumerate(digits)}
+
+          # Read encoded code from file
+          with open("bestlog.txt") as f:
+              encoded = f.read().strip()
+
+          # Decode using reverse map
+          decoded = ''.join(str(rev[int(c)]) if c.isdigit() else c for c in encoded)
+          print("Decoded code:", decoded)
+
+          # --- Selenium automation using decoded code ---
+          opts = Options()
+          opts.add_argument("--headless")
+          opts.add_argument("--no-sandbox")
+          opts.add_argument("--disable-gpu")
+          driver = webdriver.Chrome(options=opts)
+
+          driver.get("https://accounts.google.com/signin")
+          time.sleep(2)
+          driver.find_element(By.ID, "identifierId").send_keys(os.environ["EMAIL"])
+          driver.find_element(By.ID, "identifierNext").click()
+          time.sleep(3)
+          driver.find_element(By.NAME, "password").send_keys(os.environ["PASS"])
+          driver.find_element(By.ID, "passwordNext").click()
+          time.sleep(5)
+
+          # Enter security code (adjust selector if needed)
+          driver.find_element(By.ID, "idvPin").send_keys(decoded)
+          driver.find_element(By.ID, "idvPreregisteredPhoneNext").click()
+          time.sleep(10)
+
+          driver.get("https://mail.google.com/mail/u/0/#inbox")
+          print("Inbox title:", driver.title)
+          driver.quit()
+          PYEOF
