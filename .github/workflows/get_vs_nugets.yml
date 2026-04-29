@@ -1,8 +1,9 @@
 # ==============================================================================
-#  version: 2.0
+#  version: 2.1
 #  Offline NuGet Feed Builder for Visual Studio 2026 Community
 #  Downloads priority packages (with deps) + top popular packages (with deps)
 #  up to a configurable total size, then splits and uploads the ZIP as chunks.
+#  FIX: robust parsing of priority_packages (handles collapsed whitespace).
 # ==============================================================================
 
 name: Download NuGet Packages Offline (Priority + Top by Downloads)
@@ -12,8 +13,8 @@ on:
     inputs:
       priority_packages:
         description: |
-          Priority packages – one per line.
-          Optionally append @version (e.g., Newtonsoft.Json@13.0.3).
+          Priority packages – one per line (or separated by spaces).
+          Optionally append @version (e.g. Newtonsoft.Json@13.0.3).
           These are downloaded FIRST and their transitive dependencies ARE included.
           Examples:
             Microsoft.Maui.Controls
@@ -105,7 +106,7 @@ jobs:
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-v2-" +
+          $key = "nuget-offline-feed-v21-" +
             "search-${{ inputs.search_term }}" +
             "-maxGB-${{ inputs.max_size_gb }}"
           "key=$key" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
@@ -128,27 +129,14 @@ jobs:
         run: |
           $feedDir = $env:FEED_DIR
 
-          # Parse the multiline input into an array
+          # Parse the input – splits on any whitespace, ignores comments
           $rawInput = @"
           ${{ inputs.priority_packages }}
           "@
-          $lines = $rawInput -split "`r`n|`n"
-          $pkgArgs = @()
-          foreach ($line in $lines) {
-            $trimmed = $line.Trim()
-            if ([string]::IsNullOrEmpty($trimmed) -or $trimmed.StartsWith('#')) { continue }
-            $pkgArgs += $trimmed
-          }
+          # Split by any whitespace (space, tab, newline) and remove empty entries and comments
+          $pkgArgs = $rawInput -split '\s+' | Where-Object { $_ -ne '' -and $_ -notmatch '^#' }
 
-          if ($pkgArgs.Count -eq 0) {
-            Write-Host "No priority packages specified – skipping."
-            exit 0
-          }
-
-          Write-Host "Priority packages to download: $($pkgArgs -join ', ')"
-
-          # Create a temporary .csproj file that references every priority package.
-          # This ensures transitive dependencies are restored.
+          # Now parse each token; if it contains @, split into name and version
           $projXml = @"
           <Project Sdk="Microsoft.NET.Sdk">
             <PropertyGroup>
@@ -156,25 +144,36 @@ jobs:
             </PropertyGroup>
             <ItemGroup>
           "@
-          foreach ($pkg in $pkgArgs) {
-            if ($pkg -match '@') {
-              $parts = $pkg -split '@', 2
+          $packageRefs = 0
+          foreach ($token in $pkgArgs) {
+            if ($token -match '@') {
+              $parts = $token -split '@', 2
               $projXml += "`n    <PackageReference Include=`"$($parts[0])`" Version=`"$($parts[1])`" />"
             } else {
-              $projXml += "`n    <PackageReference Include=`"$pkg`" Version=`"*`" />"
+              $projXml += "`n    <PackageReference Include=`"$token`" Version=`"*`" />"
             }
+            $packageRefs++
           }
           $projXml += @"
           `n    </ItemGroup>
           </Project>
           "@
 
+          if ($packageRefs -eq 0) {
+            Write-Host "No priority packages found – skipping."
+            exit 0
+          }
+
+          Write-Host "Priority packages detected: $packageRefs"
           $projPath = Join-Path $env:RUNNER_TEMP "RestoreProject.csproj"
           $projXml | Out-File -FilePath $projPath -Encoding UTF8
 
           Write-Host "Restoring packages (including transitive dependencies) ..."
           dotnet restore $projPath --packages $feedDir
-
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "dotnet restore failed for priority packages"
+            exit $LASTEXITCODE
+          }
           Write-Host "Priority packages downloaded to $feedDir"
 
       # ----------------------------------------------------------------
@@ -257,6 +256,10 @@ jobs:
           # Restore everything – all transitive dependencies will be pulled in
           $sizeBefore = (Get-ChildItem -Path $feedDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
           dotnet restore $projPath --packages $feedDir
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "dotnet restore failed for top packages"
+            exit $LASTEXITCODE
+          }
 
           $sizeAfter = (Get-ChildItem -Path $feedDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
           $addedSizeMB = [math]::Round(($sizeAfter - $sizeBefore) / 1MB, 1)
