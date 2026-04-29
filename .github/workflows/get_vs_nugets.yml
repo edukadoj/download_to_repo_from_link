@@ -1,9 +1,9 @@
 # ==============================================================================
-#  version: 2.1
+#  version: 2.2
 #  Offline NuGet Feed Builder for Visual Studio 2026 Community
 #  Downloads priority packages (with deps) + top popular packages (with deps)
 #  up to a configurable total size, then splits and uploads the ZIP as chunks.
-#  FIX: robust parsing of priority_packages (handles collapsed whitespace).
+#  FIX: Robust parsing that works even when whitespace is collapsed.
 # ==============================================================================
 
 name: Download NuGet Packages Offline (Priority + Top by Downloads)
@@ -106,7 +106,7 @@ jobs:
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-v21-" +
+          $key = "nuget-offline-feed-v22-" +
             "search-${{ inputs.search_term }}" +
             "-maxGB-${{ inputs.max_size_gb }}"
           "key=$key" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
@@ -129,14 +129,17 @@ jobs:
         run: |
           $feedDir = $env:FEED_DIR
 
-          # Parse the input – splits on any whitespace, ignores comments
+          # Get the raw input – it may have lost its line breaks
           $rawInput = @"
           ${{ inputs.priority_packages }}
           "@
-          # Split by any whitespace (space, tab, newline) and remove empty entries and comments
-          $pkgArgs = $rawInput -split '\s+' | Where-Object { $_ -ne '' -and $_ -notmatch '^#' }
 
-          # Now parse each token; if it contains @, split into name and version
+          # Convert ALL whitespace (spaces, tabs, newlines) into newlines,
+          # then split by newline to obtain one token per line.
+          $lines = $rawInput -replace '\s+', "`n" -split "`n" |
+                     Where-Object { $_ -ne '' -and $_ -notmatch '^#' }
+
+          $packageRefs = 0
           $projXml = @"
           <Project Sdk="Microsoft.NET.Sdk">
             <PropertyGroup>
@@ -144,16 +147,18 @@ jobs:
             </PropertyGroup>
             <ItemGroup>
           "@
-          $packageRefs = 0
-          foreach ($token in $pkgArgs) {
-            if ($token -match '@') {
-              $parts = $token -split '@', 2
-              $projXml += "`n    <PackageReference Include=`"$($parts[0])`" Version=`"$($parts[1])`" />"
+
+          foreach ($line in $lines) {
+            $trimmed = $line.Trim()
+            if ($trimmed -match '@') {
+              $parts = $trimmed -split '@', 2
+              $projXml += "`n    <PackageReference Include=`"$($parts[0].Trim())`" Version=`"$($parts[1].Trim())`" />"
             } else {
-              $projXml += "`n    <PackageReference Include=`"$token`" Version=`"*`" />"
+              $projXml += "`n    <PackageReference Include=`"$trimmed`" Version=`"*`" />"
             }
             $packageRefs++
           }
+
           $projXml += @"
           `n    </ItemGroup>
           </Project>
