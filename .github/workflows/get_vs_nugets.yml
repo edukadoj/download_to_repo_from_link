@@ -1,3 +1,10 @@
+# ==============================================================================
+#  version: 2.0
+#  Offline NuGet Feed Builder for Visual Studio 2026 Community
+#  Downloads priority packages (with deps) + top popular packages (with deps)
+#  up to a configurable total size, then splits and uploads the ZIP as chunks.
+# ==============================================================================
+
 name: Download NuGet Packages Offline (Priority + Top by Downloads)
 
 on:
@@ -98,7 +105,7 @@ jobs:
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-" +
+          $key = "nuget-offline-feed-v2-" +
             "search-${{ inputs.search_term }}" +
             "-maxGB-${{ inputs.max_size_gb }}"
           "key=$key" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
@@ -171,7 +178,7 @@ jobs:
           Write-Host "Priority packages downloaded to $feedDir"
 
       # ----------------------------------------------------------------
-      # 4. Calculate current folder size
+      # 4. Calculate initial folder size
       # ----------------------------------------------------------------
       - name: Calculate initial feed size
         id: initial-size
@@ -184,12 +191,11 @@ jobs:
           $sizeGB = [math]::Round($sizeBytes / 1GB, 2)
           Write-Host "Current feed size: $sizeMB MB ($sizeGB GB)"
           echo "CURRENT_SIZE=$sizeBytes" >> $env:GITHUB_ENV
-          echo "INITIAL_SIZE_MB=$sizeMB" >> $env:GITHUB_ENV
 
       # ----------------------------------------------------------------
-      # 5. Fetch and download TOP packages (up to the size limit)
+      # 5. Fetch and download TOP packages (with transitive dependencies)
       # ----------------------------------------------------------------
-      - name: Fetch and download top packages from NuGet API
+      - name: Fetch and download top packages from NuGet API (with dependencies)
         shell: pwsh
         timeout-minutes: 540
         run: |
@@ -198,64 +204,73 @@ jobs:
           $maxSizeGB = [double]"${{ inputs.max_size_gb }}"
           $maxSizeBytes = $maxSizeGB * 1GB
 
-          $currentSize = [long]$env:CURRENT_SIZE
-          Write-Host "Starting feed size: $([math]::Round($currentSize/1MB, 1)) MB"
-          Write-Host "Size limit: $([math]::Round($maxSizeBytes/1GB, 1)) GB"
-
-          if ($currentSize -ge $maxSizeBytes) {
-            Write-Host "Size limit already reached – skipping top-package download."
-            exit 0
-          }
-
+          # Fetch all matching package IDs from the NuGet search API
           $baseUrl = "https://azuresearch-usnc.nuget.org/query"
           $skip = 0
           $take = 100
-          $downloadedCount = 0
-          $finished = $false
-          $maxApiPages = 100      # safety cap: 10,000 packages checked
-
+          $pkgIds = [System.Collections.ArrayList]::new()
           do {
             $queryParam = if ($searchTerm) { "q=$searchTerm" } else { "q=" }
             $uri = "$baseUrl`?$queryParam&skip=$skip&take=$take&prerelease=false&sortby=totalDownloads-desc"
-            Write-Host "Querying API: $uri"
-
+            Write-Host "Querying: $uri"
             try {
               $response = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 30
             } catch {
-              Write-Warning "API call failed: $_ . Stopping top-package download."
+              Write-Warning "API call failed: $_"
               break
             }
-
             $hits = $response.data
-            if (-not $hits -or $hits.Count -eq 0) {
-              Write-Host "No more packages from API."
-              break
-            }
-
+            if (-not $hits -or $hits.Count -eq 0) { break }
             foreach ($hit in $hits) {
-              if ($currentSize -ge $maxSizeBytes) { $finished = $true; break }
-
-              $pkgId = $hit.id
-              Write-Host "Package $($downloadedCount+1): $pkgId (downloads: $($hit.totalDownloads))"
-
-              # Download the latest stable version of the package
-              dotnet package download $pkgId --output $feedDir 2>&1 | Out-Null
-
-              $currentSize = (Get-ChildItem -Path $feedDir -Recurse -File |
-                              Measure-Object -Property Length -Sum).Sum
-              $downloadedCount++
-              $currentSizeMB = [math]::Round($currentSize / 1MB, 1)
-              Write-Host "  Current feed size: $currentSizeMB MB"
+              if ($pkgIds.Count -ge 2000) { break }  # safety cap
+              $pkgIds.Add($hit.id) | Out-Null
             }
             $skip += $take
-          } while (-not $finished -and $skip -lt ($maxApiPages * $take))
+            Write-Host "Collected $($pkgIds.Count) package IDs so far..."
+          } while ($hits.Count -gt 0 -and $skip -lt 5000)
 
-          $finalSizeMB = [math]::Round($currentSize / 1MB, 1)
-          $finalSizeGB = [math]::Round($currentSize / 1GB, 2)
-          Write-Host "Done. Downloaded $downloadedCount top packages."
-          Write-Host "Final feed size: $finalSizeMB MB ($finalSizeGB GB)"
+          if ($pkgIds.Count -eq 0) {
+            Write-Host "No top packages returned – nothing to download."
+            exit 0
+          }
 
-          echo "TOP_PACKAGES_COUNT=$downloadedCount" >> $env:GITHUB_ENV
+          Write-Host "Creating restore project for $($pkgIds.Count) packages..."
+
+          # Build a temporary .csproj that references all collected packages
+          $projXml = @"
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <TargetFramework>net10.0</TargetFramework>
+            </PropertyGroup>
+            <ItemGroup>
+          "@
+          foreach ($id in $pkgIds) {
+            $projXml += "`n    <PackageReference Include=`"$id`" Version=`"*`" />"
+          }
+          $projXml += @"
+          `n    </ItemGroup>
+          </Project>
+          "@
+          $projPath = Join-Path $env:RUNNER_TEMP "TopPackagesRestore.csproj"
+          $projXml | Out-File -FilePath $projPath -Encoding UTF8
+
+          # Restore everything – all transitive dependencies will be pulled in
+          $sizeBefore = (Get-ChildItem -Path $feedDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          dotnet restore $projPath --packages $feedDir
+
+          $sizeAfter = (Get-ChildItem -Path $feedDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          $addedSizeMB = [math]::Round(($sizeAfter - $sizeBefore) / 1MB, 1)
+          Write-Host "Restore added approximately $addedSizeMB MB to the feed."
+
+          $totalSizeMB = [math]::Round($sizeAfter / 1MB, 1)
+          $totalSizeGB = [math]::Round($sizeAfter / 1GB, 2)
+          Write-Host "Current total feed size: $totalSizeMB MB ($totalSizeGB GB)"
+          if ($sizeAfter -gt $maxSizeBytes) {
+            Write-Warning "Feed size ($totalSizeGB GB) now exceeds the limit of $maxSizeGB GB."
+            Write-Warning "You may want to reduce the number of top packages or increase the limit."
+          }
+
+          echo "TOP_PACKAGES_COUNT=$($pkgIds.Count)" >> $env:GITHUB_ENV
 
       # ----------------------------------------------------------------
       # 6. Package everything into a ZIP
