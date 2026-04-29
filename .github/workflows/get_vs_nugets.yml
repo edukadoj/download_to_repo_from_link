@@ -1,9 +1,10 @@
 # ==============================================================================
-#  version: 2.2
+#  version: 2.3
 #  Offline NuGet Feed Builder for Visual Studio 2026 Community
-#  Downloads priority packages (with deps) + top popular packages (with deps)
-#  up to a configurable total size, then splits and uploads the ZIP as chunks.
-#  FIX: Robust parsing that works even when whitespace is collapsed.
+#  Downloads priority packages (with deps) + top popular packages (each attempted
+#  with full restore, else downloaded as standalone), respecting a size limit.
+#  MAUI workload installed for broader compatibility.
+#  Finally, splits the ZIP into chunk‑files and uploads them to the repository.
 # ==============================================================================
 
 name: Download NuGet Packages Offline (Priority + Top by Downloads)
@@ -87,33 +88,30 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 600            # 10 hours – sufficient for a 10 GB feed
+    timeout-minutes: 600
     permissions:
       contents: write
     steps:
-      # ----------------------------------------------------------------
-      # 1. Checkout & setup
-      # ----------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup .NET SDK (Visual Studio 2026 compatible)
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.x'    # .NET 10 = VS 2026
+          dotnet-version: '10.x'
+
+      - name: Install MAUI workload (for mobile package restoration)
+        run: dotnet workload install maui
 
       - name: Compute cache key
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-v22-" +
+          $key = "nuget-offline-feed-v23-" +
             "search-${{ inputs.search_term }}" +
             "-maxGB-${{ inputs.max_size_gb }}"
           "key=$key" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      # ----------------------------------------------------------------
-      # 2. Create the offline folder
-      # ----------------------------------------------------------------
       - name: Create output directory
         shell: pwsh
         run: |
@@ -121,25 +119,19 @@ jobs:
           New-Item -ItemType Directory -Force -Path $feedDir | Out-Null
           echo "FEED_DIR=$feedDir" >> $env:GITHUB_ENV
 
-      # ----------------------------------------------------------------
-      # 3. Download PRIORITY packages (with transitive dependencies)
-      # ----------------------------------------------------------------
+      # ---------------------------------------------------------------
+      # 1. PRIORITY PACKAGES (full restore)
+      # ---------------------------------------------------------------
       - name: Download priority packages (with transitive dependencies)
         shell: pwsh
         run: |
           $feedDir = $env:FEED_DIR
-
-          # Get the raw input – it may have lost its line breaks
           $rawInput = @"
           ${{ inputs.priority_packages }}
           "@
-
-          # Convert ALL whitespace (spaces, tabs, newlines) into newlines,
-          # then split by newline to obtain one token per line.
           $lines = $rawInput -replace '\s+', "`n" -split "`n" |
                      Where-Object { $_ -ne '' -and $_ -notmatch '^#' }
 
-          $packageRefs = 0
           $projXml = @"
           <Project Sdk="Microsoft.NET.Sdk">
             <PropertyGroup>
@@ -147,7 +139,6 @@ jobs:
             </PropertyGroup>
             <ItemGroup>
           "@
-
           foreach ($line in $lines) {
             $trimmed = $line.Trim()
             if ($trimmed -match '@') {
@@ -156,154 +147,124 @@ jobs:
             } else {
               $projXml += "`n    <PackageReference Include=`"$trimmed`" Version=`"*`" />"
             }
-            $packageRefs++
           }
+          $projXml += "`n    </ItemGroup>`n</Project>"
 
-          $projXml += @"
-          `n    </ItemGroup>
-          </Project>
-          "@
-
-          if ($packageRefs -eq 0) {
-            Write-Host "No priority packages found – skipping."
-            exit 0
-          }
-
-          Write-Host "Priority packages detected: $packageRefs"
-          $projPath = Join-Path $env:RUNNER_TEMP "RestoreProject.csproj"
+          $projPath = Join-Path $env:RUNNER_TEMP "PriorityRestore.csproj"
           $projXml | Out-File -FilePath $projPath -Encoding UTF8
-
-          Write-Host "Restoring packages (including transitive dependencies) ..."
           dotnet restore $projPath --packages $feedDir
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "dotnet restore failed for priority packages"
-            exit $LASTEXITCODE
-          }
-          Write-Host "Priority packages downloaded to $feedDir"
+          if ($LASTEXITCODE -ne 0) { throw "Priority restore failed" }
+          Write-Host "Priority packages restored."
 
-      # ----------------------------------------------------------------
-      # 4. Calculate initial folder size
-      # ----------------------------------------------------------------
-      - name: Calculate initial feed size
-        id: initial-size
+      # ---------------------------------------------------------------
+      # 2. Initial size measurement
+      # ---------------------------------------------------------------
+      - name: Measure current feed size
+        id: measure
         shell: pwsh
         run: |
           $feedDir = $env:FEED_DIR
-          $sizeBytes = (Get-ChildItem -Path $feedDir -Recurse -File |
-                        Measure-Object -Property Length -Sum).Sum
-          $sizeMB = [math]::Round($sizeBytes / 1MB, 1)
-          $sizeGB = [math]::Round($sizeBytes / 1GB, 2)
-          Write-Host "Current feed size: $sizeMB MB ($sizeGB GB)"
-          echo "CURRENT_SIZE=$sizeBytes" >> $env:GITHUB_ENV
+          $size = (Get-ChildItem -Path $feedDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          $mb = [math]::Round($size / 1MB, 1)
+          Write-Host "Feed size: $mb MB"
+          echo "CURRENT_SIZE=$size" >> $env:GITHUB_ENV
 
-      # ----------------------------------------------------------------
-      # 5. Fetch and download TOP packages (with transitive dependencies)
-      # ----------------------------------------------------------------
-      - name: Fetch and download top packages from NuGet API (with dependencies)
+      # ---------------------------------------------------------------
+      # 3. TOP POPULAR PACKAGES (individual restore or download)
+      # ---------------------------------------------------------------
+      - name: Fetch and process top packages
         shell: pwsh
         timeout-minutes: 540
         run: |
           $feedDir = $env:FEED_DIR
-          $searchTerm = "${{ inputs.search_term }}"
-          $maxSizeGB = [double]"${{ inputs.max_size_gb }}"
-          $maxSizeBytes = $maxSizeGB * 1GB
+          $maxSizeBytes = [double]${{ inputs.max_size_gb }} * 1GB
+          $currentSize = [long]$env:CURRENT_SIZE
 
-          # Fetch all matching package IDs from the NuGet search API
+          # ---- collect package IDs from NuGet search API ----
+          $searchTerm = "${{ inputs.search_term }}"
           $baseUrl = "https://azuresearch-usnc.nuget.org/query"
+          $ids = [System.Collections.ArrayList]::new()
           $skip = 0
-          $take = 100
-          $pkgIds = [System.Collections.ArrayList]::new()
           do {
-            $queryParam = if ($searchTerm) { "q=$searchTerm" } else { "q=" }
-            $uri = "$baseUrl`?$queryParam&skip=$skip&take=$take&prerelease=false&sortby=totalDownloads-desc"
-            Write-Host "Querying: $uri"
-            try {
-              $response = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 30
-            } catch {
-              Write-Warning "API call failed: $_"
+            $q = if ($searchTerm) { "q=$searchTerm" } else { "q=" }
+            $uri = "$baseUrl`?$q&skip=$skip&take=100&prerelease=false&sortby=totalDownloads-desc"
+            Write-Host "API: $uri"
+            try { $resp = Invoke-RestMethod $uri -TimeoutSec 30 } catch { break }
+            if (-not $resp.data -or $resp.data.Count -eq 0) { break }
+            foreach ($hit in $resp.data) {
+              if ($ids.Count -ge 2000) { break }
+              $ids.Add($hit.id) | Out-Null
+            }
+            $skip += 100
+          } while ($true -and $skip -lt 5000)
+
+          if ($ids.Count -eq 0) { Write-Host "No top packages found." ; exit 0 }
+          Write-Host "Fetched $($ids.Count) top package IDs."
+
+          # ---- process each ID ----
+          $totalProcessed = 0
+          foreach ($id in $ids) {
+            if ($currentSize -ge $maxSizeBytes) {
+              Write-Host "Size limit reached. Stopping."
               break
             }
-            $hits = $response.data
-            if (-not $hits -or $hits.Count -eq 0) { break }
-            foreach ($hit in $hits) {
-              if ($pkgIds.Count -ge 2000) { break }  # safety cap
-              $pkgIds.Add($hit.id) | Out-Null
-            }
-            $skip += $take
-            Write-Host "Collected $($pkgIds.Count) package IDs so far..."
-          } while ($hits.Count -gt 0 -and $skip -lt 5000)
 
-          if ($pkgIds.Count -eq 0) {
-            Write-Host "No top packages returned – nothing to download."
-            exit 0
-          }
-
-          Write-Host "Creating restore project for $($pkgIds.Count) packages..."
-
-          # Build a temporary .csproj that references all collected packages
-          $projXml = @"
+            Write-Host "--- Processing: $id ---"
+            $tempCsproj = Join-Path $env:RUNNER_TEMP "temp_$([Guid]::NewGuid()).csproj"
+            @"
           <Project Sdk="Microsoft.NET.Sdk">
             <PropertyGroup>
-              <TargetFramework>net10.0</TargetFramework>
+              <TargetFrameworks>net10.0;net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
             </PropertyGroup>
             <ItemGroup>
-          "@
-          foreach ($id in $pkgIds) {
-            $projXml += "`n    <PackageReference Include=`"$id`" Version=`"*`" />"
-          }
-          $projXml += @"
-          `n    </ItemGroup>
+              <PackageReference Include="$id" Version="*" />
+            </ItemGroup>
           </Project>
-          "@
-          $projPath = Join-Path $env:RUNNER_TEMP "TopPackagesRestore.csproj"
-          $projXml | Out-File -FilePath $projPath -Encoding UTF8
+          "@ | Out-File -FilePath $tempCsproj -Encoding UTF8
 
-          # Restore everything – all transitive dependencies will be pulled in
-          $sizeBefore = (Get-ChildItem -Path $feedDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
-          dotnet restore $projPath --packages $feedDir
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "dotnet restore failed for top packages"
-            exit $LASTEXITCODE
+            $restoreSucceeded = $false
+            try {
+              dotnet restore $tempCsproj --packages $feedDir 2>&1 | Out-Null
+              if ($LASTEXITCODE -eq 0) { $restoreSucceeded = $true }
+            } catch { $restoreSucceeded = $false }
+
+            if (-not $restoreSucceeded) {
+              Write-Host "Restore failed – downloading $id as standalone .nupkg"
+              # Fallback: download only the package itself (no deps)
+              dotnet package download $id --output $feedDir 2>&1 | Out-Null
+            }
+
+            # Recalculate size
+            $currentSize = (Get-ChildItem -Path $feedDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
+            $mb = [math]::Round($currentSize / 1MB, 1)
+            Write-Host "Current feed size: $mb MB"
+            $totalProcessed++
           }
 
-          $sizeAfter = (Get-ChildItem -Path $feedDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
-          $addedSizeMB = [math]::Round(($sizeAfter - $sizeBefore) / 1MB, 1)
-          Write-Host "Restore added approximately $addedSizeMB MB to the feed."
+          Write-Host "Top packages processed: $totalProcessed"
+          echo "TOP_COUNT=$totalProcessed" >> $env:GITHUB_ENV
 
-          $totalSizeMB = [math]::Round($sizeAfter / 1MB, 1)
-          $totalSizeGB = [math]::Round($sizeAfter / 1GB, 2)
-          Write-Host "Current total feed size: $totalSizeMB MB ($totalSizeGB GB)"
-          if ($sizeAfter -gt $maxSizeBytes) {
-            Write-Warning "Feed size ($totalSizeGB GB) now exceeds the limit of $maxSizeGB GB."
-            Write-Warning "You may want to reduce the number of top packages or increase the limit."
-          }
-
-          echo "TOP_PACKAGES_COUNT=$($pkgIds.Count)" >> $env:GITHUB_ENV
-
-      # ----------------------------------------------------------------
-      # 6. Package everything into a ZIP
-      # ----------------------------------------------------------------
+      # ---------------------------------------------------------------
+      # 4. Package into ZIP
+      # ---------------------------------------------------------------
       - name: Package offline feed into ZIP
         shell: pwsh
         run: |
           $feedDir = $env:FEED_DIR
           $zipPath = "${{ runner.temp }}\NuGetOfflineFeed_${{ github.run_id }}.zip"
-
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $zip = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
           Get-ChildItem -Path $feedDir -Recurse -File | ForEach-Object {
-            $relativePath = $_.FullName.Substring($feedDir.Length + 1)
-            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $relativePath, 'Optimal')
+            $rel = $_.FullName.Substring($feedDir.Length + 1)
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $rel, 'Optimal')
           }
           $zip.Dispose()
-
-          $zipSizeMB = [math]::Round((Get-Item $zipPath).Length / 1MB, 1)
-          Write-Host "ZIP created: $zipSizeMB MB"
+          Write-Host "ZIP size: $([math]::Round((Get-Item $zipPath).Length/1MB,1)) MB"
           echo "ZIP_PATH=$zipPath" >> $env:GITHUB_ENV
 
-      # ----------------------------------------------------------------
-      # 7. Split and upload chunks (exact same mechanism as VS 2026 workflow)
-      # ----------------------------------------------------------------
+      # ---------------------------------------------------------------
+      # 5. Split and upload chunks (identical to VS 2026 workflow)
+      # ---------------------------------------------------------------
       - name: Split zip and upload chunks
         shell: powershell
         env:
@@ -311,10 +272,8 @@ jobs:
         run: |
           $zip = $env:ZIP_PATH
           if (-not $zip) { $zip = "$env:RUNNER_TEMP\NuGetOfflineFeed_${{ github.run_id }}.zip" }
-
           $chunks = "nuget_offline_chunks"
           New-Item -ItemType Directory -Force -Path $chunks | Out-Null
-
           $stream = [System.IO.File]::OpenRead($zip)
           $buffer = New-Object byte[] (20 * 1MB)
           $idx = 0
@@ -323,10 +282,8 @@ jobs:
             $idx++
           }
           $stream.Close()
-          $totalChunks = $idx
-          Write-Host "Total chunks to upload: $totalChunks"
+          Write-Host "Total chunks: $idx"
 
-          # Smart reassemble.bat
           $batContent = @"
           @echo off
           setlocal enabledelayedexpansion
@@ -359,9 +316,7 @@ jobs:
           $branch = $env:GITHUB_REF_NAME
           $base = "https://api.github.com/repos/$repo/contents"
           $headers = @{ Authorization = "Bearer $token" }
-          $maxRetries = 3
-
-          for ($i=0; $i -lt $totalChunks; $i++) {
+          for ($i=0; $i -lt $idx; $i++) {
             $f = "$chunks\NuGetOfflineFeed.part{0:D4}" -f $i
             $bytes = [System.IO.File]::ReadAllBytes($f)
             $enc = [Convert]::ToBase64String($bytes)
@@ -369,34 +324,24 @@ jobs:
             $sha = try { (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $null }
             $body = @{message="Upload $([System.IO.Path]::GetFileName($f))"; content=$enc; branch=$branch}
             if ($sha) { $body.sha = $sha }
-            $success = $false
-            for ($retry=0; $retry -lt $maxRetries; $retry++) {
+            $retry = 0; $ok = $false
+            do {
               try {
                 Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType "application/json"
-                Write-Host "[OK] Uploaded chunk $($i+1) of $totalChunks"
-                $success = $true
-                break
+                Write-Host "[OK] Chunk $($i+1)/$idx"
+                $ok = $true
               } catch {
-                if ($retry -lt $maxRetries-1) {
-                  Write-Host "Retry $($retry+1) in 10 seconds..."
-                  Start-Sleep -Seconds 10
-                } else {
-                  Write-Error "Failed to upload chunk $f after $maxRetries attempts"
-                  exit 1
-                }
+                if ($retry -lt 2) { Start-Sleep -Seconds 10; $retry++ } else { throw }
               }
-            }
-            if (-not $success) { exit 1 }
+            } while (-not $ok)
             Start-Sleep -Milliseconds 500
           }
-
-          # Upload reassemble.bat
-          $batPath = "$chunks\reassemble.bat"
-          $bytes = [System.IO.File]::ReadAllBytes($batPath)
-          $enc = [Convert]::ToBase64String($bytes)
-          $url = "$base/$chunks/reassemble.bat"
-          $sha = try { (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $null }
-          $body = @{message="Upload reassemble.bat"; content=$enc; branch=$branch}
-          if ($sha) { $body.sha = $sha }
-          Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType "application/json"
-          Write-Host "All chunks plus reassemble.bat uploaded successfully to folder: $chunks"
+          $batBytes = [System.IO.File]::ReadAllBytes("$chunks\reassemble.bat")
+          $batEnc = [Convert]::ToBase64String($batBytes)
+          $batUrl = "$base/$chunks/reassemble.bat"
+          $shaBat = try { (Invoke-RestMethod $batUrl -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $null }
+          $batBody = @{message="Upload reassemble.bat"; content=$batEnc; branch=$branch}
+          if ($shaBat) { $batBody.sha = $shaBat }
+          Invoke-RestMethod $batUrl -Method Put -Headers $headers -Body ($batBody | ConvertTo-Json -Compress)
+          Write-Host "All chunks uploaded."
+          
