@@ -1,5 +1,5 @@
 # =============================================================================
-# Workflow version: 1.1.0
+# Workflow version: 1.1.1
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser, creates a self-contained offline copy, zips it,
@@ -8,6 +8,8 @@
 #              that rebuilds the archive (with chcp 65001 for UTF‑8 support).
 #
 # Changelog:
+#   1.1.1 – Added URL normalization (automatically adds https:// if missing)
+#           to prevent Puppeteer "invalid URL" errors.
 #   1.1.0 – Replaced wget with Puppeteer for dynamic sites; added Telegram support;
 #           introduced single-file-cli for full page snapshots.
 #   1.0.0 – Initial version using wget mirror mode.
@@ -78,6 +80,20 @@ jobs:
           git pull --rebase
           git push || true
 
+      # -------------------------------------------------------------------
+      # Normalise the URL: add https:// if missing (Puppeteer requirement)
+      # -------------------------------------------------------------------
+      - name: Normalize URL
+        id: normalize
+        run: |
+          raw_url="${{ github.event.inputs.website_url }}"
+          if [[ ! "$raw_url" =~ ^https?:// ]]; then
+            normalized_url="https://${raw_url}"
+          else
+            normalized_url="$raw_url"
+          fi
+          echo "SITE_URL=$normalized_url" >> $GITHUB_ENV
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -99,7 +115,7 @@ jobs:
       - name: Download website with headless browser
         shell: bash
         env:
-          SITE_URL: ${{ github.event.inputs.website_url }}
+          SITE_URL: ${{ env.SITE_URL }}
           MAX_DEPTH: ${{ github.event.inputs.max_depth }}
           MAX_SIZE: ${{ github.event.inputs.max_total_size }}
           FOLDER: ${{ github.event.inputs.folder_name }}
