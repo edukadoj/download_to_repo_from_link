@@ -1,71 +1,56 @@
-# version 28.0 – Fixed git push via rebase, screenshots will now appear
-name: Gmail Sign-In & Fetch (Multi-Stage)
+# version 30.0 – Full pipeline, all stages, video from screenshots, artifact uploads
+name: Gmail Sign-In & Fetch (Multi-Stage, Video from Screenshots)
 
 on: workflow_dispatch
 
 jobs:
   signin:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     env:
       EMAIL: ${{ secrets.EMAIL }}
       PASS: ${{ secrets.PASS }}
       KEY: ${{ secrets.KEY }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0           # needed for git pull
+      - uses: actions/checkout@v4           # shallow, fast clone
 
-      - name: Configure git and create screenshots folder
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          mkdir -p screenshots
+      - name: Create screenshots folder
+        run: mkdir -p screenshots
 
-      - name: Install dependencies
+      - name: Install dependencies (Chrome + Python libs + ffmpeg)
         run: |
           sudo apt update
-          sudo apt install -y wget gnupg python3-pip
+          sudo apt install -y wget gnupg python3-pip ffmpeg
           wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
           sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
           sudo apt update
           sudo apt install -y google-chrome-stable
           pip3 install selenium webdriver-manager requests
 
-      # ================================================================
-      # Stage 1 – Enter email (fixed push via rebase)
-      # ================================================================
+      # ----------------------------------------------------------------
+      # Stage 1 – Enter email (screenshots numbered 01‑09)
+      # ----------------------------------------------------------------
       - name: Stage 1 – Enter email
         run: |
           python3 << 'PYEOF'
-          import os, pickle, time, subprocess
+          import os, pickle, time
           from selenium import webdriver
           from selenium.webdriver.common.by import By
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
-          from selenium.common.exceptions import TimeoutException
+          from selenium.common.exceptions import TimeoutException, ElementNotInteractableException
 
+          # Global screenshot counter - start at 0, incremented before saving
           number = [0]
           def ss(desc):
               number[0] += 1
-              fname = f"screenshots/{number[0]:02d}_stage1_{desc}.png"
+              fname = f"screenshots/{number[0]:02d}_{desc}.png"
               driver.save_screenshot(fname)
-              # Sync with remote before committing
-              subprocess.run(["git", "pull", "--rebase"], check=True)
-              for f in [fname, "gmail_yml.log"]:
-                  if os.path.exists(f):
-                      subprocess.run(["git", "add", f], check=True)
-              try:
-                  subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
-              except subprocess.CalledProcessError:
-                  subprocess.run(["git", "commit", "-m", f"Stage1 {desc}"], check=True)
-                  subprocess.run(["git", "push"], check=True)
+              print(f"Saved: {fname}")
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 1: Enter email (v28) ===\n")
+              lf.write("=== Stage 1: Enter email (v30) ===\n")
 
           try:
               opts = Options()
@@ -84,34 +69,35 @@ jobs:
 
               driver.get("https://accounts.google.com/signin")
               time.sleep(3)
-              ss("loaded")
+              ss("01_signon_page")
 
-              # Accept cookie consent
+              # Handle cookie consent
               try:
                   driver.find_element(By.XPATH, "//button[contains(.,'Accept all') or contains(.,'I agree')]").click()
                   time.sleep(1)
+                  ss("02_cookies_accepted")
               except:
                   pass
 
               email_field = driver.find_element(By.ID, "identifierId")
               email_field.clear()
               email_field.send_keys(os.environ["EMAIL"])
-              ss("email_typed")
+              ss("03_email_typed")
 
               driver.find_element(By.ID, "identifierNext").click()
-              ss("after_next_click")
+              ss("04_after_next_click")
 
-              # Wait for password page
+              # Wait for password field
               try:
                   wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-                  ss("password_page")
+                  ss("05_password_page")
                   with open(log_file, "a") as lf:
                       lf.write("Reached password page.\n")
               except TimeoutException:
-                  ss("stuck_after_email")
+                  ss("05_stuck_after_email")
                   raise Exception("Password page did not appear – CAPTCHA or verification required.")
 
-              # Save session
+              # Save session for next stage
               with open("cookies.pkl", "wb") as f:
                   pickle.dump(driver.get_cookies(), f)
               with open("url.txt", "w") as f:
@@ -122,7 +108,7 @@ jobs:
               with open(log_file, "a") as lf:
                   lf.write(f"Stage 1 FAILED: {e}\n")
               try:
-                  ss("failure")
+                  ss("06_failure")   # will be saved even on error
               except:
                   pass
               raise
@@ -133,13 +119,20 @@ jobs:
                   pass
           PYEOF
 
-      # ================================================================
-      # Stage 2 – Enter password (same push fix)
-      # ================================================================
+      - name: Upload Stage 1 screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage1-screenshots
+          path: screenshots/*.png
+          retention-days: 7
+
+      # ----------------------------------------------------------------
+      # Stage 2 – Enter password (screenshots 07‑15)
+      # ----------------------------------------------------------------
       - name: Stage 2 – Enter password
         run: |
           python3 << 'PYEOF'
-          import os, pickle, time, subprocess
+          import os, pickle, time
           from selenium import webdriver
           from selenium.webdriver.common.by import By
           from selenium.webdriver.common.keys import Keys
@@ -148,20 +141,12 @@ jobs:
           from selenium.webdriver.chrome.options import Options
           from selenium.common.exceptions import ElementNotInteractableException, TimeoutException
 
-          number = [10]
+          number = [6]   # continue from where Stage 1 left off (up to 06)
           def ss(desc):
               number[0] += 1
-              fname = f"screenshots/{number[0]:02d}_stage2_{desc}.png"
+              fname = f"screenshots/{number[0]:02d}_{desc}.png"
               driver.save_screenshot(fname)
-              subprocess.run(["git", "pull", "--rebase"], check=True)
-              for f in [fname, "gmail_yml.log"]:
-                  if os.path.exists(f):
-                      subprocess.run(["git", "add", f], check=True)
-              try:
-                  subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
-              except subprocess.CalledProcessError:
-                  subprocess.run(["git", "commit", "-m", f"Stage2 {desc}"], check=True)
-                  subprocess.run(["git", "push"], check=True)
+              print(f"Saved: {fname}")
 
           log_file = "gmail_yml.log"
           def log(msg):
@@ -169,7 +154,7 @@ jobs:
                   lf.write(msg + "\n")
               print(msg)
 
-          log("=== Stage 2: Enter password (v28) ===")
+          log("=== Stage 2: Enter password (v30) ===")
 
           driver = None
           try:
@@ -195,15 +180,15 @@ jobs:
                       pass
               driver.get(saved_url)
               time.sleep(3)
-              ss("loaded")
+              ss("07_stage2_loaded")
 
               wait = WebDriverWait(driver, 15)
               try:
                   password_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
                   log("Password field found.")
               except TimeoutException:
-                  ss("no_password_field")
-                  raise Exception("Password field missing after loading session.")
+                  ss("08_no_password_field")
+                  raise Exception("Password field missing after session load.")
 
               try:
                   password_field.clear()
@@ -213,8 +198,9 @@ jobs:
                   log("Using JS injection.")
                   driver.execute_script("arguments[0].value = arguments[1];", password_field, os.environ["PASS"])
                   driver.execute_script("arguments[0].dispatchEvent(new Event('input', { bubbles: true }));", password_field)
-              ss("password_typed")
+              ss("09_password_typed")
 
+              # Click Next
               next_btn = None
               for method, sel in [(By.ID, "passwordNext"),
                                  (By.XPATH, "//button[contains(.,'Next')]")]:
@@ -230,10 +216,11 @@ jobs:
               else:
                   password_field.send_keys(Keys.RETURN)
                   log("Pressed Enter.")
-              ss("after_submit")
+              ss("10_after_submit")
 
               time.sleep(4)
 
+              # Check for error message
               error_msg = None
               for sel in ["//div[contains(@class, 'o6cuMc')]",
                           "//span[contains(text(),'Wrong password')]",
@@ -248,9 +235,10 @@ jobs:
                       pass
               if error_msg:
                   log(f"Error: {error_msg}")
-                  ss("error_msg")
+                  ss("11_error_msg")
                   raise Exception(f"Login error: {error_msg}")
 
+              # Wait for 2FA page
               try:
                   WebDriverWait(driver, 15).until(
                       EC.any_of(
@@ -259,12 +247,13 @@ jobs:
                           EC.presence_of_element_located((By.XPATH, "//div[@data-challengetype]"))
                       )
                   )
-                  ss("2fa_page")
+                  ss("12_2fa_page")
                   log("2FA page reached.")
               except TimeoutException:
-                  ss("still_login")
+                  ss("13_still_login")
                   raise Exception("Still on login page – wrong password or verification required.")
 
+              # Save state
               with open("cookies.pkl", "wb") as f:
                   pickle.dump(driver.get_cookies(), f)
               with open("url.txt", "w") as f:
@@ -275,7 +264,7 @@ jobs:
           except Exception as e:
               log(f"Stage 2 FAILED: {e}")
               try:
-                  ss("failure")
+                  ss("14_failure")
               except:
                   pass
               raise
@@ -286,4 +275,376 @@ jobs:
                   pass
           PYEOF
 
-      # (Stages 3‑6 omitted for brevity – they follow the same pattern with `ss` containing `git pull --rebase`)
+      - name: Upload Stage 2 screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage2-screenshots
+          path: screenshots/*.png
+          retention-days: 7
+
+      # ----------------------------------------------------------------
+      # Stage 3 – Select security code method (screenshots 15‑19)
+      # ----------------------------------------------------------------
+      - name: Stage 3 – Select security code method
+        run: |
+          python3 << 'PYEOF'
+          import os, pickle, time
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.chrome.options import Options
+
+          number = [14]   # continue
+          def ss(desc):
+              number[0] += 1
+              fname = f"screenshots/{number[0]:02d}_{desc}.png"
+              driver.save_screenshot(fname)
+              print(f"Saved: {fname}")
+
+          log_file = "gmail_yml.log"
+          with open(log_file, "a") as lf:
+              lf.write("=== Stage 3: Select code method (v30) ===\n")
+          try:
+              opts = Options()
+              opts.add_argument("--headless")
+              opts.add_argument("--no-sandbox")
+              opts.add_argument("--disable-gpu")
+              opts.add_argument("--disable-blink-features=AutomationControlled")
+              driver = webdriver.Chrome(options=opts)
+              driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+              with open("cookies.pkl", "rb") as f:
+                  cookies = pickle.load(f)
+              with open("url.txt") as f:
+                  saved_url = f.read().strip()
+
+              driver.get("https://accounts.google.com")
+              for c in cookies:
+                  try:
+                      driver.add_cookie(c)
+                  except:
+                      pass
+              driver.get(saved_url)
+              time.sleep(2)
+              ss("15_stage3_loaded")
+
+              # Try "Try another way"
+              try:
+                  driver.find_element(By.XPATH, "//button[contains(.,'Try another way') or contains(.,'More options')]").click()
+                  time.sleep(2)
+                  with open(log_file, "a") as lf:
+                      lf.write("Clicked 'Try another way'.\n")
+              except:
+                  pass
+
+              # Select code option
+              clicked = False
+              for sel in ["//div[@data-challengetype='12']",
+                          "//div[@data-challengetype='13']",
+                          "//span[contains(text(),'security code')]",
+                          "//span[contains(text(),'Backup code')]",
+                          "//div[@role='link' and contains(.,'code')]"]:
+                  try:
+                      driver.find_element(By.XPATH, sel).click()
+                      time.sleep(2)
+                      clicked = True
+                      with open(log_file, "a") as lf:
+                          lf.write(f"Selected: {sel}\n")
+                      break
+                  except:
+                      continue
+              if not clicked:
+                  with open(log_file, "a") as lf:
+                      lf.write("No clickable code option found; assuming input visible.\n")
+              ss("16_after_selection")
+
+              with open("cookies.pkl", "wb") as f:
+                  pickle.dump(driver.get_cookies(), f)
+              with open("url.txt", "w") as f:
+                  f.write(driver.current_url)
+
+              print("Stage 3 success.")
+          except Exception as e:
+              with open(log_file, "a") as lf:
+                  lf.write(f"Stage 3 FAILED: {e}\n")
+              try:
+                  ss("17_failure")
+              except:
+                  pass
+              raise
+          finally:
+              try:
+                  driver.quit()
+              except:
+                  pass
+          PYEOF
+
+      - name: Upload Stage 3 screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3-screenshots
+          path: screenshots/*.png
+          retention-days: 7
+
+      # ----------------------------------------------------------------
+      # Stage 4 – Wait for encoded security code (no browser, just polling)
+      # ----------------------------------------------------------------
+      - name: Stage 4 – Wait for security code
+        run: |
+          python3 << 'PYEOF'
+          import os, hashlib, struct, random, re, time, requests
+
+          log_file = "gmail_yml.log"
+          with open(log_file, "a") as lf:
+              lf.write("=== Stage 4: Poll for encoded code (v30) ===\n")
+          key = os.environ["KEY"]
+          h = hashlib.sha256(key.encode()).digest()
+          seed = struct.unpack("i", h[:4])[0]
+          rng = random.Random(seed)
+          digits = list(range(10))
+          rng.shuffle(digits)
+          rev = {v: k for k, v in enumerate(digits)}
+          def decode_10(s):
+              return ''.join(str(rev[int(c)]) for c in s)
+
+          raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
+          last_mod = None
+          decoded = None
+          while not decoded:
+              time.sleep(10)
+              try:
+                  head = requests.head(raw_url, timeout=10)
+                  new_mod = head.headers.get("Last-Modified")
+                  if new_mod and new_mod == last_mod:
+                      continue
+                  resp = requests.get(raw_url, timeout=10)
+                  if resp.status_code == 200:
+                      nums = re.findall(r'\d', resp.text)
+                      if len(nums) >= 10:
+                          encoded = ''.join(nums[:10])
+                          decoded = decode_10(encoded)
+                          with open(log_file, "a") as lf:
+                              lf.write(f"Code found: {encoded}, decoded.\n")
+                          break
+                  last_mod = new_mod
+              except Exception as e:
+                  with open(log_file, "a") as lf:
+                      lf.write(f"Poll error: {e}\n")
+          with open("decoded_code.txt", "w") as f:
+              f.write(decoded)
+          print("Stage 4 success.")
+          PYEOF
+
+      # ----------------------------------------------------------------
+      # Stage 5 – Enter security code (screenshots 18‑22)
+      # ----------------------------------------------------------------
+      - name: Stage 5 – Enter security code
+        run: |
+          python3 << 'PYEOF'
+          import os, pickle, time
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+          from selenium.webdriver.chrome.options import Options
+
+          number = [17]   # continue from Stage 3 (16), 17 is next
+          def ss(desc):
+              number[0] += 1
+              fname = f"screenshots/{number[0]:02d}_{desc}.png"
+              driver.save_screenshot(fname)
+              print(f"Saved: {fname}")
+
+          log_file = "gmail_yml.log"
+          with open(log_file, "a") as lf:
+              lf.write("=== Stage 5: Enter security code (v30) ===\n")
+          try:
+              opts = Options()
+              opts.add_argument("--headless")
+              opts.add_argument("--no-sandbox")
+              opts.add_argument("--disable-gpu")
+              opts.add_argument("--disable-blink-features=AutomationControlled")
+              driver = webdriver.Chrome(options=opts)
+              driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+              with open("cookies.pkl", "rb") as f:
+                  cookies = pickle.load(f)
+              with open("url.txt") as f:
+                  saved_url = f.read().strip()
+              with open("decoded_code.txt") as f:
+                  code = f.read().strip()
+
+              driver.get("https://accounts.google.com")
+              for c in cookies:
+                  try:
+                      driver.add_cookie(c)
+                  except:
+                      pass
+              driver.get(saved_url)
+              time.sleep(2)
+              ss("18_stage5_loaded")
+
+              code_input = None
+              for fid in ["idvPin", "totpPin", "idvPreregisteredPhonePin", "backupCode"]:
+                  try:
+                      code_input = driver.find_element(By.ID, fid)
+                      if code_input.is_displayed():
+                          break
+                  except:
+                      continue
+              if not code_input:
+                  for inp in driver.find_elements(By.CSS_SELECTOR, "input[type='text'], input[type='tel']"):
+                      if inp.is_displayed():
+                          code_input = inp
+                          break
+              if code_input:
+                  code_input.send_keys(code)
+                  driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]").click()
+                  time.sleep(5)
+                  WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+                  ss("19_inbox_reached")
+                  with open(log_file, "a") as lf:
+                      lf.write("Security code accepted.\n")
+                  with open("cookies.pkl", "wb") as f:
+                      pickle.dump(driver.get_cookies(), f)
+                  with open("url.txt", "w") as f:
+                      f.write(driver.current_url)
+              else:
+                  raise Exception("Code input field not found.")
+              print("Stage 5 success.")
+          except Exception as e:
+              with open(log_file, "a") as lf:
+                  lf.write(f"Stage 5 FAILED: {e}\n")
+              try:
+                  ss("20_failure")
+              except:
+                  pass
+              raise
+          finally:
+              try:
+                  driver.quit()
+              except:
+                  pass
+          PYEOF
+
+      - name: Upload Stage 5 screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage5-screenshots
+          path: screenshots/*.png
+          retention-days: 7
+
+      # ----------------------------------------------------------------
+      # Stage 6 – Fetch last two emails (screenshots 21‑25)
+      # ----------------------------------------------------------------
+      - name: Stage 6 – Fetch emails
+        run: |
+          python3 << 'PYEOF'
+          import os, pickle, time
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+          from selenium.webdriver.chrome.options import Options
+
+          number = [20]
+          def ss(desc):
+              number[0] += 1
+              fname = f"screenshots/{number[0]:02d}_{desc}.png"
+              driver.save_screenshot(fname)
+              print(f"Saved: {fname}")
+
+          log_file = "gmail_yml.log"
+          with open(log_file, "a") as lf:
+              lf.write("=== Stage 6: Fetch emails (v30) ===\n")
+          try:
+              opts = Options()
+              opts.add_argument("--headless")
+              opts.add_argument("--no-sandbox")
+              opts.add_argument("--disable-gpu")
+              opts.add_argument("--disable-blink-features=AutomationControlled")
+              driver = webdriver.Chrome(options=opts)
+              driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+              with open("cookies.pkl", "rb") as f:
+                  cookies = pickle.load(f)
+              with open("url.txt") as f:
+                  saved_url = f.read().strip()
+
+              driver.get("https://mail.google.com")
+              for c in cookies:
+                  try:
+                      driver.add_cookie(c)
+                  except:
+                      pass
+              driver.get("https://mail.google.com/mail/u/0/#inbox")
+              WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+              time.sleep(4)
+              ss("21_inbox")
+
+              rows = driver.find_elements(By.CSS_SELECTOR, "tr.zA")[:2]
+              with open(log_file, "a") as lf:
+                  lf.write(f"Found {len(rows)} emails.\n")
+              email_texts = []
+              for i, row in enumerate(rows, 1):
+                  row.click()
+                  time.sleep(4)
+                  try:
+                      body = driver.find_element(By.CSS_SELECTOR, "div.a3s")
+                      content = body.text
+                  except:
+                      content = driver.find_element(By.TAG_NAME, "body").text
+                  email_texts.append(content)
+                  ss(f"22_email_{i}_read")
+                  driver.get("https://mail.google.com/mail/u/0/#inbox")
+                  WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+                  time.sleep(4)
+
+              with open("email.txt", "w", encoding="utf-8") as f:
+                  f.write("--- Last two emails ---\n\n")
+                  for i, txt in enumerate(email_texts, 1):
+                      f.write(f"=== Email {i} ===\n{txt}\n\n")
+              with open(log_file, "a") as lf:
+                  lf.write("Email.txt saved.\n")
+              print("Stage 6 success.")
+          except Exception as e:
+              with open(log_file, "a") as lf:
+                  lf.write(f"Stage 6 FAILED: {e}\n")
+              try:
+                  ss("23_failure")
+              except:
+                  pass
+              raise
+          finally:
+              try:
+                  driver.quit()
+              except:
+                  pass
+          PYEOF
+
+      - name: Upload Stage 6 screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage6-screenshots
+          path: screenshots/*.png
+          retention-days: 7
+
+      # ----------------------------------------------------------------
+      # Final step: Create video from all screenshots (optional, even on failure)
+      # ----------------------------------------------------------------
+      - name: Build session video from screenshots
+        if: always()
+        run: |
+          if ls screenshots/*.png 1> /dev/null 2>&1; then
+            ffmpeg -framerate 1 -pattern_type glob -i "screenshots/*.png" -c:v libx264 -pix_fmt yuv420p -y session_video.mp4
+            echo "Video created: session_video.mp4"
+          else
+            echo "No screenshots found, skipping video."
+          fi
+
+      - name: Upload session video
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-video
+          path: session_video.mp4
+          retention-days: 7
