@@ -189,3 +189,6 @@ Stacktrace:
 #16 0x7fb17e29caa4 <unknown>
 #17 0x7fb17e329c6c <unknown>
 
+11:16:19 - Testing decoder with known values...
+11:16:19 - Decoder self‑test passed ✅
+11:16:19 - Starting sign-in session
