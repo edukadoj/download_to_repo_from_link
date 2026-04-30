@@ -1,5 +1,5 @@
-# version 45.0 – Encrypted session cache, silent login, verbose echoes, WARP
-name: Gmail Sign-In & Fetch (Cache + Silent Login)
+# version 46.0 – v44 winning logic + encrypted cache + SECRETCODE secret
+name: Gmail – Cache & Silent Login (Stable)
 
 on: workflow_dispatch
 
@@ -62,7 +62,7 @@ jobs:
         timeout-minutes: 30
         run: |
           python3 << 'PYEOF'
-          import os, time, subprocess, hashlib, pickle, sys, json, base64
+          import os, time, subprocess, hashlib, pickle, sys, base64
           from datetime import datetime
           from selenium import webdriver
           from selenium.webdriver.common.by import By
@@ -72,9 +72,12 @@ jobs:
           from selenium.webdriver.chrome.options import Options
           from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-          # ---- helpers ----
+          # ---------- HELPERS ----------
           def echo(msg):
               print(msg, flush=True)
+
+          def stage(title):
+              echo(f"\n{'#'*55}\n#  STAGE: {title}\n{'#'*55}")
 
           counter = [0]
           def ss(desc, push=True):
@@ -107,7 +110,7 @@ jobs:
                   f.write(f"{datetime.now().strftime('%H:%M:%S')} - {msg}\n")
               echo(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
-          # ---- cookie encryption / decryption ----
+          # ---------- COOKIE ENCRYPTION ----------
           KEY = os.environ["KEY"]
           ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(KEY.encode()).digest())
 
@@ -123,7 +126,7 @@ jobs:
               data = f.decrypt(encrypted_data)
               return pickle.loads(data)
 
-          # ---- browser setup ----
+          # ---------- BROWSER ----------
           opts = Options()
           opts.add_argument("--headless")
           opts.add_argument("--no-sandbox")
@@ -142,6 +145,7 @@ jobs:
               # ====== TRY CACHED SESSION ======
               cache_loaded = False
               if os.path.exists("session.enc"):
+                  stage("RESTORE CACHED SESSION")
                   log("Trying to load cached session...")
                   try:
                       with open("session.enc", "rb") as f:
@@ -164,9 +168,9 @@ jobs:
                       echo("Cache unusable, falling back to login")
                       cache_loaded = False
 
-              # ====== FRESH LOGIN ======
+              # ====== FRESH LOGIN (PROVEN v44 LOGIC + SECRETCODE) ======
               if not cache_loaded:
-                  log("Starting fresh login")
+                  stage("FRESH LOGIN")
 
                   # 1. Open sign-in page
                   driver.get("https://accounts.google.com/signin")
@@ -181,19 +185,19 @@ jobs:
                   except:
                       pass
 
-                  # 2. Enter email (screenshot before typing)
-                  log("Typing email...")
+                  # ---- STAGE 1: Enter email ----
+                  stage("STAGE 1 – ENTER EMAIL")
                   email_el = wait.until(EC.element_to_be_clickable((By.ID, "identifierId")))
                   email_el.clear()
-                  email_el.send_keys(os.environ["EMAIL"])
+                  email_el.send_keys(os.environ["EMAIL"])      # no screenshot of filled field
                   driver.find_element(By.ID, "identifierNext").click()
-                  ss("02_after_email_next")
+                  ss("02_after_email_next")   # screenshot of password page (empty field)
 
-                  # 3. Wait for password page
+                  # ---- STAGE 2: Enter password ----
+                  stage("STAGE 2 – ENTER PASSWORD")
                   try:
                       wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
                   except TimeoutException:
-                      # maybe Welcome screen
                       try:
                           driver.find_element(By.XPATH, "//div[contains(text(),'Welcome')]")
                           driver.find_element(By.XPATH, "//button[contains(.,'Next')]").click()
@@ -203,17 +207,16 @@ jobs:
                           ss("error_no_password_page")
                           raise Exception("Password page did not appear")
 
-                  # Type password (NO screenshot of typed field)
                   pwd_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
                   pwd_field.clear()
-                  pwd_field.send_keys(os.environ["PASS"])
-                  # Click Next
+                  pwd_field.send_keys(os.environ["PASS"])      # no screenshot
                   driver.find_element(By.ID, "passwordNext").click()
                   time.sleep(5)
                   ss("03_after_password_submit")
 
-                  # 4. 2FA: select backup code
-                  log("Selecting backup code...")
+                  # ---- STAGE 3: Select 2FA method ----
+                  stage("STAGE 3 – SELECT SECURITY CODE METHOD")
+                  # Try "Try another way"
                   try:
                       driver.find_element(By.XPATH, "//button[contains(.,'Try another way') or contains(.,'More options')]").click()
                       time.sleep(2)
@@ -221,23 +224,32 @@ jobs:
                   except:
                       pass
 
-                  # Click backup code option
-                  for sel in [
-                      "//div[@data-challengetype='12']",
-                      "//span[contains(text(),'Backup code')]",
+                  # These selectors WORKED in v44 – using them again
+                  code_option_selectors = [
+                      "//div[@data-challengetype='12']",      # backup codes
+                      "//div[@data-challengetype='13']",      # TOTP / Authenticator
                       "//span[contains(text(),'security code')]",
-                  ]:
+                      "//span[contains(text(),'Backup code')]",
+                      "//div[@role='link' and contains(.,'code')]"
+                  ]
+                  clicked = False
+                  for sel in code_option_selectors:
                       try:
                           opt = driver.find_element(By.XPATH, sel)
                           if opt.is_displayed():
                               opt.click()
                               time.sleep(2)
-                              ss("05_backup_code_option_selected")
+                              ss("05_code_option_selected")
+                              clicked = True
                               break
                       except:
                           continue
+                  if not clicked:
+                      log("No clickable code option found; assuming input visible.")
+                  ss("05_stage3_after_selection")
 
-                  # Find code input
+                  # ---- STAGE 4: Enter security code ----
+                  stage("STAGE 4 – ENTER SECURITY CODE")
                   code_input = None
                   for fid in ["idvPin", "totpPin", "idvPreregisteredPhonePin", "backupCode"]:
                       try:
@@ -253,24 +265,24 @@ jobs:
                               break
                   if not code_input:
                       ss("error_no_code_input")
-                      raise Exception("Code input not found")
-                  ss("06_code_input_ready")
+                      raise Exception("Security code input not found")
+                  ss("06_code_input_ready")   # screenshot of empty field
 
-                  # Type code (NO screenshot)
                   code_input.clear()
-                  code_input.send_keys(os.environ["SECRETCODE"])
+                  code_input.send_keys(os.environ["SECRETCODE"])   # no screenshot
                   driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]").click()
                   time.sleep(5)
                   ss("07_after_code_submit")
 
-                  # 5. Reach inbox (force if necessary)
+                  # ---- STAGE 5: Reach inbox ----
+                  stage("STAGE 5 – NAVIGATE TO GMAIL INBOX")
                   time.sleep(3)
                   if "mail.google.com" not in driver.current_url:
                       driver.get("https://mail.google.com/mail/u/0/#inbox")
                       time.sleep(5)
                   try:
                       wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
-                      log("✅ Inbox reached after login")
+                      log("✅ Inbox reached")
                       ss("08_inbox_reached")
                   except TimeoutException:
                       try:
@@ -290,6 +302,7 @@ jobs:
                   log("Encrypted session saved for cache")
 
               # ====== READ FIRST EMAIL ======
+              stage("READ FIRST EMAIL")
               log("Reading first email...")
               rows = driver.find_elements(By.CSS_SELECTOR, "tr.zA")
               if not rows:
@@ -308,7 +321,7 @@ jobs:
                   f.write("--- First email ---\n\n" + content)
               log("email.txt saved")
 
-              # Final push of log and email
+              # Final push
               subprocess.run(["git", "stash", "--include-untracked"], capture_output=True)
               subprocess.run(["git", "pull", "--rebase"], check=True, capture_output=True)
               subprocess.run(["git", "stash", "pop"], capture_output=True)
