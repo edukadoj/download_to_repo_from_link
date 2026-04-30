@@ -1,4 +1,4 @@
-# version 32.0 – Fix stale element error on password field
+# version 33.0 – Clean bestlog.txt, empty file + clear wait messages
 name: Gmail Sign-In & Fetch (Single Session, Stable)
 
 on: workflow_dispatch
@@ -15,14 +15,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure git and clean screenshots
+      - name: Configure git and clean screenshots + bestlog.txt
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           rm -rf screenshots
+          rm -f bestlog.txt
           mkdir -p screenshots
           git add -A
-          git commit -m "Clean screenshots folder" || echo "Nothing to commit"
+          git commit -m "Clean screenshots and bestlog" || echo "Nothing to commit"
           git pull --rebase
           git push || echo "Push failed, continuing"
 
@@ -264,12 +265,21 @@ jobs:
                       raise Exception("Could not find security code input")
                   ss("11_code_input_ready")
 
+                  # ---- Create empty bestlog.txt before waiting ----
+                  with open("bestlog.txt", "w") as f:
+                      pass  # empty file
+                  subprocess.run(["git", "add", "bestlog.txt"], check=True)
+                  subprocess.run(["git", "commit", "-m", "Empty bestlog.txt ready for code"], check=True)
+                  subprocess.run(["git", "push"], check=True)
+                  log("Empty bestlog.txt created and pushed. Ready for code.")
+
                   # 9. Poll for encoded code
                   raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
                   last_mod = None
                   decoded = None
-                  log("Waiting for encoded code in bestlog.txt...")
+                  log("Waiting for you to enter the code into bestlog.txt...")
                   while not decoded:
+                      print("⏳ waiting for entering the code into bestlog")
                       time.sleep(10)
                       try:
                           head = requests.head(raw_url, timeout=10)
@@ -359,4 +369,3 @@ jobs:
               except:
                   pass
           PYEOF
-          
