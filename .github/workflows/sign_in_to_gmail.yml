@@ -1,5 +1,5 @@
-# version 36.0 – Dual decoder test, no sensitive screenshot push, stable email fetch
-name: Gmail Sign-In & Fetch (Stable, No Secret Leaks)
+# version 37.1 – Final stable sign‑in with correct cross‑platform encoding/decoding
+name: Gmail Sign-In & Fetch (Stable, Secure)
 
 on: workflow_dispatch
 
@@ -41,7 +41,7 @@ jobs:
         timeout-minutes: 30
         run: |
           python3 << 'PYEOF'
-          import os, time, subprocess, hashlib, hmac, re, requests, sys
+          import os, time, subprocess, hashlib, re, requests, sys
           from datetime import datetime
           from selenium import webdriver
           from selenium.webdriver.common.by import By
@@ -56,21 +56,18 @@ jobs:
               StaleElementReferenceException,
           )
 
-          # ===== Real‑time print =====
           def echo(msg):
               print(msg, flush=True)
 
-          # ===== Screenshot helper (push flag controls public upload) =====
           counter = [0]
           def ss(desc, push=True):
               counter[0] += 1
               now = datetime.now().strftime("%H%M%S")
               fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
               driver.save_screenshot(fname)
-              echo(f"📸 {fname}" + ("" if push else " (private, not pushed)"))
+              echo(f"📸 {fname}" + ("" if push else " (private)"))
               if not push:
-                  return  # do not add to git
-              # Push to repo
+                  return
               try:
                   subprocess.run(["git", "pull", "--rebase"], check=True, capture_output=True)
               except:
@@ -85,22 +82,25 @@ jobs:
                   except:
                       echo("Push failed, will retry later")
 
-          # ===== Logging =====
           log_file = "gmail_yml.log"
           def log(msg):
               with open(log_file, "a") as f:
                   f.write(f"{datetime.now().strftime('%H:%M:%S')} - {msg}\n")
               echo(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
-          # ===== Cross‑platform decoder (matches C# HMAC‑based Fisher‑Yates) =====
+          # ===== CROSS‑PLATFORM PERMUTATION (SHA256 sorting) =====
           def get_permutation(key):
-              digits = list(range(10))
-              for i in range(9, 0, -1):
-                  i_bytes = i.to_bytes(4, byteorder='little')
-                  hc = hmac.new(key.encode(), i_bytes, hashlib.sha256).digest()
-                  j = abs(int.from_bytes(hc[:4], byteorder='little')) % (i + 1)
-                  digits[i], digits[j] = digits[j], digits[i]
-              return digits
+              values = []
+              for d in range(10):
+                  inp = key + str(d)
+                  h = hashlib.sha256(inp.encode()).digest()
+                  num = int.from_bytes(h[:8], byteorder='little')
+                  values.append((d, num))
+              sorted_vals = sorted(values, key=lambda x: (x[1], x[0]))
+              perm = [0] * 10
+              for i, (d, _) in enumerate(sorted_vals):
+                  perm[d] = i
+              return perm
 
           def decode_10(encoded_str, key):
               forward_map = get_permutation(key)
@@ -110,14 +110,16 @@ jobs:
               digits_only = re.sub(r'\D', '', encoded_str)[:10]
               return ''.join(str(reverse_map[int(c)]) for c in digits_only)
 
-          # ===== Self‑test the decoder =====
+          # ===== SELF‑TESTS (verified with C# encoder) =====
           log("Testing decoder with known values...")
-          tests = [("1234567898", "0134785292"), ("4158745258", "4072547172")]
+          tests = [
+              ("1234567898", "0785692131"),
+              ("4158745258", "5061256761")
+          ]
           for original, expected_enc in tests:
-              # encode test: we can't encode in Python (only decode), but we can test decode
               decoded = decode_10(expected_enc, os.environ["KEY"])
               if decoded != original:
-                  log(f"FAIL: decode({expected_enc}) = {decoded}, expected {original}")
+                  log(f"SELF‑TEST FAILED: decode({expected_enc}) = {decoded}, expected {original}")
                   sys.exit(1)
           log("Decoder self‑test passed ✅")
 
@@ -185,7 +187,7 @@ jobs:
                   pwd_field = driver.find_element(By.CSS_SELECTOR, "input[type='password']")
                   driver.execute_script("arguments[0].value = arguments[1];", pwd_field, os.environ["PASS"])
                   driver.execute_script("arguments[0].dispatchEvent(new Event('input', {bubbles: true}));", pwd_field)
-              ss("06_password_typed")   # this does not reveal the actual password characters (masked)
+              ss("06_password_typed")
 
               # 5. Click Next
               log("Submitting password...")
@@ -297,7 +299,7 @@ jobs:
                               if len(nums) >= 10:
                                   encoded = ''.join(nums[:10])
                                   decoded = decode_10(encoded, os.environ["KEY"])
-                                  log(f"Encoded digits found: {encoded}")   # this is the public encoded form, safe
+                                  log(f"Encoded digits found: {encoded}")
                                   break
                       except Exception as e:
                           log(f"Poll error: {e}")
@@ -306,10 +308,10 @@ jobs:
                   log("Entering decoded security code...")
                   code_input.clear()
                   code_input.send_keys(decoded)
-                  # Intentionally do NOT take a screenshot here – it would show the code
+                  # Intentionally skip screenshot to avoid leaking the code
                   driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]").click()
                   time.sleep(5)
-                  ss("13_after_code_submit")   # safe, code field is masked or page changed
+                  ss("13_after_code_submit")
 
                   # 11. Verify inbox
                   log("Waiting for inbox...")
@@ -317,7 +319,7 @@ jobs:
                   log("Inbox reached!")
                   ss("14_inbox_reached")
 
-                  # 12. Read last two emails (with screenshots pushed)
+                  # 12. Read last two emails (with screenshots)
                   time.sleep(4)
                   rows = driver.find_elements(By.CSS_SELECTOR, "tr.zA")[:2]
                   email_texts = []
@@ -331,7 +333,7 @@ jobs:
                           content = driver.find_element(By.TAG_NAME, "body").text
                       email_texts.append(content)
                       log(f"Email {i}: {len(content)} chars")
-                      ss(f"15_email_{i}_read")   # email content is already public, but okay
+                      ss(f"15_email_{i}_read")
                       driver.get("https://mail.google.com/mail/u/0/#inbox")
                       wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
                       time.sleep(4)
