@@ -22,3 +22,8 @@ Stacktrace:
 #15 0x7fbea449caa4 <unknown>
 #16 0x7fbea4529c6c <unknown>
 
+Password field present.
+Password field not interactable. Setting value via JavaScript.
+Password set via JS.
+Looking for Next button...
+Clicked Next button.
