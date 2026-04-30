@@ -16,3 +16,4 @@
 22:54:12 - Clicked Next after password.
 22:54:18 - Selecting backup code option...
 22:54:20 - Clicked 'Try another way'.
+22:54:24 - Selected code option: //div[@role='link' and contains(.,'code')]
