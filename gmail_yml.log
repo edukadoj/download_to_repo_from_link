@@ -303,3 +303,5 @@ Stacktrace:
 #17 0x7f745a929c6c <unknown>
 
 12:51:43 - Decoder self‑test passed ✅
+12:52:14 - Waiting for you to enter the encoded code into bestlog.txt...
+12:57:28 - Encoded digits found: 3557647528
