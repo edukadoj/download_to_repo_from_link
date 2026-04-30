@@ -55,3 +55,192 @@
 23:27:07 - First email: 473 chars
 23:27:09 - email.txt saved
 23:27:10 - Browser closed.
+23:33:18 - Running decoder self‑test...
+23:33:18 - Decoder self‑test passed ✅
+23:33:18 - Starting headless Chrome...
+23:33:19 - Browser ready.
+23:33:19 - Found cached session file, trying to restore...
+23:33:20 - Cookies decrypted, injecting into browser...
+23:33:21 - Skipping cookie: Message: invalid cookie domain: Cookie 'domain' mismatch
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x55c3d6338b6a <unknown>
+#1 0x55c3d5d3a265 <unknown>
+#2 0x55c3d5de803f <unknown>
+#3 0x55c3d5dd5969 <unknown>
+#4 0x55c3d5d805cf <unknown>
+#5 0x55c3d5d81391 <unknown>
+#6 0x55c3d62fe04b <unknown>
+#7 0x55c3d630100d <unknown>
+#8 0x55c3d62ea808 <unknown>
+#9 0x55c3d6301ba0 <unknown>
+#10 0x55c3d62d1280 <unknown>
+#11 0x55c3d6325db8 <unknown>
+#12 0x55c3d6325f88 <unknown>
+#13 0x55c3d63375de <unknown>
+#14 0x7f193e89caa4 <unknown>
+#15 0x7f193e929c6c <unknown>
+
+23:33:21 - Skipping cookie: Message: invalid cookie domain: Cookie 'domain' mismatch
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x55c3d6338b6a <unknown>
+#1 0x55c3d5d3a265 <unknown>
+#2 0x55c3d5de803f <unknown>
+#3 0x55c3d5dd5969 <unknown>
+#4 0x55c3d5d805cf <unknown>
+#5 0x55c3d5d81391 <unknown>
+#6 0x55c3d62fe04b <unknown>
+#7 0x55c3d630100d <unknown>
+#8 0x55c3d62ea808 <unknown>
+#9 0x55c3d6301ba0 <unknown>
+#10 0x55c3d62d1280 <unknown>
+#11 0x55c3d6325db8 <unknown>
+#12 0x55c3d6325f88 <unknown>
+#13 0x55c3d63375de <unknown>
+#14 0x7f193e89caa4 <unknown>
+#15 0x7f193e929c6c <unknown>
+
+23:33:21 - Skipping cookie: Message: invalid cookie domain: Cookie 'domain' mismatch
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x55c3d6338b6a <unknown>
+#1 0x55c3d5d3a265 <unknown>
+#2 0x55c3d5de803f <unknown>
+#3 0x55c3d5dd5969 <unknown>
+#4 0x55c3d5d805cf <unknown>
+#5 0x55c3d5d81391 <unknown>
+#6 0x55c3d62fe04b <unknown>
+#7 0x55c3d630100d <unknown>
+#8 0x55c3d62ea808 <unknown>
+#9 0x55c3d6301ba0 <unknown>
+#10 0x55c3d62d1280 <unknown>
+#11 0x55c3d6325db8 <unknown>
+#12 0x55c3d6325f88 <unknown>
+#13 0x55c3d63375de <unknown>
+#14 0x7f193e89caa4 <unknown>
+#15 0x7f193e929c6c <unknown>
+
+23:33:21 - Skipping cookie: Message: invalid cookie domain: Cookie 'domain' mismatch
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x55c3d6338b6a <unknown>
+#1 0x55c3d5d3a265 <unknown>
+#2 0x55c3d5de803f <unknown>
+#3 0x55c3d5dd5969 <unknown>
+#4 0x55c3d5d805cf <unknown>
+#5 0x55c3d5d81391 <unknown>
+#6 0x55c3d62fe04b <unknown>
+#7 0x55c3d630100d <unknown>
+#8 0x55c3d62ea808 <unknown>
+#9 0x55c3d6301ba0 <unknown>
+#10 0x55c3d62d1280 <unknown>
+#11 0x55c3d6325db8 <unknown>
+#12 0x55c3d6325f88 <unknown>
+#13 0x55c3d63375de <unknown>
+#14 0x7f193e89caa4 <unknown>
+#15 0x7f193e929c6c <unknown>
+
+23:33:21 - Skipping cookie: Message: invalid cookie domain: Cookie 'domain' mismatch
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x55c3d6338b6a <unknown>
+#1 0x55c3d5d3a265 <unknown>
+#2 0x55c3d5de803f <unknown>
+#3 0x55c3d5dd5969 <unknown>
+#4 0x55c3d5d805cf <unknown>
+#5 0x55c3d5d81391 <unknown>
+#6 0x55c3d62fe04b <unknown>
+#7 0x55c3d630100d <unknown>
+#8 0x55c3d62ea808 <unknown>
+#9 0x55c3d6301ba0 <unknown>
+#10 0x55c3d62d1280 <unknown>
+#11 0x55c3d6325db8 <unknown>
+#12 0x55c3d6325f88 <unknown>
+#13 0x55c3d63375de <unknown>
+#14 0x7f193e89caa4 <unknown>
+#15 0x7f193e929c6c <unknown>
+
+23:33:21 - Skipping cookie: Message: invalid cookie domain: Cookie 'domain' mismatch
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x55c3d6338b6a <unknown>
+#1 0x55c3d5d3a265 <unknown>
+#2 0x55c3d5de803f <unknown>
+#3 0x55c3d5dd5969 <unknown>
+#4 0x55c3d5d805cf <unknown>
+#5 0x55c3d5d81391 <unknown>
+#6 0x55c3d62fe04b <unknown>
+#7 0x55c3d630100d <unknown>
+#8 0x55c3d62ea808 <unknown>
+#9 0x55c3d6301ba0 <unknown>
+#10 0x55c3d62d1280 <unknown>
+#11 0x55c3d6325db8 <unknown>
+#12 0x55c3d6325f88 <unknown>
+#13 0x55c3d63375de <unknown>
+#14 0x7f193e89caa4 <unknown>
+#15 0x7f193e929c6c <unknown>
+
+23:33:21 - Skipping cookie: Message: invalid cookie domain: Cookie 'domain' mismatch
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x55c3d6338b6a <unknown>
+#1 0x55c3d5d3a265 <unknown>
+#2 0x55c3d5de803f <unknown>
+#3 0x55c3d5dd5969 <unknown>
+#4 0x55c3d5d805cf <unknown>
+#5 0x55c3d5d81391 <unknown>
+#6 0x55c3d62fe04b <unknown>
+#7 0x55c3d630100d <unknown>
+#8 0x55c3d62ea808 <unknown>
+#9 0x55c3d6301ba0 <unknown>
+#10 0x55c3d62d1280 <unknown>
+#11 0x55c3d6325db8 <unknown>
+#12 0x55c3d6325f88 <unknown>
+#13 0x55c3d63375de <unknown>
+#14 0x7f193e89caa4 <unknown>
+#15 0x7f193e929c6c <unknown>
+
+23:33:21 - Skipping cookie: Message: invalid cookie domain: Cookie 'domain' mismatch
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x55c3d6338b6a <unknown>
+#1 0x55c3d5d3a265 <unknown>
+#2 0x55c3d5de803f <unknown>
+#3 0x55c3d5dd5969 <unknown>
+#4 0x55c3d5d805cf <unknown>
+#5 0x55c3d5d81391 <unknown>
+#6 0x55c3d62fe04b <unknown>
+#7 0x55c3d630100d <unknown>
+#8 0x55c3d62ea808 <unknown>
+#9 0x55c3d6301ba0 <unknown>
+#10 0x55c3d62d1280 <unknown>
+#11 0x55c3d6325db8 <unknown>
+#12 0x55c3d6325f88 <unknown>
+#13 0x55c3d63375de <unknown>
+#14 0x7f193e89caa4 <unknown>
+#15 0x7f193e929c6c <unknown>
+
+23:33:47 - Cache restoration failed: Message: 
+Stacktrace:
+#0 0x55c3d6338b6a <unknown>
+#1 0x55c3d5d3a265 <unknown>
+#2 0x55c3d5d8cf76 <unknown>
+#3 0x55c3d5d8d1b1 <unknown>
+#4 0x55c3d5dd87d4 <unknown>
+#5 0x55c3d5dd5969 <unknown>
+#6 0x55c3d5d805cf <unknown>
+#7 0x55c3d5d81391 <unknown>
+#8 0x55c3d62fe04b <unknown>
+#9 0x55c3d630100d <unknown>
+#10 0x55c3d62ea808 <unknown>
+#11 0x55c3d6301ba0 <unknown>
+#12 0x55c3d62d1280 <unknown>
+#13 0x55c3d6325db8 <unknown>
+#14 0x55c3d6325f88 <unknown>
+#15 0x55c3d63375de <unknown>
+#16 0x7f193e89caa4 <unknown>
+#17 0x7f193e929c6c <unknown>
+
+23:33:47 - Starting full login process...
+23:33:47 - Navigating to Google sign-in...
