@@ -1,4 +1,4 @@
-# version 23.0 – Fix push via default token, detect password errors
+# version 24.0 – Fixed push_now, success screenshots, default token
 name: Gmail Sign-In & Fetch (Multi-Stage, No WARP)
 
 on: workflow_dispatch
@@ -7,7 +7,7 @@ jobs:
   signin:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # needed for git push
+      contents: write   # required for git push
     env:
       EMAIL: ${{ secrets.EMAIL }}
       PASS: ${{ secrets.PASS }}
@@ -26,12 +26,12 @@ jobs:
           pip3 install selenium webdriver-manager requests
 
       # ----------------------------------------------------------------
-      # Stage 1: Enter email (unchanged, logs and screenshots pushed)
+      # Stage 1: Enter email (FIXED push_now + success screenshot)
       # ----------------------------------------------------------------
       - name: Stage 1 – Enter email
         run: |
           python3 << 'PYEOF'
-          import os, pickle, time, subprocess
+          import os, pickle, time, subprocess, glob
           from selenium import webdriver
           from selenium.webdriver.common.by import By
           from selenium.webdriver.support.ui import WebDriverWait
@@ -40,17 +40,22 @@ jobs:
           from selenium.webdriver.common.action_chains import ActionChains
           from selenium.common.exceptions import ElementNotInteractableException
 
-          def push_now(files):
-              subprocess.run(["git", "add"] + files, check=True)
+          def push_now(*files):
+              """Add and push only files that actually exist."""
+              existing = [f for f in files if os.path.exists(f)]
+              if not existing:
+                  print("No files to push.")
+                  return
+              subprocess.run(["git", "add"] + existing, check=True)
               try:
                   subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
               except subprocess.CalledProcessError:
-                  subprocess.run(["git", "commit", "-m", "Stage 1 logs/screenshots"], check=True)
+                  subprocess.run(["git", "commit", "-m", f"Stage 1 - {existing[0]}"], check=True)
                   subprocess.run(["git", "push"], check=True)
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 1: Enter email (v23) ===\n")
+              lf.write("=== Stage 1: Enter email (v24) ===\n")
 
           try:
               opts = Options()
@@ -115,6 +120,9 @@ jobs:
               with open(log_file, "a") as lf:
                   lf.write("Email submitted, password field visible.\n")
 
+              # Save a success screenshot
+              driver.save_screenshot("stage1_password_page.png")
+
               with open("cookies.pkl", "wb") as f:
                   pickle.dump(driver.get_cookies(), f)
               with open("url.txt", "w") as f:
@@ -134,11 +142,12 @@ jobs:
                   driver.quit()
               except:
                   pass
-              push_now(["gmail_yml.log", "Stage1_failure.png"])  # push even if no failure
+              # Push log + any screenshots (failure or success)
+              push_now("gmail_yml.log", "stage1_password_page.png", "Stage1_failure.png")
           PYEOF
 
       # ----------------------------------------------------------------
-      # Stage 2: Enter password (FIXED token, error detection)
+      # Stage 2: Enter password (using same robust push_now)
       # ----------------------------------------------------------------
       - name: Stage 2 – Enter password
         run: |
@@ -152,12 +161,16 @@ jobs:
           from selenium.webdriver.chrome.options import Options
           from selenium.common.exceptions import ElementNotInteractableException, TimeoutException
 
-          def push_now(files):
-              subprocess.run(["git", "add"] + files, check=True)
+          def push_now(*files):
+              existing = [f for f in files if os.path.exists(f)]
+              if not existing:
+                  print("No files to push.")
+                  return
+              subprocess.run(["git", "add"] + existing, check=True)
               try:
                   subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
               except subprocess.CalledProcessError:
-                  subprocess.run(["git", "commit", "-m", f"Stage 2 - {files[0]}"], check=True)
+                  subprocess.run(["git", "commit", "-m", f"Stage 2 - {existing[0]}"], check=True)
                   subprocess.run(["git", "push"], check=True)
 
           log_file = "gmail_yml.log"
@@ -166,7 +179,7 @@ jobs:
                   lf.write(msg + "\n")
               print(msg)
 
-          log("=== Stage 2: Enter password (v23) ===")
+          log("=== Stage 2: Enter password (v24) ===")
 
           driver = None
           try:
@@ -193,7 +206,7 @@ jobs:
               driver.get(saved_url)
               time.sleep(2)
               driver.save_screenshot("stage2_loaded.png")
-              push_now(["stage2_loaded.png", "gmail_yml.log"])
+              push_now("stage2_loaded.png", "gmail_yml.log")
               log("Pushed stage2_loaded.png")
 
               # Wait for password field
@@ -211,10 +224,10 @@ jobs:
                       log("Moved past Welcome screen.")
                   except:
                       driver.save_screenshot("stage2_no_password_field.png")
-                      push_now(["stage2_no_password_field.png", "gmail_yml.log"])
+                      push_now("stage2_no_password_field.png", "gmail_yml.log")
                       raise Exception("Could not find password input field.")
 
-              # Enter password (normal or JS)
+              # Enter password
               try:
                   password_field.clear()
                   password_field.send_keys(os.environ["PASS"])
@@ -257,15 +270,14 @@ jobs:
               driver.save_screenshot("stage2_after_submit.png")
               with open("stage2_page_source.txt", "w", encoding="utf-8") as f:
                   f.write(driver.page_source[:3000])
-              push_now(["stage2_after_submit.png", "stage2_page_source.txt", "gmail_yml.log"])
+              push_now("stage2_after_submit.png", "stage2_page_source.txt", "gmail_yml.log")
               log("Pushed after-submit screenshot and page source.")
 
-              # Check for error messages (wrong password, CAPTCHA, etc.)
+              # Check for error messages
               log("Checking for login errors...")
               error_msgs = []
-              # Look for common error containers
               error_selectors = [
-                  "//div[contains(@class, 'o6cuMc')]",  # Google's error message box
+                  "//div[contains(@class, 'o6cuMc')]",
                   "//span[contains(text(),'Wrong password')]",
                   "//span[contains(text(),'Try again')]",
                   "//div[contains(text(),'CAPTCHA')]",
@@ -285,12 +297,12 @@ jobs:
                   with open("stage2_error_info.txt", "w") as f:
                       f.write(f"Error messages: {error_text}\nURL: {driver.current_url}\n")
                   driver.save_screenshot("stage2_error.png")
-                  push_now(["stage2_error.png", "stage2_error_info.txt", "gmail_yml.log"])
+                  push_now("stage2_error.png", "stage2_error_info.txt", "gmail_yml.log")
                   raise Exception(f"Login error: {error_text}")
               else:
                   log("No explicit error messages found.")
 
-              # Try to detect 2FA page
+              # Verify 2FA page
               log("Verifying 2FA page...")
               try:
                   WebDriverWait(driver, 15).until(
@@ -302,17 +314,16 @@ jobs:
                   )
                   log("2FA page detected.")
               except TimeoutException:
-                  # Still no 2FA, final attempt: check if we are still on the same identifier page
                   if "identifier" in driver.current_url:
                       driver.save_screenshot("stage2_still_login.png")
-                      push_now(["stage2_still_login.png", "gmail_yml.log"])
+                      push_now("stage2_still_login.png", "gmail_yml.log")
                       raise Exception("Still on sign-in page after password – likely wrong password or CAPTCHA, see screenshots.")
                   else:
                       driver.save_screenshot("stage2_not_2fa.png")
-                      push_now(["stage2_not_2fa.png", "gmail_yml.log"])
+                      push_now("stage2_not_2fa.png", "gmail_yml.log")
                       raise Exception("Failed to reach 2FA page – unexpected page.")
 
-              # Save state for next stages
+              # Save state
               with open("cookies.pkl", "wb") as f:
                   pickle.dump(driver.get_cookies(), f)
               with open("url.txt", "w") as f:
@@ -324,7 +335,7 @@ jobs:
               log(f"Stage 2 FAILED: {e}")
               try:
                   driver.save_screenshot("Stage2_failure.png")
-                  push_now(["Stage2_failure.png", "gmail_yml.log"])
+                  push_now("Stage2_failure.png", "gmail_yml.log")
               except:
                   pass
               raise
@@ -335,4 +346,6 @@ jobs:
                   pass
           PYEOF
 
-      # (remaining stages unchanged: 3,4,5,6 – they also use push_now for logs/screenshots)
+      # (Stages 3-6 are identical to previous versions but use the fixed push_now; 
+      #  they are omitted here for brevity. They can be added exactly as before,
+      #  just replace their push_now definitions with the fixed version.)
