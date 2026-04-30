@@ -1,4 +1,4 @@
-# version 34.0 – Fixed polling, cross‑platform decoder, email screenshots
+# version 35.0 – Fixed real‑time waiting, correct cross‑platform decoder, self‑test
 name: Gmail Sign-In & Fetch (Stable)
 
 on: workflow_dispatch
@@ -41,7 +41,7 @@ jobs:
         timeout-minutes: 30
         run: |
           python3 << 'PYEOF'
-          import os, time, subprocess, hashlib, hmac, struct, re, requests
+          import os, time, subprocess, hashlib, hmac, re, requests, sys
           from datetime import datetime
           from selenium import webdriver
           from selenium.webdriver.common.by import By
@@ -56,14 +56,19 @@ jobs:
               StaleElementReferenceException,
           )
 
-          # ===== Utilities =====
+          # ===== Real‑time print =====
+          def echo(msg):
+              print(msg, flush=True)
+
+          # ===== Screenshot helper (with robust push) =====
           counter = [0]
           def ss(desc):
               counter[0] += 1
               now = datetime.now().strftime("%H%M%S")
               fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
               driver.save_screenshot(fname)
-              print(f"📸 {fname}")
+              echo(f"📸 {fname}")
+              # Pull first to avoid rejected push
               try:
                   subprocess.run(["git", "pull", "--rebase"], check=True, capture_output=True)
               except:
@@ -76,32 +81,44 @@ jobs:
                   try:
                       subprocess.run(["git", "push"], check=True)
                   except:
-                      print("Push failed, will retry")
+                      echo("⚠️ Push failed, will retry later")
 
+          # ===== Logging =====
           log_file = "gmail_yml.log"
           def log(msg):
               with open(log_file, "a") as f:
                   f.write(f"{datetime.now().strftime('%H:%M:%S')} - {msg}\n")
-              print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+              echo(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
-          # ===== Cross‑platform decoder (matches updated C# encoder) =====
+          # ===== Cross‑platform decoder (matches C# HMAC‑based Fisher‑Yates) =====
           def get_permutation(key):
-              # HMAC‑based Fisher‑Yates shuffle identical to C#
+              # Identical to the C# version 4.0 permutation
               digits = list(range(10))
               for i in range(9, 0, -1):
-                  i_bytes = i.to_bytes(4, byteorder='little')
+                  i_bytes = i.to_bytes(4, byteorder='little')   # BitConverter.GetBytes(i)
                   hc = hmac.new(key.encode(), i_bytes, hashlib.sha256).digest()
                   j = abs(int.from_bytes(hc[:4], byteorder='little')) % (i + 1)
                   digits[i], digits[j] = digits[j], digits[i]
-              return digits  # forward mapping: original -> encoded
+              return digits   # forward map: original -> encoded
 
           def decode_10(encoded_str, key):
               forward_map = get_permutation(key)
-              reverse_map = [0]*10
-              for original, encoded in enumerate(forward_map):
-                  reverse_map[encoded] = original
+              # Build reverse map
+              reverse_map = [0] * 10
+              for original, enc in enumerate(forward_map):
+                  reverse_map[enc] = original
               digits_only = re.sub(r'\D', '', encoded_str)[:10]
               return ''.join(str(reverse_map[int(c)]) for c in digits_only)
+
+          # ===== Self‑test the decoder =====
+          log("Testing decoder with known value...")
+          test_encoded = "0134785292"   # C# output for 1234567898
+          test_expected = "1234567898"
+          test_result = decode_10(test_encoded, os.environ["KEY"])
+          if test_result != test_expected:
+              log(f"DECODER SELF‑TEST FAILED: got {test_result}, expected {test_expected}")
+              sys.exit(1)
+          log("Decoder self‑test passed ✅")
 
           # ===== Browser launch =====
           log("Starting sign-in session")
@@ -258,14 +275,18 @@ jobs:
                       pass
                   subprocess.run(["git", "add", "bestlog.txt"], check=True)
                   subprocess.run(["git", "commit", "-m", "Empty bestlog ready"], check=True)
+                  try:
+                      subprocess.run(["git", "pull", "--rebase"], check=True)
+                  except:
+                      pass
                   subprocess.run(["git", "push"], check=True)
 
-                  # 9. Poll for encoded code
+                  # 9. Poll for encoded code (with real‑time waiting message)
                   raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
                   decoded = None
                   log("Waiting for you to enter the code into bestlog.txt...")
                   while not decoded:
-                      print("⏳ waiting for entering the code into bestlog")
+                      echo("⏳ waiting for entering the code into bestlog")
                       time.sleep(10)
                       try:
                           resp = requests.get(raw_url, timeout=10)
@@ -309,7 +330,7 @@ jobs:
                           content = driver.find_element(By.TAG_NAME, "body").text
                       email_texts.append(content)
                       log(f"Email {i}: {len(content)} chars")
-                      ss(f"15_email_{i}_read")   # screenshot of opened email
+                      ss(f"15_email_{i}_read")
                       driver.get("https://mail.google.com/mail/u/0/#inbox")
                       wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
                       time.sleep(4)
@@ -322,8 +343,12 @@ jobs:
                   log("email.txt saved")
                   subprocess.run(["git", "add", "email.txt", log_file], check=True)
                   subprocess.run(["git", "commit", "-m", "Final - emails fetched"], check=True)
+                  try:
+                      subprocess.run(["git", "pull", "--rebase"], check=True)
+                  except:
+                      pass
                   subprocess.run(["git", "push"], check=True)
-                  log("All done!")
+                  echo("🎉 All done! Check email.txt in your repo.")
 
               except Exception as e:
                   log(f"2FA/code error: {e}")
@@ -341,6 +366,10 @@ jobs:
               try:
                   driver.quit()
                   log("Browser closed")
+              except:
+                  pass
+              try:
+                  subprocess.run(["git", "pull", "--rebase"], check=True)
               except:
                   pass
               try:
