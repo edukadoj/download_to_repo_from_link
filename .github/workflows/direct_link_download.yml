@@ -1,3 +1,4 @@
+# Version 2.4
 name: Download With Direct Link (Universal)
 
 on:
@@ -239,10 +240,10 @@ jobs:
 
           node downloader.js
 
-      - name: Commit download log and file list
+      - name: Commit download log
         if: always()
         run: |
-          git add download.log file_list.txt 2>/dev/null || true
+          git add download.log 2>/dev/null || true
           git commit -m "Update download log" || true
           git pull --rebase --strategy-option ours || true
           git push || true
