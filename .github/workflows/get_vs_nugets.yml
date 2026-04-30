@@ -1,9 +1,9 @@
 # ==============================================================================
-#  version: 3.4
+#  version: 3.5
 #  Offline NuGet Feed Builder for Visual Studio 2026 Community
-#  - Priority packages processed individually (full restore or direct download).
-#  - Fallback download now tolerates failures (step won't die).
-#  - Top popular packages strictly skipped when checkbox is ticked.
+#  - Priority packages: restore → dotnet package download → direct NuGet V2 download.
+#  - Exact version (@x.y.z) is guaranteed via a direct NuGet API call.
+#  - Top packages optional (skip checkbox).
 # ==============================================================================
 
 name: Download NuGet Packages Offline
@@ -59,7 +59,7 @@ jobs:
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-v34-" +
+          $key = "nuget-offline-feed-v35-" +
             "search-${{ inputs.search_term }}" +
             "-maxGB-${{ inputs.max_size_gb }}" +
             "-topskip-${{ inputs.skip_top_packages }}"
@@ -73,15 +73,14 @@ jobs:
           echo "FEED_DIR=$feedDir" >> $env:GITHUB_ENV
 
       # ---------------------------------------------------------------
-      # 1. PRIORITY PACKAGES (each processed individually)
+      # 1. PRIORITY PACKAGES (processed individually, fallback with direct NuGet V2)
       # ---------------------------------------------------------------
-      - name: Download priority packages (tolerant fallback)
+      - name: Download priority packages (exact version via NuGet V2 fallback)
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Continue'   # don't stop on non‑terminating errors
+          $ErrorActionPreference = 'Continue'
           $feedDir = $env:FEED_DIR
 
-          # Parse input
           $input = @"
           ${{ inputs.priority_packages }}
           "@
@@ -108,7 +107,7 @@ jobs:
               $pkgRef = "<PackageReference Include=`"$id`" Version=`"*`" />"
             }
 
-            # Attempt restore (with full dependencies)
+            # 1) Try full restore (may fail for platform packs)
             $tempCsproj = Join-Path $env:RUNNER_TEMP "prio_$([Guid]::NewGuid()).csproj"
             @"
           <Project Sdk="Microsoft.NET.Sdk">
@@ -127,25 +126,42 @@ jobs:
               if ($LASTEXITCODE -eq 0) { $restoreOk = $true }
             } catch { }
 
-            if (-not $restoreOk) {
-              Write-Host "  Restore failed – downloading as bare .nupkg (no deps)."
+            if ($restoreOk) {
+              Write-Host "  Restored with all dependencies."
+            } else {
+              Write-Host "  Restore failed – trying dotnet package download..."
               if ($ver) {
                 dotnet package download $id --version $ver --output $feedDir 2>&1 | Out-Null
               } else {
                 dotnet package download $id --output $feedDir 2>&1 | Out-Null
               }
-              if ($LASTEXITCODE -ne 0) {
-                Write-Warning "  Failed to download $tok – skipped."
-              }
-              # Reset LASTEXITCODE so it doesn't poison subsequent commands
+              $dotnetExit = $LASTEXITCODE
               $global:LASTEXITCODE = 0
+
+              if ($dotnetExit -ne 0 -or $null -eq (Get-ChildItem -Path $feedDir -Recurse -Filter "$id.*.nupkg")) {
+                Write-Host "  dotnet package download failed or missing – downloading from NuGet V2 API..."
+                if ($ver) {
+                  $nupkgUrl = "https://www.nuget.org/api/v2/package/$id/$ver"
+                  $outFile = Join-Path $feedDir "$id.$ver.nupkg"
+                  try {
+                    Invoke-WebRequest -Uri $nupkgUrl -OutFile $outFile -ErrorAction Stop
+                    Write-Host "  Exact .nupkg downloaded: $outFile"
+                  } catch {
+                    Write-Warning "  Direct download failed for $id@$ver : $_"
+                  }
+                } else {
+                  Write-Warning "  No version specified – cannot perform direct download."
+                }
+              } else {
+                Write-Host "  dotnet package download succeeded."
+              }
             }
 
             Remove-Item $tempCsproj -Force -ErrorAction SilentlyContinue
           }
 
           Write-Host "All priority packages processed."
-          exit 0   # ensure step always succeeds
+          exit 0
 
       # ---------------------------------------------------------------
       # 2. Measure initial feed size
