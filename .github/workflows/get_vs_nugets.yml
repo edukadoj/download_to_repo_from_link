@@ -1,41 +1,35 @@
 # ==============================================================================
-#  version: 2.6
+#  version: 3.0
 #  Offline NuGet Feed Builder for Visual Studio 2026 Community
-#  Priority packages are comma‑separated (survives any whitespace collapse).
-#  Chunk folder is cleaned before every run (avoids leftover parts).
+#  - Downloads user‑defined "Priority packages" (with all dependencies).
+#  - Optionally also downloads the most‑popular packages (up to a size limit).
+#  - Splits the resulting ZIP into chunks and uploads them to the repository.
 # ==============================================================================
 
-name: Download NuGet Packages Offline (Priority + Top by Downloads)
+name: Download NuGet Packages Offline
 
 on:
   workflow_dispatch:
     inputs:
       priority_packages:
         description: |
-          Priority packages – **separate them with commas**.
-          You may write one per line for readability, commas are required.
-          Optionally append @version (e.g. Newtonsoft.Json@13.0.3).
+          **Packages you definitely need** (with or without version).
+          Separate them with commas. They will be downloaded together with all their dependencies.
           Examples:
-            Microsoft.Maui.Controls, ClosedXML@0.104.2, OpenCvSharp4, NAudio
+            Microsoft.Maui.Controls, ClosedXML@0.104.2, NAudio, xunit
         type: string
-        default: |
-          Microsoft.Maui.Controls, Microsoft.Maui.Essentials, CommunityToolkit.Maui,
-          CommunityToolkit.Mvvm, ClosedXML@0.104.2, EPPlus, NPOI,
-          DocumentFormat.OpenXml, CsvHelper, NAudio, FFMpegCore, Xabe.FFmpeg,
-          OpenCvSharp4, OpenCvSharp4.runtime.win, OpenCvSharp4.Extensions,
-          Microsoft.Data.SqlClient, Microsoft.EntityFrameworkCore,
-          Microsoft.EntityFrameworkCore.SqlServer, Dapper, Swashbuckle.AspNetCore,
-          Microsoft.Identity.Web, Microsoft.Identity.Client, Microsoft.Graph,
-          xunit, xunit.runner.visualstudio, Moq, Bogus, FluentAssertions,
-          Serilog, Serilog.Sinks.Console, Serilog.Sinks.File, AutoMapper,
-          Newtonsoft.Json, System.Text.Json
-
+        default: ''
+      skip_top_packages:
+        description: 'Check this box to download ONLY the priority packages above (ignore popular packages).'
+        type: boolean
+        required: false
+        default: false
       search_term:
-        description: 'Search term for top-packages (leave empty for overall most popular)'
+        description: 'Optional: filter top packages by a keyword (e.g. maui, excel, opencv). Leave empty for the most popular of all.'
         type: string
         default: ''
       max_size_gb:
-        description: 'Maximum total folder size in GB (default 10)'
+        description: 'Maximum total size of the offline feed in GB (applies only when top packages are downloaded). Default: 10.'
         type: string
         default: '10'
 
@@ -54,10 +48,9 @@ jobs:
         with:
           dotnet-version: '10.x'
 
-      # -------------------------------------------------------------
-      # Install all necessary workloads for broad compatibility
-      # -------------------------------------------------------------
+      # Workloads are only installed if top packages are NOT skipped
       - name: Install workloads (MAUI, WASM, Aspire)
+        if: inputs.skip_top_packages != 'true'
         run: |
           dotnet workload install maui wasm-tools aspire --skip-sign-check
           dotnet workload list
@@ -66,9 +59,10 @@ jobs:
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-v26-" +
+          $key = "nuget-offline-feed-v30-" +
             "search-${{ inputs.search_term }}" +
-            "-maxGB-${{ inputs.max_size_gb }}"
+            "-maxGB-${{ inputs.max_size_gb }}" +
+            "-topskip-${{ inputs.skip_top_packages }}"
           "key=$key" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Create output directory
@@ -86,20 +80,21 @@ jobs:
         run: |
           $feedDir = $env:FEED_DIR
 
-          # Get input and split by comma
+          # Read user input (may be empty)
           $input = @"
           ${{ inputs.priority_packages }}
           "@
-          # Remove comments (lines starting with #) and newlines, then split by comma
+
+          # Clean up: remove comments and newlines, split by comma
           $input = $input -replace '^\s*#.*$', '' -replace "`r`n", ' ' -replace "`n", ' '
           $tokens = $input -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
 
           if ($tokens.Count -eq 0) {
-            Write-Host "No priority packages found."
+            Write-Host "No priority packages provided – nothing to restore."
             exit 0
           }
 
-          # Build restore project with all valid packages
+          # Build a temporary project with all the requested packages
           $projXml = @"
           <Project Sdk="Microsoft.NET.Sdk">
             <PropertyGroup>
@@ -107,7 +102,6 @@ jobs:
             </PropertyGroup>
             <ItemGroup>
           "@
-          $pkgCount = 0
           foreach ($tok in $tokens) {
             if ($tok -match '@') {
               $parts = $tok -split '@', 2
@@ -115,19 +109,19 @@ jobs:
             } else {
               $projXml += "`n    <PackageReference Include=`"$tok`" Version=`"*`" />"
             }
-            $pkgCount++
           }
           $projXml += "`n    </ItemGroup>`n</Project>"
 
-          Write-Host "Restoring $pkgCount priority packages..."
           $projPath = Join-Path $env:RUNNER_TEMP "PriorityRestore.csproj"
           $projXml | Out-File -FilePath $projPath -Encoding UTF8
+
+          Write-Host "Restoring $($tokens.Count) priority packages with all dependencies..."
           dotnet restore $projPath --packages $feedDir
           if ($LASTEXITCODE -ne 0) { throw "Priority restore failed" }
-          Write-Host "Priority packages restored with all dependencies."
+          Write-Host "Priority packages restored."
 
       # ---------------------------------------------------------------
-      # 2. Measure initial feed size
+      # 2. Initial feed size measurement
       # ---------------------------------------------------------------
       - name: Measure current feed size
         id: measure
@@ -140,9 +134,10 @@ jobs:
           echo "CURRENT_SIZE=$size" >> $env:GITHUB_ENV
 
       # ---------------------------------------------------------------
-      # 3. TOP POPULAR PACKAGES (individual processing)
+      # 3. TOP POPULAR PACKAGES (only if not skipped and max_size_gb > 0)
       # ---------------------------------------------------------------
       - name: Fetch and process top packages
+        if: inputs.skip_top_packages != 'true' && inputs.max_size_gb != '0'
         shell: pwsh
         timeout-minutes: 540
         run: |
@@ -150,7 +145,7 @@ jobs:
           $maxSizeBytes = [double]${{ inputs.max_size_gb }} * 1GB
           $currentSize = [long]$env:CURRENT_SIZE
 
-          # ---- collect package IDs from NuGet search API ----
+          # ---- get package IDs from NuGet search API ----
           $searchTerm = "${{ inputs.search_term }}"
           $baseUrl = "https://azuresearch-usnc.nuget.org/query"
           $ids = [System.Collections.ArrayList]::new()
@@ -171,7 +166,7 @@ jobs:
           if ($ids.Count -eq 0) { Write-Host "No top packages found." ; exit 0 }
           Write-Host "Fetched $($ids.Count) top package IDs."
 
-          # ---- process each ID ----
+          # ---- process each ID individually ----
           $processed = 0
           foreach ($id in $ids) {
             if ($currentSize -ge $maxSizeBytes) {
@@ -198,7 +193,7 @@ jobs:
             } catch { }
 
             if (-not $restoreOk) {
-              Write-Host "Restore failed – falling back to package download (no deps)."
+              Write-Host "Restore failed – downloading as bare .nupkg (no deps)."
               dotnet package download $id --output $feedDir 2>&1 | Out-Null
             }
 
@@ -230,7 +225,7 @@ jobs:
           echo "ZIP_PATH=$zipPath" >> $env:GITHUB_ENV
 
       # ---------------------------------------------------------------
-      # 5. Clean old chunk folder (NEW – prevents leftover parts)
+      # 5. Clean old chunk folder
       # ---------------------------------------------------------------
       - name: Clean up old chunk folder
         shell: powershell
@@ -244,7 +239,7 @@ jobs:
           }
 
       # ---------------------------------------------------------------
-      # 6. Split and upload chunks
+      # 6. Split zip and upload chunks
       # ---------------------------------------------------------------
       - name: Split zip and upload chunks
         shell: powershell
