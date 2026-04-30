@@ -1,2 +1,24 @@
 === Stage 1: Enter email (v25) ===
 Email submitted, password field visible.
+=== Stage 2: Enter password (v25) ===
+Skipping cookie __Host-GAPS: Message: unable to set cookie
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x55f9db5a1b6a <unknown>
+#1 0x55f9dafa3070 <unknown>
+#2 0x55f9dafb0fcd <unknown>
+#3 0x55f9db05187c <unknown>
+#4 0x55f9db03e969 <unknown>
+#5 0x55f9dafe95cf <unknown>
+#6 0x55f9dafea391 <unknown>
+#7 0x55f9db56704b <unknown>
+#8 0x55f9db56a00d <unknown>
+#9 0x55f9db553808 <unknown>
+#10 0x55f9db56aba0 <unknown>
+#11 0x55f9db53a280 <unknown>
+#12 0x55f9db58edb8 <unknown>
+#13 0x55f9db58ef88 <unknown>
+#14 0x55f9db5a05de <unknown>
+#15 0x7fbea449caa4 <unknown>
+#16 0x7fbea4529c6c <unknown>
+
