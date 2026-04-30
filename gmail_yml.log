@@ -146,3 +146,25 @@ Stacktrace:
 10:20:05 - Waiting for you to enter the code into bestlog.txt...
 10:25:28 - Encoded digits found: 1040930120
 10:25:28 - Entering decoded security code...
+10:25:35 - Waiting for inbox...
+10:25:55 - 2FA/code error: Message: 
+Stacktrace:
+#0 0x55bfc5ea1b6a <unknown>
+#1 0x55bfc58a3265 <unknown>
+#2 0x55bfc58f5f76 <unknown>
+#3 0x55bfc58f61b1 <unknown>
+#4 0x55bfc59417d4 <unknown>
+#5 0x55bfc593e969 <unknown>
+#6 0x55bfc58e95cf <unknown>
+#7 0x55bfc58ea391 <unknown>
+#8 0x55bfc5e6704b <unknown>
+#9 0x55bfc5e6a00d <unknown>
+#10 0x55bfc5e53808 <unknown>
+#11 0x55bfc5e6aba0 <unknown>
+#12 0x55bfc5e3a280 <unknown>
+#13 0x55bfc5e8edb8 <unknown>
+#14 0x55bfc5e8ef88 <unknown>
+#15 0x55bfc5ea05de <unknown>
+#16 0x7fb17e29caa4 <unknown>
+#17 0x7fb17e329c6c <unknown>
+
