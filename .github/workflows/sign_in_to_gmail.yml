@@ -1,4 +1,4 @@
-# version 6.0 – Comprehensive Gmail sign-in with method selection, Warp, robust waits, and email fetch
+# version 7.0 – Comprehensive Gmail sign-in with dedicated WARP action, robust waits, and email fetch
 name: Gmail Sign-In & Fetch (Robust)
 
 on: workflow_dispatch
@@ -14,29 +14,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies (Chrome, Warp, Python libs)
+      - name: Install dependencies (Chrome, Python libs)
         run: |
           sudo apt update
-          sudo apt install -y wget gnupg python3-pip curl
-          # Google Chrome
+          sudo apt install -y wget gnupg python3-pip
           wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
           sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
           sudo apt update
           sudo apt install -y google-chrome-stable
-          # Cloudflare Warp (optional, reduces bot flags)
-          curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
-          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
-          sudo apt update
-          sudo apt install -y cloudflare-warp
-          # Python packages
           pip3 install selenium webdriver-manager requests
 
-      - name: Connect via Cloudflare Warp (optional but recommended)
+      - name: Setup Cloudflare WARP
+        uses: viperadnan-git/setup-warp@v1
+        with:
+          mode: 'client'
+          stack: 'dual'
+          configure_docker: 'false'
+
+      - name: Verify WARP connection
         run: |
-          warp-cli register
-          warp-cli connect
-          sleep 5
-          warp-cli status
+          echo "Checking WARP status..."
+          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
+          echo "WARP is active."
 
       - name: Full sign-in, 2FA method selection, poll for code, fetch emails
         run: |
@@ -104,14 +103,7 @@ jobs:
           time.sleep(4)
           print("[*] Checking for 2‑Step Verification page...")
 
-          # Google may show a list of verification methods. We must click on
-          # "Use your security code" or "Enter a verification code".
-          # Typical patterns:
-          # - A button with text "Try another way" -> click it if present.
-          # - A list item with data-challengetype="12" or "13" for backup codes.
-          # - An option labeled "Enter one of your 8‑digit backup codes" or "Google Authenticator".
-
-          # First, try to click "Try another way" to reveal code option if not already visible.
+          # Try to click "Try another way" to reveal code option if not already visible.
           try:
               another_way = driver.find_element(By.XPATH, "//button[contains(.,'Try another way') or contains(.,'More options')]")
               another_way.click()
@@ -120,9 +112,7 @@ jobs:
           except:
               pass
 
-          # Now look for the specific option that leads to a code input.
-          # We'll search for elements containing the text "security code", "verification code", "backup code",
-          # or a div with data-challengetype indicating a code prompt.
+          # Look for the specific option that leads to a code input.
           code_option_selectors = [
               "//div[@data-challengetype='12']",                        # backup codes
               "//div[@data-challengetype='13']",                        # TOTP (Google Authenticator)
@@ -144,7 +134,6 @@ jobs:
                   continue
 
           if not clicked_code_option:
-              # Fallback: sometimes the code input is already visible after password
               print("[*] Code input may already be visible, checking...")
 
           # ============================================================
@@ -188,8 +177,6 @@ jobs:
           # 6. Enter the security code
           # ============================================================
           time.sleep(2)
-          # The input field may be id="idvPin" for backup codes, or id="totpPin" for TOTP.
-          # Try known IDs first, then fallback to any visible text/tel input.
           code_input = None
           for field_id in ["idvPin", "totpPin", "idvPreregisteredPhonePin", "backupCode"]:
               try:
@@ -199,7 +186,6 @@ jobs:
               except:
                   continue
           if not code_input:
-              # Fallback: find any visible input of type text/tel
               inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='text'], input[type='tel']")
               for inp in inputs:
                   if inp.is_displayed():
@@ -207,7 +193,6 @@ jobs:
                       break
           if code_input:
               code_input.send_keys(decoded_code)
-              # Click Next/Verify
               next_btn = driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]")
               next_btn.click()
               time.sleep(5)
@@ -229,7 +214,6 @@ jobs:
               row.click()
               time.sleep(4)
               try:
-                  # The email body is inside a div with class "a3s" or "a3s aiL"
                   body = driver.find_element(By.CSS_SELECTOR, "div.a3s")
                   content = body.text
               except:
