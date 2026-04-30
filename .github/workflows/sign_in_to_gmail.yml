@@ -1,4 +1,4 @@
-# version 18.0 – Stage‑2 fix: inject password via JS if not interactable
+# version 19.0 – Stage‑2 fix: missing Next button → click any Next/Enter fallback, robust commit
 name: Gmail Sign-In & Fetch (Multi-Stage, No WARP)
 
 on: workflow_dispatch
@@ -41,7 +41,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 1: Enter email (v18) ===\n")
+              lf.write("=== Stage 1: Enter email (v19) ===\n")
 
           try:
               opts = Options()
@@ -137,7 +137,7 @@ jobs:
           if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 1 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
       # ----------------------------------------------------------------
-      # Stage 2: Enter password (FIXED – JS injection fallback)
+      # Stage 2: Enter password (FIX: handle missing Next button)
       # ----------------------------------------------------------------
       - name: Stage 2 – Enter password
         run: |
@@ -145,10 +145,11 @@ jobs:
           import os, pickle, time
           from selenium import webdriver
           from selenium.webdriver.common.by import By
+          from selenium.webdriver.common.keys import Keys
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
-          from selenium.common.exceptions import ElementNotInteractableException
+          from selenium.common.exceptions import ElementNotInteractableException, NoSuchElementException, TimeoutException
 
           log_file = "gmail_yml.log"
           def log(msg):
@@ -156,7 +157,7 @@ jobs:
                   lf.write(msg + "\n")
               print(msg)
 
-          log("=== Stage 2: Enter password (v18) ===")
+          log("=== Stage 2: Enter password (v19) ===")
 
           driver = None
           try:
@@ -168,7 +169,7 @@ jobs:
               driver = webdriver.Chrome(options=opts)
               driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-              # --- Load state ---
+              # Load state
               log("Loading cookies and navigating to saved URL")
               with open("cookies.pkl", "rb") as f:
                   cookies = pickle.load(f)
@@ -184,46 +185,67 @@ jobs:
               time.sleep(2)
               driver.save_screenshot("stage2_loaded.png")
 
-              # --- Wait for password field (just presence) ---
+              # Wait for password field presence
               wait = WebDriverWait(driver, 20)
               try:
-                  # First check if password field is already present
                   password_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
                   log("Password field present.")
               except:
-                  # Maybe we landed on "Welcome" screen – try clicking "Next"
-                  log("Password field not present; checking for 'Welcome' screen.")
+                  log("Password field not present; checking for Welcome screen.")
                   try:
-                      welcome = driver.find_element(By.XPATH, "//div[contains(text(),'Welcome')]")
+                      driver.find_element(By.XPATH, "//div[contains(text(),'Welcome')]")
                       driver.find_element(By.XPATH, "//button[contains(.,'Next')]").click()
                       time.sleep(2)
                       password_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-                      log("Moved past Welcome screen, password field now present.")
+                      log("Moved past Welcome screen.")
                   except:
                       driver.save_screenshot("stage2_no_password_field.png")
                       raise Exception("Could not find password input field.")
 
-              # --- Clear and enter password ---
+              # Enter password (normal or JS)
               try:
-                  # Try normal interaction
                   password_field.clear()
                   password_field.send_keys(os.environ["PASS"])
                   log("Password entered normally.")
               except ElementNotInteractableException:
                   log("Password field not interactable. Setting value via JavaScript.")
-                  # Use JavaScript to set the value and trigger events
                   driver.execute_script("arguments[0].value = arguments[1];", password_field, os.environ["PASS"])
                   driver.execute_script("arguments[0].dispatchEvent(new Event('input', { bubbles: true }));", password_field)
                   driver.execute_script("arguments[0].dispatchEvent(new Event('change', { bubbles: true }));", password_field)
                   log("Password set via JS.")
 
-              # Click Next
-              driver.find_element(By.ID, "passwordNext").click()
+              # Try to click Next button – multiple fallback strategies
+              log("Looking for Next button...")
+              next_btn = None
+              selectors = [
+                  (By.ID, "passwordNext"),
+                  (By.XPATH, "//button[contains(.,'Next')]"),
+                  (By.XPATH, "//button[contains(.,'Submit')]"),
+                  (By.XPATH, "//*[@id='passwordNext']")
+              ]
+              for method, sel in selectors:
+                  try:
+                      next_btn = driver.find_element(method, sel)
+                      if next_btn.is_displayed() and next_btn.is_enabled():
+                          break
+                      else:
+                          next_btn = None
+                  except:
+                      continue
+
+              if next_btn:
+                  next_btn.click()
+                  log("Clicked Next button.")
+              else:
+                  # No visible clickable Next button, press Enter
+                  log("No Next button found. Pressing Enter in password field.")
+                  password_field.send_keys(Keys.RETURN)
+
               time.sleep(4)
               driver.save_screenshot("stage2_after_password.png")
 
-              # --- Confirm we reached 2FA page ---
-              log("Verifying 2FA page")
+              # Verify we reached 2FA page
+              log("Verifying 2FA page...")
               try:
                   WebDriverWait(driver, 15).until(
                       EC.any_of(
@@ -263,10 +285,17 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
+          echo "=== Debug: file listing ==="
+          ls -la *.png *.log 2>/dev/null || echo "No log/png files found."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gmail_yml.log stage2_loaded.png stage2_no_password_field.png stage2_after_password.png stage2_not_2fa.png Stage2_failure.png 2>/dev/null || true
-          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 2 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
+          git add gmail_yml.log stage2_*.png Stage2_failure.png Stage1_failure.png 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit -m "Stage 2 log"
+            git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Git push failed (not critical)."
+          fi
 
       # ----------------------------------------------------------------
       # Stage 3: Select "security code" method (unchanged)
@@ -281,7 +310,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 3: Select code method (v18) ===\n")
+              lf.write("=== Stage 3: Select code method (v19) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -364,10 +393,12 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
+          echo "=== Debug: file listing ==="
+          ls -la *.png *.log 2>/dev/null || echo "No log/png files."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log Stage3_failure.png 2>/dev/null || true
-          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 3 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
+          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 3 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (not critical)."; fi
 
       # ----------------------------------------------------------------
       # Stage 4: Poll for encoded security code (unchanged)
@@ -427,7 +458,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log decoded_code.txt
-          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 4 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
+          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 4 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (not critical)."; fi
 
       # ----------------------------------------------------------------
       # Stage 5: Enter security code (unchanged)
@@ -444,7 +475,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 5: Enter security code (v18) ===\n")
+              lf.write("=== Stage 5: Enter security code (v19) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -522,7 +553,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log Stage5_failure.png 2>/dev/null || true
-          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 5 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
+          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 5 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (not critical)."; fi
 
       # ----------------------------------------------------------------
       # Stage 6: Fetch last two emails (unchanged)
@@ -539,7 +570,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 6: Fetch emails (v18) ===\n")
+              lf.write("=== Stage 6: Fetch emails (v19) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -612,4 +643,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log email.txt Stage*.png 2>/dev/null || true
-          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Final logs and emails" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
+          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Final logs and emails" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (not critical)."; fi
