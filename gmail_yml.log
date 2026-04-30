@@ -41,3 +41,4 @@
 23:21:19 - Selecting backup/security code option...
 23:21:21 - Clicked 'Try another way'.
 23:21:25 - Selected code option: //div[@role='link' and contains(.,'code')]
+23:21:27 - Code input field ready.
