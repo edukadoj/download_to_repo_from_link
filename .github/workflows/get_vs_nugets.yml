@@ -1,9 +1,9 @@
 # ==============================================================================
-#  version: 3.0
+#  version: 3.1
 #  Offline NuGet Feed Builder for Visual Studio 2026 Community
-#  - Downloads user‑defined "Priority packages" (with all dependencies).
-#  - Optionally also downloads the most‑popular packages (up to a size limit).
-#  - Splits the resulting ZIP into chunks and uploads them to the repository.
+#  - Priority packages are processed one by one (full restore or direct download).
+#  - Top popular packages are optional (skip checkbox).
+#  - Clear, simple input descriptions.
 # ==============================================================================
 
 name: Download NuGet Packages Offline
@@ -13,10 +13,11 @@ on:
     inputs:
       priority_packages:
         description: |
-          **Packages you definitely need** (with or without version).
-          Separate them with commas. They will be downloaded together with all their dependencies.
-          Examples:
-            Microsoft.Maui.Controls, ClosedXML@0.104.2, NAudio, xunit
+          **Packages you definitely need** (comma‑separated).
+          You can include a version with @, e.g. Newtonsoft.Json@13.0.3.
+          Each package will be restored with all its dependencies (if possible).
+          Example:
+            Microsoft.Maui.Controls, ClosedXML@0.104.2, xunit
         type: string
         default: ''
       skip_top_packages:
@@ -25,11 +26,11 @@ on:
         required: false
         default: false
       search_term:
-        description: 'Optional: filter top packages by a keyword (e.g. maui, excel, opencv). Leave empty for the most popular of all.'
+        description: 'Optional keyword to filter top packages (e.g. maui, excel, opencv). Leave empty for overall most popular.'
         type: string
         default: ''
       max_size_gb:
-        description: 'Maximum total size of the offline feed in GB (applies only when top packages are downloaded). Default: 10.'
+        description: 'Maximum total feed size in GB (only for top packages). Default: 10.'
         type: string
         default: '10'
 
@@ -59,7 +60,7 @@ jobs:
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-v30-" +
+          $key = "nuget-offline-feed-v31-" +
             "search-${{ inputs.search_term }}" +
             "-maxGB-${{ inputs.max_size_gb }}" +
             "-topskip-${{ inputs.skip_top_packages }}"
@@ -73,9 +74,9 @@ jobs:
           echo "FEED_DIR=$feedDir" >> $env:GITHUB_ENV
 
       # ---------------------------------------------------------------
-      # 1. PRIORITY PACKAGES (comma‑separated, full restore)
+      # 1. PRIORITY PACKAGES (processed individually)
       # ---------------------------------------------------------------
-      - name: Download priority packages (with transitive dependencies)
+      - name: Download priority packages (each processed individually)
         shell: pwsh
         run: |
           $feedDir = $env:FEED_DIR
@@ -90,38 +91,56 @@ jobs:
           $tokens = $input -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
 
           if ($tokens.Count -eq 0) {
-            Write-Host "No priority packages provided – nothing to restore."
+            Write-Host "No priority packages provided – nothing to download."
             exit 0
           }
 
-          # Build a temporary project with all the requested packages
-          $projXml = @"
+          Write-Host "Processing $($tokens.Count) priority packages individually..."
+
+          foreach ($tok in $tokens) {
+            Write-Host "--- Processing: $tok ---"
+            # Build a temporary project that references ONLY this package
+            if ($tok -match '@') {
+              $parts = $tok -split '@', 2
+              $id = $parts[0].Trim()
+              $ver = $parts[1].Trim()
+              $pkgRef = "<PackageReference Include=`"$id`" Version=`"$ver`" />"
+            } else {
+              $id = $tok
+              $pkgRef = "<PackageReference Include=`"$id`" Version=`"*`" />"
+            }
+
+            $tempCsproj = Join-Path $env:RUNNER_TEMP "prio_$([Guid]::NewGuid()).csproj"
+            @"
           <Project Sdk="Microsoft.NET.Sdk">
             <PropertyGroup>
               <TargetFrameworks>net10.0;net10.0-android;net10.0-ios;net10.0-maccatalyst;net10.0-windows10.0.19041.0</TargetFrameworks>
             </PropertyGroup>
             <ItemGroup>
-          "@
-          foreach ($tok in $tokens) {
-            if ($tok -match '@') {
-              $parts = $tok -split '@', 2
-              $projXml += "`n    <PackageReference Include=`"$($parts[0].Trim())`" Version=`"$($parts[1].Trim())`" />"
-            } else {
-              $projXml += "`n    <PackageReference Include=`"$tok`" Version=`"*`" />"
+              $pkgRef
+            </ItemGroup>
+          </Project>
+          "@ | Out-File -FilePath $tempCsproj -Encoding UTF8
+
+            $restoreOk = $false
+            try {
+              dotnet restore $tempCsproj --packages $feedDir 2>&1 | Out-Null
+              if ($LASTEXITCODE -eq 0) { $restoreOk = $true }
+            } catch { }
+
+            if (-not $restoreOk) {
+              Write-Host "  Restore failed – downloading as bare .nupkg (no deps)."
+              dotnet package download $id --output $feedDir 2>&1 | Out-Null
             }
+
+            # Optional: remove temp project to save space
+            Remove-Item $tempCsproj -Force -ErrorAction SilentlyContinue
           }
-          $projXml += "`n    </ItemGroup>`n</Project>"
 
-          $projPath = Join-Path $env:RUNNER_TEMP "PriorityRestore.csproj"
-          $projXml | Out-File -FilePath $projPath -Encoding UTF8
-
-          Write-Host "Restoring $($tokens.Count) priority packages with all dependencies..."
-          dotnet restore $projPath --packages $feedDir
-          if ($LASTEXITCODE -ne 0) { throw "Priority restore failed" }
-          Write-Host "Priority packages restored."
+          Write-Host "All priority packages processed."
 
       # ---------------------------------------------------------------
-      # 2. Initial feed size measurement
+      # 2. Measure initial feed size
       # ---------------------------------------------------------------
       - name: Measure current feed size
         id: measure
@@ -174,7 +193,7 @@ jobs:
               break
             }
             Write-Host "--- Processing: $id ---"
-            $tempCsproj = Join-Path $env:RUNNER_TEMP "temp_$([Guid]::NewGuid()).csproj"
+            $tempCsproj = Join-Path $env:RUNNER_TEMP "top_$([Guid]::NewGuid()).csproj"
             @"
           <Project Sdk="Microsoft.NET.Sdk">
             <PropertyGroup>
@@ -193,13 +212,13 @@ jobs:
             } catch { }
 
             if (-not $restoreOk) {
-              Write-Host "Restore failed – downloading as bare .nupkg (no deps)."
+              Write-Host "  Restore failed – downloading as bare .nupkg (no deps)."
               dotnet package download $id --output $feedDir 2>&1 | Out-Null
             }
 
             $currentSize = (Get-ChildItem -Path $feedDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
             $mb = [math]::Round($currentSize / 1MB, 1)
-            Write-Host "Current feed size: $mb MB"
+            Write-Host "  Current feed size: $mb MB"
             $processed++
           }
 
