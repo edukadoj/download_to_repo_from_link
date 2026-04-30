@@ -1,9 +1,9 @@
 # ==============================================================================
-#  version: 3.2
+#  version: 3.3
 #  Offline NuGet Feed Builder for Visual Studio 2026 Community
 #  - Priority packages processed individually (full restore or direct download).
-#  - Top popular packages are strictly skipped when checkbox is ticked.
-#  - Debug output confirms input values.
+#  - Fallback download now respects the @version (bug fix).
+#  - Top popular packages strictly skipped when checkbox is ticked.
 # ==============================================================================
 
 name: Download NuGet Packages Offline
@@ -49,7 +49,7 @@ jobs:
         with:
           dotnet-version: '10.x'
 
-      # Workloads are only installed if top packages are NOT skipped
+      # Workloads installed only if top packages are NOT skipped
       - name: Install workloads (MAUI, WASM, Aspire)
         if: inputs.skip_top_packages != 'true' && inputs.skip_top_packages != true
         run: |
@@ -60,7 +60,7 @@ jobs:
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-v32-" +
+          $key = "nuget-offline-feed-v33-" +
             "search-${{ inputs.search_term }}" +
             "-maxGB-${{ inputs.max_size_gb }}" +
             "-topskip-${{ inputs.skip_top_packages }}"
@@ -106,6 +106,7 @@ jobs:
               $pkgRef = "<PackageReference Include=`"$id`" Version=`"$ver`" />"
             } else {
               $id = $tok
+              $ver = $null
               $pkgRef = "<PackageReference Include=`"$id`" Version=`"*`" />"
             }
 
@@ -129,7 +130,11 @@ jobs:
 
             if (-not $restoreOk) {
               Write-Host "  Restore failed – downloading as bare .nupkg (no deps)."
-              dotnet package download $id --output $feedDir 2>&1 | Out-Null
+              if ($ver) {
+                dotnet package download $id --version $ver --output $feedDir 2>&1 | Out-Null
+              } else {
+                dotnet package download $id --output $feedDir 2>&1 | Out-Null
+              }
             }
 
             Remove-Item $tempCsproj -Force -ErrorAction SilentlyContinue
