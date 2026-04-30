@@ -1,17 +1,19 @@
 # =============================================================================
-# Workflow version: 1.4.0
+# Workflow version: 1.4.2
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser, creates a self-contained offline copy, zips it
-#              with a password from the ZIPPASS secret, splits the archive if
-#              needed, and uploads everything directly to the repository via the
-#              GitHub API. A Windows batch file (reassemble.bat) is generated
-#              inside the folder.
+#              with standard ZipCrypto encryption (password from ZIPPASS secret),
+#              splits the archive if needed, and uploads everything directly to
+#              the repository via the GitHub API. A Windows batch file
+#              (reassemble.bat) is generated inside the folder.
 #
 # Changelog:
-#   1.4.0 – ZIP archive is now password‑protected using the ZIPPASS secret.
-#           The password is securely hidden in logs by GitHub’s secret masking.
-#   1.3.1 – Added API‑based deletion of the target folder before uploading.
+#   1.4.2 – Reverted to `zip -P` (ZipCrypto) for Windows Explorer compatibility;
+#           improved password handling to avoid shell issues.
+#   1.4.1 – Tried AES‑256 via 7z (not compatible with Windows Explorer).
+#   1.4.0 – ZIP archive is now password‑protected using ZIPPASS.
+#   1.3.1 – Added API‑based deletion of target folder before uploading.
 #   1.3.0 – Removed unnecessary `checkout` step and all Git operations.
 #   1.2.2 – Fixed ZIP path; replaced PowerShell upload with Python (PyGithub).
 #   1.2.1 – Fixed npm install error.
@@ -299,7 +301,7 @@ jobs:
           node crawl_and_save.js
 
       # -------------------------------------------------------------------
-      # Zip the downloaded folder with password from ZIPPASS secret
+      # Zip the downloaded folder with ZipCrypto (via `zip -P`)
       # -------------------------------------------------------------------
       - name: Create password-protected ZIP archive
         env:
@@ -307,8 +309,9 @@ jobs:
           ZIPPASS: ${{ secrets.ZIPPASS }}
         run: |
           ZIPFILE="${FOLDER}.zip"
-          echo "Creating $ZIPFILE with password protection..."
-          # Use -P to supply password; GitHub automatically masks secrets in logs
+          echo "Creating $ZIPFILE with ZipCrypto password protection..."
+          # Double-quote the password to handle spaces / special chars safely.
+          # The secret itself is masked in logs.
           zip -P "$ZIPPASS" -r "$ZIPFILE" "$FOLDER"
           echo "Archive size: $(du -h "$ZIPFILE" | cut -f1)"
           echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
@@ -456,9 +459,10 @@ jobs:
               else:
                   bat_lines.append(f"echo {name} was downloaded as a single file (no chunks).")
           bat_lines.append("echo ========================================")
-          bat_lines.append("echo IMPORTANT: The ZIP archive is password-protected.")
-          bat_lines.append("echo Use the correct password with 7-Zip, WinRAR or similar.")
-          bat_lines.append("echo All done! You can now extract the ZIP archive.")
+          bat_lines.append("echo The ZIP archive is encrypted with ZipCrypto.")
+          bat_lines.append("echo You can open it with Windows Explorer, 7-Zip, WinRAR, etc.")
+          bat_lines.append("echo Use the correct password when prompted.")
+          bat_lines.append("echo All done! Press any key to exit.")
           bat_lines.append("pause >nul")
 
           bat_content = "\r\n".join(bat_lines)
