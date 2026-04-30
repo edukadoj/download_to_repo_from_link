@@ -1,5 +1,5 @@
 # =============================================================================
-# Workflow version: 1.4.2
+# Workflow version: 1.4.3
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser, creates a self-contained offline copy, zips it
@@ -9,9 +9,10 @@
 #              (reassemble.bat) is generated inside the folder.
 #
 # Changelog:
-#   1.4.2 – Reverted to `zip -P` (ZipCrypto) for Windows Explorer compatibility;
-#           improved password handling to avoid shell issues.
-#   1.4.1 – Tried AES‑256 via 7z (not compatible with Windows Explorer).
+#   1.4.3 – Fixed corruption: use 7z with `-mem=ZipCrypto` to create a ZIP that
+#           Windows Explorer can open natively.
+#   1.4.2 – Reverted to `zip -P` (ZipCrypto) – still corrupted on some systems.
+#   1.4.1 – Tried AES‑256 via 7z (incompatible with Windows Explorer).
 #   1.4.0 – ZIP archive is now password‑protected using ZIPPASS.
 #   1.3.1 – Added API‑based deletion of target folder before uploading.
 #   1.3.0 – Removed unnecessary `checkout` step and all Git operations.
@@ -111,10 +112,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-puppeteer
 
-      - name: Install system dependencies (Chromium, zip)
+      - name: Install system dependencies (Chromium, 7z, zip)
         run: |
           sudo apt-get update
-          sudo apt-get install -y chromium-browser zip unzip
+          sudo apt-get install -y chromium-browser p7zip-full zip unzip
           echo "CHROMIUM_PATH=$(which chromium-browser)" >> $GITHUB_ENV
 
       - name: Install Node dependencies
@@ -301,7 +302,7 @@ jobs:
           node crawl_and_save.js
 
       # -------------------------------------------------------------------
-      # Zip the downloaded folder with ZipCrypto (via `zip -P`)
+      # Create a ZipCrypto‑encrypted ZIP with 7z (Windows Explorer compatible)
       # -------------------------------------------------------------------
       - name: Create password-protected ZIP archive
         env:
@@ -309,10 +310,13 @@ jobs:
           ZIPPASS: ${{ secrets.ZIPPASS }}
         run: |
           ZIPFILE="${FOLDER}.zip"
-          echo "Creating $ZIPFILE with ZipCrypto password protection..."
-          # Double-quote the password to handle spaces / special chars safely.
-          # The secret itself is masked in logs.
-          zip -P "$ZIPPASS" -r "$ZIPFILE" "$FOLDER"
+          echo "Creating $ZIPFILE (ZipCrypto encryption for Windows Explorer compatibility)..."
+          # -tzip            : ZIP format
+          # -p"$ZIPPASS"     : password (quoted to handle special characters)
+          # -mem=ZipCrypto   : force the older ZipCrypto algorithm (not AES-256)
+          # -mhe=off         : do not encrypt headers (required for standard ZIP)
+          # -r               : recurse into folder
+          7z a -tzip -p"$ZIPPASS" -mem=ZipCrypto -mhe=off -r "$ZIPFILE" "$FOLDER"
           echo "Archive size: $(du -h "$ZIPFILE" | cut -f1)"
           echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
 
