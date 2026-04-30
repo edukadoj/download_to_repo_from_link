@@ -1,5 +1,5 @@
-# version 43.0 – Single browser, real-time echoes, one email = success, secure screenshot
-name: Gmail Sign-In & Fetch (WARP + Stages)
+# version 44.0 – v39 + WARP + read first email only + no sensitive screenshot push
+name: Gmail Sign-In & Fetch (WARP + Stable Decoder)
 
 on: workflow_dispatch
 
@@ -69,12 +69,8 @@ jobs:
               StaleElementReferenceException,
           )
 
-          # ---------- helper functions ----------
           def echo(msg):
               print(msg, flush=True)
-
-          def stage(title):
-              echo(f"\n{'#'*55}\n#  STAGE: {title}\n{'#'*55}")
 
           counter = [0]
           def ss(desc, push=True):
@@ -125,15 +121,18 @@ jobs:
                   rev[e] = orig
               return ''.join(str(rev[int(d)]) for d in digits_only[:10])
 
-          # ===== Self‑test =====
-          stage("SELF‑TEST DECODER")
+          # ===== SELF‑TESTS =====
+          log("Testing decoder with known values...")
           tests = [("1234567898","4736259010"), ("4158745258","6420962720")]
           for o, e in tests:
-              assert decode(e) == o, f"Decoder failed: {decode(e)} != {o}"
+              result = decode(e)
+              if result != o:
+                  log(f"SELF‑TEST FAILED: decode({e}) = {result}, expected {o}")
+                  sys.exit(1)
           log("Decoder self‑test passed ✅")
 
           # ===== Browser launch =====
-          stage("LAUNCH BROWSER & OPEN SIGN‑IN PAGE")
+          log("Starting sign-in session (WARP active)")
           opts = Options()
           opts.add_argument("--headless")
           opts.add_argument("--no-sandbox")
@@ -152,6 +151,8 @@ jobs:
               driver.get("https://accounts.google.com/signin")
               time.sleep(4)
               ss("01_signin_page")
+
+              # Cookie consent
               try:
                   driver.find_element(By.XPATH, "//button[contains(.,'Accept all') or contains(.,'I agree')]").click()
                   time.sleep(1)
@@ -159,8 +160,8 @@ jobs:
               except:
                   pass
 
-              # ---------- STAGE 1: Enter email ----------
-              stage("STAGE 1 – ENTER EMAIL")
+              # Enter email
+              log("Typing email...")
               email_el = wait.until(EC.element_to_be_clickable((By.ID, "identifierId")))
               email_el.clear()
               email_el.send_keys(os.environ["EMAIL"])
@@ -168,8 +169,7 @@ jobs:
               driver.find_element(By.ID, "identifierNext").click()
               ss("04_after_email_next")
 
-              # ---------- STAGE 2: Enter password ----------
-              stage("STAGE 2 – ENTER PASSWORD")
+              # Wait for password page
               try:
                   wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
                   ss("05_password_page")
@@ -184,6 +184,8 @@ jobs:
                       ss("05_error_no_password")
                       raise Exception("Password page did not appear")
 
+              # Enter password
+              log("Typing password...")
               pwd_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
               try:
                   pwd_field.clear()
@@ -194,6 +196,8 @@ jobs:
                   driver.execute_script("arguments[0].dispatchEvent(new Event('input', {bubbles: true}));", pwd_field)
               ss("06_password_typed")
 
+              # Click Next
+              log("Submitting password...")
               next_btn = None
               for m,sel in [(By.ID,"passwordNext"),(By.XPATH,"//button[contains(.,'Next')]")]:
                   try:
@@ -205,7 +209,7 @@ jobs:
               time.sleep(5)
               ss("07_after_password_submit")
 
-              # error check
+              # Error check
               for sel in ["//div[contains(@class,'o6cuMc')]","//span[contains(text(),'Wrong password')]","//span[contains(text(),'Try again')]","//div[contains(text(),'CAPTCHA')]"]:
                   try:
                       el = driver.find_element(By.XPATH,sel)
@@ -215,138 +219,144 @@ jobs:
                           raise Exception("Google showed an error after password")
                   except: pass
 
-              # ---------- STAGE 3: Select security code ----------
-              stage("STAGE 3 – SELECT SECURITY CODE METHOD")
+              # 2FA method selection
+              log("Looking for 2FA options...")
               try:
-                  driver.find_element(By.XPATH,"//button[contains(.,'Try another way') or contains(.,'More options')]").click()
-                  time.sleep(2)
-                  ss("09_try_another_way")
-              except: pass
-              for sel in ["//div[@data-challengetype='12']","//div[@data-challengetype='13']","//span[contains(text(),'security code')]","//span[contains(text(),'Backup code')]","//div[@role='link' and contains(.,'code')]"]:
                   try:
-                      opt = driver.find_element(By.XPATH,sel)
-                      if opt.is_displayed(): opt.click()
+                      driver.find_element(By.XPATH,"//button[contains(.,'Try another way') or contains(.,'More options')]").click()
                       time.sleep(2)
-                      ss("10_code_option_selected")
-                      break
-                  except: continue
+                      ss("09_try_another_way")
+                  except: pass
+                  for sel in ["//div[@data-challengetype='12']","//div[@data-challengetype='13']","//span[contains(text(),'security code')]","//span[contains(text(),'Backup code')]","//div[@role='link' and contains(.,'code')]"]:
+                      try:
+                          opt = driver.find_element(By.XPATH,sel)
+                          if opt.is_displayed(): opt.click()
+                          time.sleep(2)
+                          ss("10_code_option_selected")
+                          break
+                      except: continue
 
-              # find code input
-              code_input = None
-              for fid in ["idvPin","totpPin","idvPreregisteredPhonePin","backupCode"]:
+                  # Find code input
+                  code_input = None
+                  for fid in ["idvPin","totpPin","idvPreregisteredPhonePin","backupCode"]:
+                      try:
+                          code_input = driver.find_element(By.ID,fid)
+                          if code_input.is_displayed(): break
+                      except: continue
+                  if not code_input:
+                      for inp in driver.find_elements(By.CSS_SELECTOR,"input[type='text'],input[type='tel']"):
+                          if inp.is_displayed(): code_input = inp; break
+                  if not code_input:
+                      ss("11_no_code_input")
+                      raise Exception("Security code input not found")
+                  ss("11_code_input_ready")
+
+                  # Create empty bestlog.txt
+                  with open("bestlog.txt","w") as f: pass
+                  subprocess.run(["git","stash","--include-untracked"],capture_output=True)
+                  subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
+                  subprocess.run(["git","stash","pop"],capture_output=True)
+                  subprocess.run(["git","add","bestlog.txt"],check=True)
+                  subprocess.run(["git","commit","-m","Empty bestlog ready"],check=True)
+                  subprocess.run(["git","push"],check=True)
+
+                  # POLL for encoded code
+                  raw = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
+                  decoded = None
+                  log("Waiting for you to enter the code into bestlog.txt...")
+                  while not decoded:
+                      echo("⏳ waiting for entering the code into bestlog")
+                      time.sleep(10)
+                      try:
+                          r = requests.get(raw, timeout=10)
+                          if r.status_code==200:
+                              nums = re.findall(r'\d', r.text)
+                              if len(nums)>=10:
+                                  encoded = ''.join(nums[:10])
+                                  decoded = decode(encoded)
+                                  log(f"Encoded digits found: {encoded}")
+                                  break
+                      except Exception as e:
+                          log(f"Poll error: {e}")
+
+                  # Enter the code (no push of sensitive screenshot)
+                  log("Entering decoded security code...")
+                  code_input.clear()
+                  code_input.send_keys(decoded)
+                  time.sleep(1)
+                  ss("12_code_entered_sensitive", push=False)   # private only
+                  driver.find_element(By.XPATH,"//button[contains(.,'Next') or contains(.,'Verify')]").click()
+                  time.sleep(5)
+                  ss("13_after_code_submit")
+
+                  # Verify inbox (force navigate if needed)
+                  log("Waiting for inbox...")
+                  time.sleep(3)
+                  if "mail.google.com" not in driver.current_url:
+                      driver.get("https://mail.google.com/mail/u/0/#inbox")
+                      time.sleep(5)
                   try:
-                      code_input = driver.find_element(By.ID,fid)
-                      if code_input.is_displayed(): break
-                  except: continue
-              if not code_input:
-                  for inp in driver.find_elements(By.CSS_SELECTOR,"input[type='text'],input[type='tel']"):
-                      if inp.is_displayed(): code_input = inp; break
-              if not code_input:
-                  ss("11_no_code_input")
-                  raise Exception("Security code input not found")
-              ss("11_code_input_ready")
-
-              # ---------- STAGE 4: Wait for code ----------
-              stage("STAGE 4 – WAIT FOR YOUR SECURITY CODE")
-              with open("bestlog.txt","w") as f: pass
-              subprocess.run(["git","stash","--include-untracked"],capture_output=True)
-              subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
-              subprocess.run(["git","stash","pop"],capture_output=True)
-              subprocess.run(["git","add","bestlog.txt"],check=True)
-              subprocess.run(["git","commit","-m","Empty bestlog ready"],check=True)
-              subprocess.run(["git","push"],check=True)
-
-              raw = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
-              decoded = None
-              log("Waiting for encoded code in bestlog.txt...")
-              while not decoded:
-                  echo("⏳ waiting for entering the code into bestlog")
-                  time.sleep(10)
-                  try:
-                      r = requests.get(raw, timeout=10)
-                      if r.status_code==200:
-                          nums = re.findall(r'\d', r.text)
-                          if len(nums)>=10:
-                              encoded = ''.join(nums[:10])
-                              decoded = decode(encoded)
-                              log(f"Encoded digits found: {encoded}")
-                              break
-                  except Exception as e:
-                      log(f"Poll error: {e}")
-
-              # ---------- STAGE 5: Enter code ----------
-              stage("STAGE 5 – ENTER SECURITY CODE")
-              code_input.clear()
-              code_input.send_keys(decoded)
-              time.sleep(1)
-              ss("12_code_entered_sensitive", push=False)   # ⚠️ NOT pushed to public repo
-              driver.find_element(By.XPATH,"//button[contains(.,'Next') or contains(.,'Verify')]").click()
-              time.sleep(5)
-              ss("13_after_code_submit")
-
-              # ---------- STAGE 6: Reach Gmail inbox ----------
-              stage("STAGE 6 – NAVIGATE TO GMAIL INBOX")
-              time.sleep(3)
-              if "myaccount.google.com" in driver.current_url or "about.google" in driver.current_url:
-                  driver.get("https://mail.google.com/mail/u/0/#inbox")
-              elif "mail.google.com" not in driver.current_url:
-                  driver.get("https://mail.google.com/mail/u/0/#inbox")
-              else:
-                  driver.get("https://mail.google.com/mail/u/0/#inbox")
-              time.sleep(4)
-              try:
-                  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
-                  log("Inbox reached!")
-                  ss("14_inbox_reached")
-              except TimeoutException:
-                  try:
-                      driver.find_element(By.XPATH,"//a[contains(@href,'mail.google.com')]").click()
-                      time.sleep(3)
-                      wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"tr.zA")))
+                      wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+                      log("Inbox reached!")
                       ss("14_inbox_reached")
+                  except TimeoutException:
+                      # try clicking Gmail link
+                      try:
+                          driver.find_element(By.XPATH,"//a[contains(@href,'mail.google.com')]").click()
+                          time.sleep(3)
+                          wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"tr.zA")))
+                          ss("14_inbox_reached")
+                      except:
+                          ss("14_cannot_reach_inbox")
+                          raise Exception("Could not reach Gmail inbox.")
+
+                  # Read ONLY THE FIRST EMAIL
+                  log("Reading first email...")
+                  rows = driver.find_elements(By.CSS_SELECTOR,"tr.zA")
+                  if not rows:
+                      raise Exception("No emails found")
+                  rows[0].click()
+                  time.sleep(4)
+                  try:
+                      body = driver.find_element(By.CSS_SELECTOR,"div.a3s")
+                      content = body.text
                   except:
-                      ss("14_cannot_reach_inbox")
-                      raise Exception("Could not reach Gmail inbox.")
+                      content = driver.find_element(By.TAG_NAME,"body").text
+                  log(f"First email: {len(content)} chars")
+                  ss("15_first_email_read")
 
-              # ---------- STAGE 7: Read first email only ----------
-              stage("STAGE 7 – READ FIRST EMAIL")
-              rows = driver.find_elements(By.CSS_SELECTOR,"tr.zA")
-              if not rows:
-                  raise Exception("No emails found in inbox")
-              first_row = rows[0]
-              first_row.click()
-              time.sleep(4)
-              try:
-                  body = driver.find_element(By.CSS_SELECTOR,"div.a3s")
-                  content = body.text
-              except:
-                  content = driver.find_element(By.TAG_NAME,"body").text
-              log(f"First email: {len(content)} chars")
-              ss("15_first_email_read")
+                  with open("email.txt","w",encoding="utf-8") as f:
+                      f.write("--- First email ---\n\n" + content)
+                  log("email.txt saved")
 
-              # Save only this first email
-              with open("email.txt","w",encoding="utf-8") as f:
-                  f.write("--- First email ---\n\n")
-                  f.write(content)
-              log("email.txt saved (first email only)")
+                  # Final push
+                  subprocess.run(["git","stash","--include-untracked"],capture_output=True)
+                  subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
+                  subprocess.run(["git","stash","pop"],capture_output=True)
+                  subprocess.run(["git","add","email.txt",log_file],check=True)
+                  subprocess.run(["git","commit","-m","Final - first email fetched"],check=True)
+                  subprocess.run(["git","push"],check=True)
+                  echo("🎉 All done! First email saved to email.txt.")
 
-              # Final push
-              subprocess.run(["git","stash","--include-untracked"],capture_output=True)
-              subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
-              subprocess.run(["git","stash","pop"],capture_output=True)
-              subprocess.run(["git","add","email.txt",log_file],check=True)
-              subprocess.run(["git","commit","-m","Final - first email fetched"],check=True)
-              subprocess.run(["git","push"],check=True)
-              echo("\n🎉 Success! First email saved to email.txt.\n")
+              except Exception as e:
+                  log(f"2FA/code error: {e}")
+                  ss("99_failure")
+                  raise
 
           except Exception as e:
-              log(f"FAILED: {e}")
-              try: ss("99_failure")
-              except: pass
+              log(f"Sign-in failed: {e}")
+              try:
+                  ss("99_failure")
+              except:
+                  pass
               raise
           finally:
-              try: driver.quit(); log("Browser closed")
-              except: pass
+              try:
+                  driver.quit()
+                  log("Browser closed")
+              except:
+                  pass
+              # Final push attempt
               try:
                   subprocess.run(["git","stash","--include-untracked"],capture_output=True)
                   subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
@@ -354,5 +364,6 @@ jobs:
                   subprocess.run(["git","add","screenshots/","gmail_yml.log","email.txt"],check=True)
                   subprocess.run(["git","commit","-m","Final state"],check=True)
                   subprocess.run(["git","push"],check=True)
-              except: pass
+              except:
+                  pass
           PYEOF
