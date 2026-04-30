@@ -1,5 +1,5 @@
-# version 31.0 – Single browser session, timestamped screenshots, immediate push
-name: Gmail Sign-In & Fetch (Single Session)
+# version 32.0 – Fix stale element error on password field
+name: Gmail Sign-In & Fetch (Single Session, Stable)
 
 on: workflow_dispatch
 
@@ -40,7 +40,7 @@ jobs:
         timeout-minutes: 30
         run: |
           python3 << 'PYEOF'
-          import os, time, subprocess, pickle, hashlib, struct, random, re, requests
+          import os, time, subprocess, hashlib, struct, random, re, requests
           from datetime import datetime
           from selenium import webdriver
           from selenium.webdriver.common.by import By
@@ -52,21 +52,17 @@ jobs:
               ElementNotInteractableException,
               TimeoutException,
               NoSuchElementException,
+              StaleElementReferenceException,
           )
 
-          # ---------------------------------------------------------------
-          # Screenshot counter & push helper
-          # ---------------------------------------------------------------
+          # ---- Screenshot helper ----
           counter = [0]
-
           def ss(desc):
-              """Take screenshot with number + timestamp, push immediately to repo."""
               counter[0] += 1
               now = datetime.now().strftime("%H%M%S")
               fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
               driver.save_screenshot(fname)
               print(f"📸 {fname}")
-              # Push to repo right away so you can see progress
               try:
                   subprocess.run(["git", "pull", "--rebase"], check=True, capture_output=True)
               except:
@@ -79,21 +75,16 @@ jobs:
                   try:
                       subprocess.run(["git", "push"], check=True)
                   except:
-                      print("⚠️  Push failed (will retry on next screenshot)")
+                      print("Push failed (will retry)")
 
-          # ---------------------------------------------------------------
-          # Logging
-          # ---------------------------------------------------------------
+          # ---- Logging ----
           log_file = "gmail_yml.log"
-
           def log(msg):
               with open(log_file, "a") as f:
                   f.write(f"{datetime.now().strftime('%H:%M:%S')} - {msg}\n")
               print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
-          # ---------------------------------------------------------------
-          # Decoder setup (matches your C# encoder, KEY secret)
-          # ---------------------------------------------------------------
+          # ---- Decoder (matches C# encoder, KEY secret) ----
           key = os.environ["KEY"]
           h = hashlib.sha256(key.encode()).digest()
           seed = struct.unpack("i", h[:4])[0]
@@ -101,14 +92,11 @@ jobs:
           digits = list(range(10))
           rng.shuffle(digits)
           rev_map = {v: k for k, v in enumerate(digits)}
+          def decode_10(s):
+              return ''.join(str(rev_map[int(c)]) for c in s)
 
-          def decode_10(encoded_str):
-              return ''.join(str(rev_map[int(c)]) for c in encoded_str)
-
-          # ---------------------------------------------------------------
-          # Browser setup
-          # ---------------------------------------------------------------
-          log("=== Starting full sign-in session ===")
+          # ---- Browser ----
+          log("Starting full sign-in session")
           opts = Options()
           opts.add_argument("--headless")
           opts.add_argument("--no-sandbox")
@@ -124,73 +112,66 @@ jobs:
           wait = WebDriverWait(driver, 20)
 
           try:
-              # ================================================
               # 1. Open sign-in page
-              # ================================================
-              log("Navigating to Google sign-in...")
               driver.get("https://accounts.google.com/signin")
               time.sleep(4)
               ss("01_signin_page")
 
-              # Handle cookie consent
+              # Cookie consent
               try:
-                  consent = driver.find_element(By.XPATH, "//button[contains(.,'Accept all') or contains(.,'I agree')]")
-                  consent.click()
-                  log("Cookie consent accepted.")
+                  driver.find_element(By.XPATH, "//button[contains(.,'Accept all') or contains(.,'I agree')]").click()
                   time.sleep(1)
+                  log("Cookie consent accepted")
                   ss("02_cookies_accepted")
               except:
-                  log("No cookie popup found.")
+                  log("No cookie popup")
 
-              # ================================================
               # 2. Enter email
-              # ================================================
               log("Typing email...")
-              email_field = wait.until(EC.element_to_be_clickable((By.ID, "identifierId")))
-              email_field.clear()
-              email_field.send_keys(os.environ["EMAIL"])
+              email_el = wait.until(EC.element_to_be_clickable((By.ID, "identifierId")))
+              email_el.clear()
+              email_el.send_keys(os.environ["EMAIL"])
               ss("03_email_typed")
-
               driver.find_element(By.ID, "identifierNext").click()
-              log("Clicked Next after email.")
+              log("Clicked Next after email")
               ss("04_after_email_next")
 
-              # ================================================
               # 3. Wait for password page
-              # ================================================
               try:
-                  pwd_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-                  log("Password page reached.")
+                  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
+                  log("Password page reached")
                   ss("05_password_page")
               except TimeoutException:
-                  # Maybe there's an intermediate "Welcome" screen
-                  log("Password field not found, looking for Welcome screen...")
+                  # maybe Welcome screen
                   try:
                       driver.find_element(By.XPATH, "//div[contains(text(),'Welcome')]")
                       driver.find_element(By.XPATH, "//button[contains(.,'Next')]").click()
                       time.sleep(2)
-                      pwd_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-                      log("Password page reached after Welcome.")
+                      wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
+                      log("Password page after Welcome")
                       ss("05b_password_page")
                   except:
                       ss("05_error_no_password")
-                      raise Exception("Could not reach password page – possible CAPTCHA or account verification.")
+                      raise Exception("Password page did not appear")
 
-              # ================================================
-              # 4. Enter password
-              # ================================================
+              # 4. Enter password (FIX: re-find the field right before typing)
               log("Typing password...")
+              # Re-locate the password field to avoid stale element
+              pwd_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
               try:
                   pwd_field.clear()
                   pwd_field.send_keys(os.environ["PASS"])
-              except ElementNotInteractableException:
-                  log("Field not interactable, using JS injection.")
+                  log("Password entered normally")
+              except (ElementNotInteractableException, StaleElementReferenceException):
+                  log("Normal typing failed; injecting via JavaScript")
+                  # Re-find again just in case
+                  pwd_field = driver.find_element(By.CSS_SELECTOR, "input[type='password']")
                   driver.execute_script("arguments[0].value = arguments[1];", pwd_field, os.environ["PASS"])
-                  driver.execute_script("arguments[0].dispatchEvent(new Event('input', {bubbles: True}));", pwd_field)
-                  driver.execute_script("arguments[0].dispatchEvent(new Event('change', {bubbles: True}));", pwd_field)
+                  driver.execute_script("arguments[0].dispatchEvent(new Event('input', {bubbles: true}));", pwd_field)
+                  driver.execute_script("arguments[0].dispatchEvent(new Event('change', {bubbles: true}));", pwd_field)
               ss("06_password_typed")
 
-              # Click Next
+              # 5. Click Next
               log("Submitting password...")
               next_btn = None
               for method, sel in [(By.ID, "passwordNext"), (By.XPATH, "//button[contains(.,'Next')]")]:
@@ -203,14 +184,11 @@ jobs:
               if next_btn:
                   next_btn.click()
               else:
-                  pwd_field.send_keys(Keys.RETURN)
-              log("Password submitted.")
+                  driver.switch_to.active_element.send_keys(Keys.RETURN)
               time.sleep(5)
               ss("07_after_password_submit")
 
-              # ================================================
-              # 5. Check for errors after password
-              # ================================================
+              # 6. Check for errors
               error_found = False
               for sel in [
                   "//div[contains(@class,'o6cuMc')]",
@@ -218,77 +196,61 @@ jobs:
                   "//span[contains(text(),'Try again')]",
                   "//div[contains(text(),'CAPTCHA')]",
                   "//div[contains(text(),'unusual activity')]",
-                  "//div[contains(text(),'verify')]",
               ]:
                   try:
                       el = driver.find_element(By.XPATH, sel)
                       if el.is_displayed():
-                          log(f"ERROR MESSAGE: {el.text}")
+                          log(f"ERROR: {el.text}")
                           error_found = True
                           break
                   except:
                       pass
-
               if error_found:
                   ss("08_error_detected")
-                  # Save page source for debugging
                   with open("error_page_source.txt", "w") as f:
                       f.write(driver.page_source[:3000])
                   subprocess.run(["git", "add", "error_page_source.txt"], check=True)
                   subprocess.run(["git", "commit", "-m", "Error page source"], check=True)
                   subprocess.run(["git", "push"], check=True)
-                  raise Exception("Google showed an error after password submission. Check screenshots.")
+                  raise Exception("Google showed an error after password")
 
-              # ================================================
-              # 6. Check for 2FA page and select method
-              # ================================================
+              # 7. Look for 2FA options
               log("Looking for 2FA options...")
               try:
-                  # See if "Try another way" exists
                   try:
                       another = driver.find_element(By.XPATH, "//button[contains(.,'Try another way') or contains(.,'More options')]")
                       another.click()
-                      log("Clicked 'Try another way'.")
                       time.sleep(2)
+                      log("Clicked 'Try another way'")
                       ss("09_try_another_way")
                   except:
-                      log("No 'Try another way' button.")
+                      pass
 
-                  # Now look for the code option
-                  code_option = None
+                  # Select code option
                   for sel in [
                       "//div[@data-challengetype='12']",
                       "//div[@data-challengetype='13']",
                       "//span[contains(text(),'security code')]",
                       "//span[contains(text(),'Backup code')]",
                       "//div[@role='link' and contains(.,'code')]",
-                      "//span[contains(text(),'Enter a verification code')]",
                   ]:
                       try:
-                          code_option = driver.find_element(By.XPATH, sel)
-                          if code_option.is_displayed():
-                              code_option.click()
+                          opt = driver.find_element(By.XPATH, sel)
+                          if opt.is_displayed():
+                              opt.click()
                               log(f"Selected code option: {sel}")
                               time.sleep(2)
+                              ss("10_code_option_selected")
                               break
                       except:
                           continue
 
-                  if code_option:
-                      ss("10_code_option_selected")
-                  else:
-                      log("No clickable code option found; checking if input is already visible...")
-
-                  # ================================================
-                  # 7. Wait for security code input field
-                  # ================================================
-                  log("Looking for code input field...")
+                  # 8. Find code input field
                   code_input = None
                   for fid in ["idvPin", "totpPin", "idvPreregisteredPhonePin", "backupCode"]:
                       try:
                           code_input = driver.find_element(By.ID, fid)
                           if code_input.is_displayed():
-                              log(f"Found code input: {fid}")
                               break
                       except:
                           continue
@@ -296,29 +258,23 @@ jobs:
                       for inp in driver.find_elements(By.CSS_SELECTOR, "input[type='text'], input[type='tel']"):
                           if inp.is_displayed():
                               code_input = inp
-                              log("Found code input via generic selector.")
                               break
                   if not code_input:
                       ss("11_no_code_input")
-                      raise Exception("Could not find security code input field.")
+                      raise Exception("Could not find security code input")
                   ss("11_code_input_ready")
 
-                  # ================================================
-                  # 8. Poll bestlog.txt for encoded security code
-                  # ================================================
+                  # 9. Poll for encoded code
                   raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
                   last_mod = None
                   decoded = None
-                  log("⏳ Waiting for you to push encoded code to bestlog.txt...")
-                  log("   Check your phone, generate the security code,")
-                  log("   encode it with the C# tool, and update bestlog.txt.")
+                  log("Waiting for encoded code in bestlog.txt...")
                   while not decoded:
                       time.sleep(10)
                       try:
                           head = requests.head(raw_url, timeout=10)
                           new_mod = head.headers.get("Last-Modified")
                           if new_mod and new_mod == last_mod:
-                              print("   ...still waiting for update...")
                               continue
                           resp = requests.get(raw_url, timeout=10)
                           if resp.status_code == 200:
@@ -326,15 +282,13 @@ jobs:
                               if len(nums) >= 10:
                                   encoded = ''.join(nums[:10])
                                   decoded = decode_10(encoded)
-                                  log(f"✅ Got encoded digits: {encoded}")
+                                  log(f"Encoded digits found: {encoded}")
                                   break
                           last_mod = new_mod
                       except Exception as e:
                           log(f"Poll error: {e}")
 
-                  # ================================================
-                  # 9. Enter and submit security code
-                  # ================================================
+                  # 10. Enter and submit code
                   log("Entering decoded security code...")
                   code_input.clear()
                   code_input.send_keys(decoded)
@@ -343,25 +297,15 @@ jobs:
                   time.sleep(5)
                   ss("13_after_code_submit")
 
-                  # ================================================
-                  # 10. Verify we reached the inbox
-                  # ================================================
-                  log("Waiting for Gmail inbox...")
-                  try:
-                      wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
-                      log("✅ Successfully signed in and reached inbox!")
-                      ss("14_inbox_reached")
-                  except TimeoutException:
-                      ss("14_not_inbox")
-                      raise Exception("Did not reach inbox after security code.")
+                  # 11. Verify inbox
+                  log("Waiting for inbox...")
+                  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+                  log("Inbox reached!")
+                  ss("14_inbox_reached")
 
-                  # ================================================
-                  # 11. Read last two emails
-                  # ================================================
-                  log("Reading last two emails...")
+                  # 12. Read last two emails
                   time.sleep(4)
                   rows = driver.find_elements(By.CSS_SELECTOR, "tr.zA")[:2]
-                  log(f"Found {len(rows)} emails.")
                   email_texts = []
                   for i, row in enumerate(rows, 1):
                       row.click()
@@ -372,34 +316,30 @@ jobs:
                       except:
                           content = driver.find_element(By.TAG_NAME, "body").text
                       email_texts.append(content)
-                      log(f"Email {i}: {len(content)} characters")
                       ss(f"15_email_{i}_read")
                       driver.get("https://mail.google.com/mail/u/0/#inbox")
                       wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
                       time.sleep(4)
 
-                  # ================================================
-                  # 12. Save emails to file
-                  # ================================================
                   with open("email.txt", "w", encoding="utf-8") as f:
                       f.write("--- Last two emails ---\n\n")
                       for i, txt in enumerate(email_texts, 1):
                           f.write(f"=== Email {i} ===\n{txt}\n\n")
-                  log("✅ email.txt saved.")
+                  log("Email.txt saved")
 
                   # Final push
                   subprocess.run(["git", "add", "email.txt", log_file], check=True)
                   subprocess.run(["git", "commit", "-m", "Final - emails fetched"], check=True)
                   subprocess.run(["git", "push"], check=True)
-                  log("🎉 All done! Check email.txt in your repo.")
+                  log("All done!")
 
               except Exception as e:
-                  log(f"❌ 2FA / code stage failed: {e}")
+                  log(f"2FA/code error: {e}")
                   ss("99_failure")
                   raise
 
           except Exception as e:
-              log(f"❌ Sign-in failed: {e}")
+              log(f"Sign-in failed: {e}")
               try:
                   ss("99_failure")
               except:
@@ -408,10 +348,10 @@ jobs:
           finally:
               try:
                   driver.quit()
-                  log("Browser closed.")
+                  log("Browser closed")
               except:
                   pass
-              # Final attempt to push any remaining files
+              # Push any remaining files
               try:
                   subprocess.run(["git", "add", "screenshots/", "gmail_yml.log", "email.txt", "error_page_source.txt"], check=True)
                   subprocess.run(["git", "commit", "-m", "Final state"], check=True)
@@ -419,3 +359,4 @@ jobs:
               except:
                   pass
           PYEOF
+          
