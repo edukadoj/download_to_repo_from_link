@@ -1,4 +1,4 @@
-# version 16.0 – Stage‑2 password entry split into internal sub‑steps + Welcome fallback
+# version 17.0 – Stage‑2 fix: wait for clickable + JavaScript clear/type fallback
 name: Gmail Sign-In & Fetch (Multi-Stage, No WARP)
 
 on: workflow_dispatch
@@ -25,7 +25,7 @@ jobs:
           pip3 install selenium webdriver-manager requests
 
       # ================================================================
-      # Stage 1: Enter email (v15, unchanged)
+      # Stage 1: Enter email (unchanged from v16)
       # ================================================================
       - name: Stage 1 – Enter email
         run: |
@@ -41,7 +41,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 1: Enter email (v16) ===\n")
+              lf.write("=== Stage 1: Enter email (v17) ===\n")
 
           try:
               opts = Options()
@@ -139,14 +139,15 @@ jobs:
           if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 1 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
       # ================================================================
-      # Stage 2: Enter password (BROKEN INTO SUB‑STEPS + WELCOME FALLBACK)
+      # Stage 2: Enter password (FIX: interactable clearing + robust cookie loading)
       # ================================================================
       - name: Stage 2 – Enter password
         run: |
           python3 << 'PYEOF'
-          import os, pickle, time, sys
+          import os, pickle, time
           from selenium import webdriver
           from selenium.webdriver.common.by import By
+          from selenium.webdriver.common.keys import Keys
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
@@ -157,7 +158,7 @@ jobs:
                   lf.write(msg + "\n")
               print(msg)
 
-          log("=== Stage 2: Enter password (v16) ===")
+          log("=== Stage 2: Enter password (v17) ===")
 
           driver = None
           try:
@@ -169,7 +170,7 @@ jobs:
               driver = webdriver.Chrome(options=opts)
               driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-              # --- Sub‑step A: Load cookies and navigate to saved URL ---
+              # --- Sub‑step A: Load cookies (skip bad ones) and navigate to saved URL ---
               log("Sub‑step A: Loading cookies and navigating to saved URL")
               with open("cookies.pkl", "rb") as f:
                   cookies = pickle.load(f)
@@ -177,52 +178,65 @@ jobs:
                   saved_url = f.read().strip()
               log(f"Saved URL: {saved_url}")
 
+              # Visit the domain first, then add cookies (skip if one fails)
               driver.get("https://accounts.google.com")
               for c in cookies:
                   try:
                       driver.add_cookie(c)
                   except Exception as e:
                       log(f"Skipping cookie {c.get('name')}: {e}")
+              # Now go to the exact URL where Stage 1 left off
               driver.get(saved_url)
               time.sleep(2)
               driver.save_screenshot("stage2_after_load.png")
 
-              # --- Sub‑step B: Look for password field or Welcome screen ---
-              log("Sub‑step B: Looking for password field")
+              # --- Sub‑step B: Wait for password field to be clickable ---
+              log("Sub‑step B: Waiting for clickable password field")
               wait = WebDriverWait(driver, 15)
               try:
-                  # Check if password field is already present
-                  password_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-                  log("Password field found directly.")
+                  password_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
+                  log("Password field is clickable.")
               except:
-                  log("Password field not found; checking for 'Welcome' / intermediate screen.")
-                  # Look for a "Welcome" text or a "Next" button that might lead to password
-                  try:
-                      # Common pattern: a div with "Welcome" and a "Next" button
-                      welcome = driver.find_element(By.XPATH, "//div[contains(text(),'Welcome')]")
-                      log("'Welcome' screen detected. Clicking 'Next' to proceed to password.")
-                      next_btn = driver.find_element(By.XPATH, "//button[contains(.,'Next')]")
-                      next_btn.click()
-                      time.sleep(2)
-                      # Now wait for password field
-                      password_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-                      log("Proceeded to password field after 'Welcome'.")
-                  except:
-                      driver.save_screenshot("stage2_no_password_or_welcome.png")
-                      log("Neither password field nor Welcome screen found. Failing.")
-                      raise Exception("Could not find password input field after email submission.")
+                  # Fallback: maybe it's present but not yet clickable, try clicking via JavaScript
+                  log("Password field not clickable yet; trying JavaScript focus and click.")
+                  password_field = driver.find_element(By.CSS_SELECTOR, "input[type='password']")
+                  driver.execute_script("arguments[0].focus(); arguments[0].click();", password_field)
+                  time.sleep(1)
+                  # Wait again for it to be interactable
+                  wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
 
-              # --- Sub‑step C: Input password and click Next ---
-              log("Sub‑step C: Entering password and clicking Next")
-              password_field.clear()
-              password_field.send_keys(os.environ["PASS"])
+              # --- Sub‑step C: Clear and enter password (handling non-interactable) ---
+              log("Sub‑step C: Clearing and entering password")
+              try:
+                  # Method 1: Standard clear
+                  password_field.clear()
+              except:
+                  log("Standard clear failed; trying Ctrl+A+Delete")
+                  try:
+                      password_field.click()
+                      # Use Actions to select all and delete
+                      from selenium.webdriver.common.action_chains import ActionChains
+                      ActionChains(driver).click(password_field).key_down(Keys.CONTROL).send_keys("a").key_up(Keys.CONTROL).send_keys(Keys.DELETE).perform()
+                  except:
+                      log("Ctrl+A+Delete failed; setting value via JavaScript")
+                      driver.execute_script("arguments[0].value = '';", password_field)
+
+              # Now send password
+              try:
+                  password_field.send_keys(os.environ["PASS"])
+              except:
+                  log("send_keys failed, setting value via JavaScript")
+                  driver.execute_script("arguments[0].value = arguments[1];", password_field, os.environ["PASS"])
+                  driver.execute_script("arguments[0].dispatchEvent(new Event('input', { bubbles: true }));", password_field)
+                  driver.execute_script("arguments[0].dispatchEvent(new Event('change', { bubbles: true }));", password_field)
+
+              # Click Next
               driver.find_element(By.ID, "passwordNext").click()
               time.sleep(4)
               driver.save_screenshot("stage2_after_password_submit.png")
 
               # --- Sub‑step D: Verify we are on 2FA page ---
               log("Sub‑step D: Verifying 2FA page")
-              # Wait for something typical: a button "Try another way" or an input for code
               try:
                   WebDriverWait(driver, 15).until(
                       EC.any_of(
@@ -234,10 +248,10 @@ jobs:
                   log("2FA page detected.")
               except:
                   driver.save_screenshot("stage2_not_2fa_page.png")
-                  log("Did not reach 2FA page. Current page source: " + driver.page_source[:500])
+                  log("Did not reach 2FA page. Page source excerpt: " + driver.page_source[:500])
                   raise Exception("Failed to reach 2FA page after password.")
 
-              # Save state for next stages
+              # Save state
               with open("cookies.pkl", "wb") as f:
                   pickle.dump(driver.get_cookies(), f)
               with open("url.txt", "w") as f:
@@ -269,7 +283,7 @@ jobs:
           if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 2 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
       # ================================================================
-      # Stage 3: Select "security code" method (unchanged from v15)
+      # Stage 3: Select "security code" method (unchanged from v16)
       # ================================================================
       - name: Stage 3 – Select security code method
         run: |
@@ -281,7 +295,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 3: Select code method (v16) ===\n")
+              lf.write("=== Stage 3: Select code method (v17) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -370,7 +384,7 @@ jobs:
           if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 3 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
       # ================================================================
-      # Stage 4: Poll for encoded security code (unchanged v15)
+      # Stage 4: Poll for encoded security code (unchanged v16)
       # ================================================================
       - name: Stage 4 – Wait for security code
         run: |
@@ -430,7 +444,7 @@ jobs:
           if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 4 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
       # ================================================================
-      # Stage 5: Enter security code (unchanged v15)
+      # Stage 5: Enter security code (unchanged v16)
       # ================================================================
       - name: Stage 5 – Enter security code
         run: |
@@ -444,7 +458,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 5: Enter security code (v16) ===\n")
+              lf.write("=== Stage 5: Enter security code (v17) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -525,7 +539,7 @@ jobs:
           if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 5 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
       # ================================================================
-      # Stage 6: Fetch last two emails (unchanged v15)
+      # Stage 6: Fetch last two emails (unchanged v16)
       # ================================================================
       - name: Stage 6 – Fetch emails
         run: |
@@ -539,7 +553,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 6: Fetch emails (v16) ===\n")
+              lf.write("=== Stage 6: Fetch emails (v17) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
