@@ -1,9 +1,0 @@
-
-Trying simple download: https://github.com/cli/cli/releases/download/v2.92.0/gh_2.92.0_windows_amd64.msi
-✓ Downloaded: gh_2.92.0_windows_amd64.msi (15 MB)
-No URLs required browser fallback.
-[2026-04-29 21:53:08] Processing gh_2.92.0_windows_amd64.msi (14 MB)
-[2026-04-29 21:53:08] Small file, uploading directly...
-[2026-04-29 21:53:14] Generating reassemble.bat (UTF‑8 no BOM, chcp 65001)...
-[2026-04-29 21:53:14] Uploading reassemble.bat...
-[2026-04-29 21:53:15] ✅ Processing complete.
