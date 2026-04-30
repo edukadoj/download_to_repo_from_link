@@ -1,5 +1,5 @@
-# version 33.0 – Clean bestlog.txt, empty file + clear wait messages
-name: Gmail Sign-In & Fetch (Single Session, Stable)
+# version 34.0 – Fixed polling, cross‑platform decoder, email screenshots
+name: Gmail Sign-In & Fetch (Stable)
 
 on: workflow_dispatch
 
@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure git and clean screenshots + bestlog.txt
+      - name: Configure git, clean screenshots & bestlog.txt
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -23,7 +23,7 @@ jobs:
           rm -f bestlog.txt
           mkdir -p screenshots
           git add -A
-          git commit -m "Clean screenshots and bestlog" || echo "Nothing to commit"
+          git commit -m "Clean start" || echo "Nothing to commit"
           git pull --rebase
           git push || echo "Push failed, continuing"
 
@@ -41,7 +41,7 @@ jobs:
         timeout-minutes: 30
         run: |
           python3 << 'PYEOF'
-          import os, time, subprocess, hashlib, struct, random, re, requests
+          import os, time, subprocess, hashlib, hmac, struct, re, requests
           from datetime import datetime
           from selenium import webdriver
           from selenium.webdriver.common.by import By
@@ -56,7 +56,7 @@ jobs:
               StaleElementReferenceException,
           )
 
-          # ---- Screenshot helper ----
+          # ===== Utilities =====
           counter = [0]
           def ss(desc):
               counter[0] += 1
@@ -76,28 +76,35 @@ jobs:
                   try:
                       subprocess.run(["git", "push"], check=True)
                   except:
-                      print("Push failed (will retry)")
+                      print("Push failed, will retry")
 
-          # ---- Logging ----
           log_file = "gmail_yml.log"
           def log(msg):
               with open(log_file, "a") as f:
                   f.write(f"{datetime.now().strftime('%H:%M:%S')} - {msg}\n")
               print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
-          # ---- Decoder (matches C# encoder, KEY secret) ----
-          key = os.environ["KEY"]
-          h = hashlib.sha256(key.encode()).digest()
-          seed = struct.unpack("i", h[:4])[0]
-          rng = random.Random(seed)
-          digits = list(range(10))
-          rng.shuffle(digits)
-          rev_map = {v: k for k, v in enumerate(digits)}
-          def decode_10(s):
-              return ''.join(str(rev_map[int(c)]) for c in s)
+          # ===== Cross‑platform decoder (matches updated C# encoder) =====
+          def get_permutation(key):
+              # HMAC‑based Fisher‑Yates shuffle identical to C#
+              digits = list(range(10))
+              for i in range(9, 0, -1):
+                  i_bytes = i.to_bytes(4, byteorder='little')
+                  hc = hmac.new(key.encode(), i_bytes, hashlib.sha256).digest()
+                  j = abs(int.from_bytes(hc[:4], byteorder='little')) % (i + 1)
+                  digits[i], digits[j] = digits[j], digits[i]
+              return digits  # forward mapping: original -> encoded
 
-          # ---- Browser ----
-          log("Starting full sign-in session")
+          def decode_10(encoded_str, key):
+              forward_map = get_permutation(key)
+              reverse_map = [0]*10
+              for original, encoded in enumerate(forward_map):
+                  reverse_map[encoded] = original
+              digits_only = re.sub(r'\D', '', encoded_str)[:10]
+              return ''.join(str(reverse_map[int(c)]) for c in digits_only)
+
+          # ===== Browser launch =====
+          log("Starting sign-in session")
           opts = Options()
           opts.add_argument("--headless")
           opts.add_argument("--no-sandbox")
@@ -122,10 +129,9 @@ jobs:
               try:
                   driver.find_element(By.XPATH, "//button[contains(.,'Accept all') or contains(.,'I agree')]").click()
                   time.sleep(1)
-                  log("Cookie consent accepted")
                   ss("02_cookies_accepted")
               except:
-                  log("No cookie popup")
+                  pass
 
               # 2. Enter email
               log("Typing email...")
@@ -134,42 +140,33 @@ jobs:
               email_el.send_keys(os.environ["EMAIL"])
               ss("03_email_typed")
               driver.find_element(By.ID, "identifierNext").click()
-              log("Clicked Next after email")
               ss("04_after_email_next")
 
               # 3. Wait for password page
               try:
                   wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-                  log("Password page reached")
                   ss("05_password_page")
               except TimeoutException:
-                  # maybe Welcome screen
                   try:
                       driver.find_element(By.XPATH, "//div[contains(text(),'Welcome')]")
                       driver.find_element(By.XPATH, "//button[contains(.,'Next')]").click()
                       time.sleep(2)
                       wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-                      log("Password page after Welcome")
                       ss("05b_password_page")
                   except:
                       ss("05_error_no_password")
                       raise Exception("Password page did not appear")
 
-              # 4. Enter password (FIX: re-find the field right before typing)
+              # 4. Enter password
               log("Typing password...")
-              # Re-locate the password field to avoid stale element
               pwd_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
               try:
                   pwd_field.clear()
                   pwd_field.send_keys(os.environ["PASS"])
-                  log("Password entered normally")
               except (ElementNotInteractableException, StaleElementReferenceException):
-                  log("Normal typing failed; injecting via JavaScript")
-                  # Re-find again just in case
                   pwd_field = driver.find_element(By.CSS_SELECTOR, "input[type='password']")
                   driver.execute_script("arguments[0].value = arguments[1];", pwd_field, os.environ["PASS"])
                   driver.execute_script("arguments[0].dispatchEvent(new Event('input', {bubbles: true}));", pwd_field)
-                  driver.execute_script("arguments[0].dispatchEvent(new Event('change', {bubbles: true}));", pwd_field)
               ss("06_password_typed")
 
               # 5. Click Next
@@ -189,14 +186,13 @@ jobs:
               time.sleep(5)
               ss("07_after_password_submit")
 
-              # 6. Check for errors
+              # 6. Error check
               error_found = False
               for sel in [
                   "//div[contains(@class,'o6cuMc')]",
                   "//span[contains(text(),'Wrong password')]",
                   "//span[contains(text(),'Try again')]",
                   "//div[contains(text(),'CAPTCHA')]",
-                  "//div[contains(text(),'unusual activity')]",
               ]:
                   try:
                       el = driver.find_element(By.XPATH, sel)
@@ -208,26 +204,19 @@ jobs:
                       pass
               if error_found:
                   ss("08_error_detected")
-                  with open("error_page_source.txt", "w") as f:
-                      f.write(driver.page_source[:3000])
-                  subprocess.run(["git", "add", "error_page_source.txt"], check=True)
-                  subprocess.run(["git", "commit", "-m", "Error page source"], check=True)
-                  subprocess.run(["git", "push"], check=True)
                   raise Exception("Google showed an error after password")
 
-              # 7. Look for 2FA options
+              # 7. 2FA method selection
               log("Looking for 2FA options...")
               try:
                   try:
                       another = driver.find_element(By.XPATH, "//button[contains(.,'Try another way') or contains(.,'More options')]")
                       another.click()
                       time.sleep(2)
-                      log("Clicked 'Try another way'")
                       ss("09_try_another_way")
                   except:
                       pass
 
-                  # Select code option
                   for sel in [
                       "//div[@data-challengetype='12']",
                       "//div[@data-challengetype='13']",
@@ -239,14 +228,13 @@ jobs:
                           opt = driver.find_element(By.XPATH, sel)
                           if opt.is_displayed():
                               opt.click()
-                              log(f"Selected code option: {sel}")
                               time.sleep(2)
                               ss("10_code_option_selected")
                               break
                       except:
                           continue
 
-                  # 8. Find code input field
+                  # 8. Find code input
                   code_input = None
                   for fid in ["idvPin", "totpPin", "idvPreregisteredPhonePin", "backupCode"]:
                       try:
@@ -262,43 +250,37 @@ jobs:
                               break
                   if not code_input:
                       ss("11_no_code_input")
-                      raise Exception("Could not find security code input")
+                      raise Exception("Security code input not found")
                   ss("11_code_input_ready")
 
-                  # ---- Create empty bestlog.txt before waiting ----
+                  # Create empty bestlog.txt
                   with open("bestlog.txt", "w") as f:
-                      pass  # empty file
+                      pass
                   subprocess.run(["git", "add", "bestlog.txt"], check=True)
-                  subprocess.run(["git", "commit", "-m", "Empty bestlog.txt ready for code"], check=True)
+                  subprocess.run(["git", "commit", "-m", "Empty bestlog ready"], check=True)
                   subprocess.run(["git", "push"], check=True)
-                  log("Empty bestlog.txt created and pushed. Ready for code.")
 
                   # 9. Poll for encoded code
                   raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
-                  last_mod = None
                   decoded = None
                   log("Waiting for you to enter the code into bestlog.txt...")
                   while not decoded:
                       print("⏳ waiting for entering the code into bestlog")
                       time.sleep(10)
                       try:
-                          head = requests.head(raw_url, timeout=10)
-                          new_mod = head.headers.get("Last-Modified")
-                          if new_mod and new_mod == last_mod:
-                              continue
                           resp = requests.get(raw_url, timeout=10)
                           if resp.status_code == 200:
-                              nums = re.findall(r'\d', resp.text)
+                              content = resp.text
+                              nums = re.findall(r'\d', content)
                               if len(nums) >= 10:
                                   encoded = ''.join(nums[:10])
-                                  decoded = decode_10(encoded)
+                                  decoded = decode_10(encoded, os.environ["KEY"])
                                   log(f"Encoded digits found: {encoded}")
                                   break
-                          last_mod = new_mod
                       except Exception as e:
                           log(f"Poll error: {e}")
 
-                  # 10. Enter and submit code
+                  # 10. Enter and submit security code
                   log("Entering decoded security code...")
                   code_input.clear()
                   code_input.send_keys(decoded)
@@ -313,7 +295,7 @@ jobs:
                   log("Inbox reached!")
                   ss("14_inbox_reached")
 
-                  # 12. Read last two emails
+                  # 12. Read last two emails (with screenshots)
                   time.sleep(4)
                   rows = driver.find_elements(By.CSS_SELECTOR, "tr.zA")[:2]
                   email_texts = []
@@ -326,18 +308,18 @@ jobs:
                       except:
                           content = driver.find_element(By.TAG_NAME, "body").text
                       email_texts.append(content)
-                      ss(f"15_email_{i}_read")
+                      log(f"Email {i}: {len(content)} chars")
+                      ss(f"15_email_{i}_read")   # screenshot of opened email
                       driver.get("https://mail.google.com/mail/u/0/#inbox")
                       wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
                       time.sleep(4)
 
+                  # Save emails to file
                   with open("email.txt", "w", encoding="utf-8") as f:
                       f.write("--- Last two emails ---\n\n")
                       for i, txt in enumerate(email_texts, 1):
                           f.write(f"=== Email {i} ===\n{txt}\n\n")
-                  log("Email.txt saved")
-
-                  # Final push
+                  log("email.txt saved")
                   subprocess.run(["git", "add", "email.txt", log_file], check=True)
                   subprocess.run(["git", "commit", "-m", "Final - emails fetched"], check=True)
                   subprocess.run(["git", "push"], check=True)
@@ -361,7 +343,6 @@ jobs:
                   log("Browser closed")
               except:
                   pass
-              # Push any remaining files
               try:
                   subprocess.run(["git", "add", "screenshots/", "gmail_yml.log", "email.txt", "error_page_source.txt"], check=True)
                   subprocess.run(["git", "commit", "-m", "Final state"], check=True)
