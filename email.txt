@@ -1,0 +1,13 @@
+--- First email ---
+
+  [edukadoj/download_to_repo_from_link] Gmail – Cache & Silent Login (Verbose) workflow run
+    Gmail – Cache & Silent Login (Verbose): All jobs have failed
+  View workflow run
+  Status Job Annotations
+Gmail – Cache & Silent Login (Verbose) / access-gmail
+Failed in 2 minutes and 59 seconds
+2
+    —
+You are receiving this because you are subscribed to this thread.
+Manage your GitHub Actions notifications
+  GitHub, Inc. ・88 Colin P Kelly Jr Street ・San Francisco, CA 94107
