@@ -1,17 +1,18 @@
 # =============================================================================
-# Workflow version: 1.3.1
+# Workflow version: 1.4.0
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
-#              headless browser, creates a self-contained offline copy, zips it,
-#              splits the archive if needed, and uploads everything directly to
-#              the repository via GitHub API. A Windows batch file
-#              (reassemble.bat) is generated inside the folder.
+#              headless browser, creates a self-contained offline copy, zips it
+#              with a password from the ZIPPASS secret, splits the archive if
+#              needed, and uploads everything directly to the repository via the
+#              GitHub API. A Windows batch file (reassemble.bat) is generated
+#              inside the folder.
 #
 # Changelog:
-#   1.3.1 – Added API‑based deletion of the target folder before uploading,
-#           preventing leftover chunks from old runs.
+#   1.4.0 – ZIP archive is now password‑protected using the ZIPPASS secret.
+#           The password is securely hidden in logs by GitHub’s secret masking.
+#   1.3.1 – Added API‑based deletion of the target folder before uploading.
 #   1.3.0 – Removed unnecessary `checkout` step and all Git operations.
-#           Everything now uploaded via GitHub API (PyGithub).
 #   1.2.2 – Fixed ZIP path; replaced PowerShell upload with Python (PyGithub).
 #   1.2.1 – Fixed npm install error.
 #   1.2.0 – Fixed Puppeteer `waitForTimeout`; added caching.
@@ -298,15 +299,17 @@ jobs:
           node crawl_and_save.js
 
       # -------------------------------------------------------------------
-      # Zip the downloaded folder
+      # Zip the downloaded folder with password from ZIPPASS secret
       # -------------------------------------------------------------------
-      - name: Create ZIP archive
+      - name: Create password-protected ZIP archive
         env:
           FOLDER: ${{ github.event.inputs.folder_name }}
+          ZIPPASS: ${{ secrets.ZIPPASS }}
         run: |
           ZIPFILE="${FOLDER}.zip"
-          echo "Creating $ZIPFILE..."
-          zip -r "$ZIPFILE" "$FOLDER"
+          echo "Creating $ZIPFILE with password protection..."
+          # Use -P to supply password; GitHub automatically masks secrets in logs
+          zip -P "$ZIPPASS" -r "$ZIPFILE" "$FOLDER"
           echo "Archive size: $(du -h "$ZIPFILE" | cut -f1)"
           echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
 
@@ -349,7 +352,7 @@ jobs:
           try:
               contents = repo.get_contents(folder, ref=branch)
               if not isinstance(contents, list):
-                  contents = [contents]  # single file returned
+                  contents = [contents]
 
               print(f"Deleting {len(contents)} items from {folder}...")
               for item in contents:
@@ -373,7 +376,7 @@ jobs:
           ZIPFILE: ${{ env.ZIPFILE }}
         run: |
           python << 'PYEOF'
-          import os, sys, base64, math, time
+          import os, sys, base64, time
           from github import Github, GithubException
 
           token = os.environ["GITHUB_TOKEN"]
@@ -453,6 +456,8 @@ jobs:
               else:
                   bat_lines.append(f"echo {name} was downloaded as a single file (no chunks).")
           bat_lines.append("echo ========================================")
+          bat_lines.append("echo IMPORTANT: The ZIP archive is password-protected.")
+          bat_lines.append("echo Use the correct password with 7-Zip, WinRAR or similar.")
           bat_lines.append("echo All done! You can now extract the ZIP archive.")
           bat_lines.append("pause >nul")
 
