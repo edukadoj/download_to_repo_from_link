@@ -1,4 +1,4 @@
-# version 11.0 – Fully separated stages, persistent logs, WARP optional
+# version 12.0 – Stage 1 fix: handle cookie consent & robust email input selectors
 name: Gmail Sign-In & Fetch (Robust Multi-Stage)
 
 on: workflow_dispatch
@@ -14,9 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ----------------------------------------------------------------
-      # Install Chrome + Python libs
-      # ----------------------------------------------------------------
       - name: Install dependencies
         run: |
           sudo apt update
@@ -27,9 +24,6 @@ jobs:
           sudo apt install -y google-chrome-stable
           pip3 install selenium webdriver-manager requests
 
-      # ----------------------------------------------------------------
-      # Setup Cloudflare WARP (optional, continue on failure)
-      # ----------------------------------------------------------------
       - name: Setup Cloudflare WARP
         uses: viperadnan-git/setup-warp@v1
         with:
@@ -37,7 +31,7 @@ jobs:
           stack: 'dual'
           configure_docker: 'false'
 
-      - name: Force WARP connection (optional, continue on failure)
+      - name: Force WARP connection (optional)
         continue-on-error: true
         run: |
           warp-cli connect || echo "WARP connect failed, continuing without it"
@@ -47,21 +41,23 @@ jobs:
           echo "Proceeding with current IP."
 
       # ================================================================
-      # Stage 1: Enter email
+      # Stage 1: Enter email (FIX: handle cookie popup + smarter selectors)
       # ================================================================
       - name: Stage 1 – Enter email
         run: |
           python3 << 'PYEOF'
-          import os, pickle, sys
+          import os, pickle, time
           from selenium import webdriver
           from selenium.webdriver.common.by import By
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
+          from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
               lf.write("=== Stage 1: Enter email ===\n")
+
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -74,18 +70,66 @@ jobs:
               wait = WebDriverWait(driver, 20)
 
               driver.get("https://accounts.google.com/signin")
-              email_el = wait.until(EC.presence_of_element_located((By.ID, "identifierId")))
-              email_el.send_keys(os.environ["EMAIL"])
-              driver.find_element(By.ID, "identifierNext").click()
-              # Wait for password page
+              time.sleep(3)  # allow page to fully load, including any popups
+
+              # --- Handle cookie consent / "Before you continue" popup ---
+              try:
+                  # The consent button often has text "Accept all" or "I agree"
+                  consent_btn = driver.find_element(By.XPATH, "//button[contains(.,'Accept all') or contains(.,'I agree')]")
+                  consent_btn.click()
+                  with open(log_file, "a") as lf:
+                      lf.write("Cookie consent accepted.\n")
+                  time.sleep(1)
+              except:
+                  pass
+
+              # --- Find email input using multiple strategies ---
+              email_input = None
+              # Strategy 1: known ID
+              try:
+                  email_input = driver.find_element(By.ID, "identifierId")
+                  if not email_input.is_displayed():
+                      email_input = None
+              except:
+                  pass
+
+              if not email_input:
+                  # Strategy 2: input type='email'
+                  try:
+                      email_input = driver.find_element(By.CSS_SELECTOR, "input[type='email']")
+                  except:
+                      pass
+
+              if not email_input:
+                  # Strategy 3: input name='identifier'
+                  try:
+                      email_input = driver.find_element(By.NAME, "identifier")
+                  except:
+                      pass
+
+              if not email_input:
+                  raise Exception("Could not locate email input field.")
+
+              # Wait until the email field is clickable & type
+              wait.until(EC.element_to_be_clickable((By.XPATH, "//input[@id='identifierId' or @type='email' or @name='identifier']")))
+              email_input.clear()
+              email_input.send_keys(os.environ["EMAIL"])
+
+              # Click Next
+              next_btn = driver.find_element(By.ID, "identifierNext")
+              next_btn.click()
+
+              # Wait for password field to appear (indicates success)
               wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-              # Save cookies
+              with open(log_file, "a") as lf:
+                  lf.write("Email submitted, password field visible.\n")
+
+              # Save cookies & URL for next stages
               with open("cookies.pkl", "wb") as f:
                   pickle.dump(driver.get_cookies(), f)
               with open("url.txt", "w") as f:
                   f.write(driver.current_url)
-              with open(log_file, "a") as lf:
-                  lf.write("Email submitted, password field visible.\n")
+
               print("Stage 1 success.")
           except Exception as e:
               with open(log_file, "a") as lf:
@@ -107,9 +151,9 @@ jobs:
           git diff --cached --quiet || git commit -m "Stage 1 log"
           git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
 
-      # ================================================================
+      # ----------------------------------------------------------------
       # Stage 2: Enter password
-      # ================================================================
+      # ----------------------------------------------------------------
       - name: Stage 2 – Enter password
         run: |
           python3 << 'PYEOF'
@@ -131,7 +175,6 @@ jobs:
               opts.add_argument("--disable-blink-features=AutomationControlled")
               driver = webdriver.Chrome(options=opts)
               driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-              # Load cookies & URL
               with open("cookies.pkl", "rb") as f:
                   cookies = pickle.load(f)
               with open("url.txt") as f:
@@ -145,7 +188,7 @@ jobs:
               pwd.send_keys(os.environ["PASS"])
               driver.find_element(By.ID, "passwordNext").click()
               time.sleep(4)
-              # Now should be at 2FA page – save state
+              # Save state
               with open("cookies.pkl", "wb") as f:
                   pickle.dump(driver.get_cookies(), f)
               with open("url.txt", "w") as f:
@@ -171,9 +214,9 @@ jobs:
           git diff --cached --quiet || git commit -m "Stage 2 log"
           git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
 
-      # ================================================================
+      # ----------------------------------------------------------------
       # Stage 3: Select "security code" method
-      # ================================================================
+      # ----------------------------------------------------------------
       - name: Stage 3 – Select security code method
         run: |
           python3 << 'PYEOF'
@@ -234,7 +277,6 @@ jobs:
               if not clicked:
                   with open(log_file, "a") as lf:
                       lf.write("No clickable option found; assuming input visible.\n")
-              # Save state
               with open("cookies.pkl", "wb") as f:
                   pickle.dump(driver.get_cookies(), f)
               with open("url.txt", "w") as f:
@@ -260,9 +302,9 @@ jobs:
           git diff --cached --quiet || git commit -m "Stage 3 log"
           git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
 
-      # ================================================================
+      # ----------------------------------------------------------------
       # Stage 4: Poll for encoded security code
-      # ================================================================
+      # ----------------------------------------------------------------
       - name: Stage 4 – Wait for security code
         run: |
           python3 << 'PYEOF'
@@ -318,9 +360,9 @@ jobs:
           git diff --cached --quiet || git commit -m "Stage 4 log"
           git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
 
-      # ================================================================
+      # ----------------------------------------------------------------
       # Stage 5: Enter security code
-      # ================================================================
+      # ----------------------------------------------------------------
       - name: Stage 5 – Enter security code
         run: |
           python3 << 'PYEOF'
@@ -353,7 +395,6 @@ jobs:
                   driver.add_cookie(c)
               driver.get(url)
               time.sleep(2)
-              # Find code input
               code_input = None
               for fid in ["idvPin", "totpPin", "idvPreregisteredPhonePin", "backupCode"]:
                   try:
@@ -372,7 +413,6 @@ jobs:
                   code_input.send_keys(code)
                   driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]").click()
                   time.sleep(5)
-                  # Wait for inbox
                   WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
                   with open(log_file, "a") as lf:
                       lf.write("Security code accepted, reached inbox.\n")
@@ -403,9 +443,9 @@ jobs:
           git diff --cached --quiet || git commit -m "Stage 5 log"
           git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
 
-      # ================================================================
+      # ----------------------------------------------------------------
       # Stage 6: Fetch last two emails
-      # ================================================================
+      # ----------------------------------------------------------------
       - name: Stage 6 – Fetch emails
         run: |
           python3 << 'PYEOF'
