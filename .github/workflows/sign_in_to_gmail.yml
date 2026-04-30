@@ -1,4 +1,4 @@
-# version 10.0 – Fully separated stages, persistent logs, explicit WARP connect
+# version 11.0 – Fully separated stages, persistent logs, WARP optional
 name: Gmail Sign-In & Fetch (Robust Multi-Stage)
 
 on: workflow_dispatch
@@ -28,7 +28,7 @@ jobs:
           pip3 install selenium webdriver-manager requests
 
       # ----------------------------------------------------------------
-      # Setup Cloudflare WARP (with explicit connect)
+      # Setup Cloudflare WARP (optional, continue on failure)
       # ----------------------------------------------------------------
       - name: Setup Cloudflare WARP
         uses: viperadnan-git/setup-warp@v1
@@ -37,13 +37,14 @@ jobs:
           stack: 'dual'
           configure_docker: 'false'
 
-      - name: Force WARP connection & verify
+      - name: Force WARP connection (optional, continue on failure)
+        continue-on-error: true
         run: |
-          warp-cli connect
-          sleep 5
-          echo "WARP status:"
-          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
-          echo "WARP should be active."
+          warp-cli connect || echo "WARP connect failed, continuing without it"
+          sleep 3
+          echo "WARP status (may show disconnected):"
+          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc" || true
+          echo "Proceeding with current IP."
 
       # ================================================================
       # Stage 1: Enter email
