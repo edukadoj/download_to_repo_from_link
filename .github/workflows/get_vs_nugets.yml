@@ -1,9 +1,9 @@
 # ==============================================================================
-#  version: 3.1
+#  version: 3.2
 #  Offline NuGet Feed Builder for Visual Studio 2026 Community
-#  - Priority packages are processed one by one (full restore or direct download).
-#  - Top popular packages are optional (skip checkbox).
-#  - Clear, simple input descriptions.
+#  - Priority packages processed individually (full restore or direct download).
+#  - Top popular packages are strictly skipped when checkbox is ticked.
+#  - Debug output confirms input values.
 # ==============================================================================
 
 name: Download NuGet Packages Offline
@@ -51,7 +51,7 @@ jobs:
 
       # Workloads are only installed if top packages are NOT skipped
       - name: Install workloads (MAUI, WASM, Aspire)
-        if: inputs.skip_top_packages != 'true'
+        if: inputs.skip_top_packages != 'true' && inputs.skip_top_packages != true
         run: |
           dotnet workload install maui wasm-tools aspire --skip-sign-check
           dotnet workload list
@@ -60,7 +60,7 @@ jobs:
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-v31-" +
+          $key = "nuget-offline-feed-v32-" +
             "search-${{ inputs.search_term }}" +
             "-maxGB-${{ inputs.max_size_gb }}" +
             "-topskip-${{ inputs.skip_top_packages }}"
@@ -99,7 +99,6 @@ jobs:
 
           foreach ($tok in $tokens) {
             Write-Host "--- Processing: $tok ---"
-            # Build a temporary project that references ONLY this package
             if ($tok -match '@') {
               $parts = $tok -split '@', 2
               $id = $parts[0].Trim()
@@ -133,7 +132,6 @@ jobs:
               dotnet package download $id --output $feedDir 2>&1 | Out-Null
             }
 
-            # Optional: remove temp project to save space
             Remove-Item $tempCsproj -Force -ErrorAction SilentlyContinue
           }
 
@@ -153,10 +151,20 @@ jobs:
           echo "CURRENT_SIZE=$size" >> $env:GITHUB_ENV
 
       # ---------------------------------------------------------------
-      # 3. TOP POPULAR PACKAGES (only if not skipped and max_size_gb > 0)
+      # DEBUG: show input values
+      # ---------------------------------------------------------------
+      - name: Debug inputs
+        shell: pwsh
+        run: |
+          Write-Host "skip_top_packages = ${{ inputs.skip_top_packages }}"
+          Write-Host "max_size_gb = ${{ inputs.max_size_gb }}"
+          Write-Host "search_term = ${{ inputs.search_term }}"
+
+      # ---------------------------------------------------------------
+      # 3. TOP POPULAR PACKAGES (only if NOT skipped)
       # ---------------------------------------------------------------
       - name: Fetch and process top packages
-        if: inputs.skip_top_packages != 'true' && inputs.max_size_gb != '0'
+        if: inputs.skip_top_packages != 'true' && inputs.skip_top_packages != true && inputs.max_size_gb != '0'
         shell: pwsh
         timeout-minutes: 540
         run: |
