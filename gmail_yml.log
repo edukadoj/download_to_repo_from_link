@@ -37,3 +37,5 @@ Password field present.
 Using JavaScript injection.
 Clicked Next.
 Stage 2 FAILED: Still on login page – wrong password or verification required.
+09:22:43 - === Starting full sign-in session ===
+09:22:43 - Navigating to Google sign-in...
