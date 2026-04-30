@@ -1,5 +1,5 @@
-# version 5.0 – sign in, poll for 2FA, fetch last 2 emails, save to repo
-name: Gmail Sign‑In + Fetch Emails
+# version 6.0 – Comprehensive Gmail sign-in with method selection, Warp, robust waits, and email fetch
+name: Gmail Sign-In & Fetch (Robust)
 
 on: workflow_dispatch
 
@@ -9,59 +9,148 @@ jobs:
     env:
       EMAIL: ${{ secrets.EMAIL }}
       PASS: ${{ secrets.PASS }}
-      KEY: ${{ secrets.KEY }}               # "nHsjknhwknh"
-      GH_PAT: ${{ secrets.GH_PAT }}         # PAT with repo write access
+      KEY: ${{ secrets.KEY }}                # e.g., "nHsjknhwknh"
+      GH_PAT: ${{ secrets.GH_PAT }}          # PAT with repo write access
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Chrome & Python deps
+      - name: Install dependencies (Chrome, Warp, Python libs)
         run: |
           sudo apt update
-          sudo apt install -y wget gnupg python3-pip
+          sudo apt install -y wget gnupg python3-pip curl
+          # Google Chrome
           wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
           sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
           sudo apt update
           sudo apt install -y google-chrome-stable
+          # Cloudflare Warp (optional, reduces bot flags)
+          curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+          sudo apt update
+          sudo apt install -y cloudflare-warp
+          # Python packages
           pip3 install selenium webdriver-manager requests
 
-      - name: Sign in, wait for 2FA code, fetch last two emails
+      - name: Connect via Cloudflare Warp (optional but recommended)
+        run: |
+          warp-cli register
+          warp-cli connect
+          sleep 5
+          warp-cli status
+
+      - name: Full sign-in, 2FA method selection, poll for code, fetch emails
         run: |
           python3 << 'PYEOF'
-          import os, time, hashlib, struct, random, re
+          import os, time, hashlib, struct, random, re, sys
           import requests
           from selenium import webdriver
           from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
+          from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-          # --- Deterministic reverse digit mapping (matches C# encoder) ---
+          # ============================================================
+          # 1. Deterministic substitution cipher (matches C# encoder)
+          # ============================================================
           key = os.environ["KEY"]
           h = hashlib.sha256(key.encode()).digest()
           seed = struct.unpack("i", h[:4])[0]
           rng = random.Random(seed)
           digits = list(range(10))
           rng.shuffle(digits)
-          rev = {v: k for k, v in enumerate(digits)}
+          rev_map = {v: k for k, v in enumerate(digits)}
 
-          # --- Launch headless Chrome ---
-          opts = Options()
-          opts.add_argument("--headless")
-          opts.add_argument("--no-sandbox")
-          opts.add_argument("--disable-gpu")
-          opts.add_argument("--disable-blink-features=AutomationControlled")
-          driver = webdriver.Chrome(options=opts)
+          def decode_10_digits(encoded_str: str) -> str:
+              """Take exactly 10 digits and return the original code."""
+              return ''.join(str(rev_map[int(c)]) for c in encoded_str)
 
-          # --- Gmail login: email + password ---
+          # ============================================================
+          # 2. Browser setup with anti-detection flags
+          # ============================================================
+          chrome_options = Options()
+          chrome_options.add_argument("--headless")
+          chrome_options.add_argument("--no-sandbox")
+          chrome_options.add_argument("--disable-gpu")
+          chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+          chrome_options.add_argument("--window-size=1920,1080")
+          chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.7727.137 Safari/537.36")
+          chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+          chrome_options.add_experimental_option('useAutomationExtension', False)
+
+          driver = webdriver.Chrome(options=chrome_options)
+          driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+          wait = WebDriverWait(driver, 20)   # generous timeout for pages to load
+
+          # ============================================================
+          # 3. Gmail sign‑in: email and password
+          # ============================================================
+          print("[*] Navigating to Google sign-in...")
           driver.get("https://accounts.google.com/signin")
-          time.sleep(2)
-          driver.find_element(By.ID, "identifierId").send_keys(os.environ["EMAIL"])
+          wait.until(EC.presence_of_element_located((By.ID, "identifierId"))).send_keys(os.environ["EMAIL"])
           driver.find_element(By.ID, "identifierNext").click()
-          time.sleep(3)
-          driver.find_element(By.NAME, "password").send_keys(os.environ["PASS"])
-          driver.find_element(By.ID, "passwordNext").click()
-          time.sleep(5)
+          print("[*] Email entered, waiting for password field...")
 
-          # --- Poll bestlog.txt for encoded 2FA code ---
-          raw_url = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/bestlog.txt"
+          # Wait for password input (robust selector)
+          password_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
+          password_field.send_keys(os.environ["PASS"])
+          driver.find_element(By.ID, "passwordNext").click()
+          print("[*] Password submitted.")
+
+          # ============================================================
+          # 4. Handle 2‑Step Verification: select "Enter a security code"
+          # ============================================================
+          time.sleep(4)
+          print("[*] Checking for 2‑Step Verification page...")
+
+          # Google may show a list of verification methods. We must click on
+          # "Use your security code" or "Enter a verification code".
+          # Typical patterns:
+          # - A button with text "Try another way" -> click it if present.
+          # - A list item with data-challengetype="12" or "13" for backup codes.
+          # - An option labeled "Enter one of your 8‑digit backup codes" or "Google Authenticator".
+
+          # First, try to click "Try another way" to reveal code option if not already visible.
+          try:
+              another_way = driver.find_element(By.XPATH, "//button[contains(.,'Try another way') or contains(.,'More options')]")
+              another_way.click()
+              time.sleep(2)
+              print("[*] Clicked 'Try another way'.")
+          except:
+              pass
+
+          # Now look for the specific option that leads to a code input.
+          # We'll search for elements containing the text "security code", "verification code", "backup code",
+          # or a div with data-challengetype indicating a code prompt.
+          code_option_selectors = [
+              "//div[@data-challengetype='12']",                        # backup codes
+              "//div[@data-challengetype='13']",                        # TOTP (Google Authenticator)
+              "//span[contains(text(),'security code')]",
+              "//span[contains(text(),'Backup code')]",
+              "//span[contains(text(),'Enter a verification code')]",
+              "//div[@role='link' and contains(.,'code')]"
+          ]
+          clicked_code_option = False
+          for selector in code_option_selectors:
+              try:
+                  elem = driver.find_element(By.XPATH, selector)
+                  elem.click()
+                  time.sleep(2)
+                  clicked_code_option = True
+                  print(f"[*] Selected code option via: {selector}")
+                  break
+              except:
+                  continue
+
+          if not clicked_code_option:
+              # Fallback: sometimes the code input is already visible after password
+              print("[*] Code input may already be visible, checking...")
+
+          # ============================================================
+          # 5. Poll bestlog.txt for the encoded security code
+          # ============================================================
+          raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
           last_mod = None
           try:
               resp = requests.head(raw_url, timeout=10)
@@ -69,77 +158,101 @@ jobs:
           except:
               pass
 
-          def extract_digits(text):
+          def extract_10_digits(text):
               nums = re.findall(r'\d', text)
               return ''.join(nums[:10]) if len(nums) >= 10 else None
 
           decoded_code = None
+          print("[*] Waiting for bestlog.txt update with encoded 10-digit code...")
           while not decoded_code:
-              print("[*] Waiting for updated bestlog.txt (polling every 10s)...")
               time.sleep(10)
               try:
-                  new_resp = requests.head(raw_url, timeout=10)
-                  new_mod = new_resp.headers.get("Last-Modified")
+                  head_resp = requests.head(raw_url, timeout=10)
+                  new_mod = head_resp.headers.get("Last-Modified")
                   if new_mod and new_mod == last_mod:
                       continue
-                  resp = requests.get(raw_url, timeout=10)
-                  if resp.status_code == 200:
-                      code_digits = extract_digits(resp.text)
-                      if code_digits and len(code_digits) == 10:
-                          decoded = ''.join(str(rev[int(c)]) for c in code_digits)
-                          decoded_code = decoded
+                  get_resp = requests.get(raw_url, timeout=10)
+                  if get_resp.status_code == 200:
+                      text = get_resp.text
+                      code_digits = extract_10_digits(text)
+                      if code_digits:
+                          decoded_code = decode_10_digits(code_digits)
+                          print(f"[+] Got encoded digits: {code_digits}, decoded: {decoded_code}")
                           break
                       else:
-                          last_mod = new_mod
+                          last_mod = new_mod   # invalid content, but file changed
               except Exception as e:
                   print(f"[!] Polling error: {e}")
 
-          # --- Enter security code ---
-          try:
-              driver.find_element(By.ID, "idvPin").send_keys(decoded_code)
-              driver.find_element(By.ID, "idvPreregisteredPhoneNext").click()
-          except:
-              inputs = driver.find_elements(By.TAG_NAME, "input")
-              for inp in inputs:
-                  if inp.get_attribute("type") in ("text", "tel"):
-                      inp.send_keys(decoded_code)
+          # ============================================================
+          # 6. Enter the security code
+          # ============================================================
+          time.sleep(2)
+          # The input field may be id="idvPin" for backup codes, or id="totpPin" for TOTP.
+          # Try known IDs first, then fallback to any visible text/tel input.
+          code_input = None
+          for field_id in ["idvPin", "totpPin", "idvPreregisteredPhonePin", "backupCode"]:
+              try:
+                  code_input = driver.find_element(By.ID, field_id)
+                  if code_input.is_displayed():
                       break
-              driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]").click()
-          time.sleep(10)
+              except:
+                  continue
+          if not code_input:
+              # Fallback: find any visible input of type text/tel
+              inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='text'], input[type='tel']")
+              for inp in inputs:
+                  if inp.is_displayed():
+                      code_input = inp
+                      break
+          if code_input:
+              code_input.send_keys(decoded_code)
+              # Click Next/Verify
+              next_btn = driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]")
+              next_btn.click()
+              time.sleep(5)
+              print("[*] Security code entered.")
+          else:
+              raise Exception("Could not locate security code input field.")
 
-          # --- Open Gmail inbox and fetch last 2 emails ---
+          # ============================================================
+          # 7. Navigate to Gmail and fetch last two emails
+          # ============================================================
           driver.get("https://mail.google.com/mail/u/0/#inbox")
-          time.sleep(8)
+          wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+          time.sleep(4)
 
           email_texts = []
-          # Find rows of the first two emails (the newest are at the top)
           rows = driver.find_elements(By.CSS_SELECTOR, "tr.zA")[:2]
-          for row in rows:
+          print(f"[*] Found {len(rows)} emails to read.")
+          for idx, row in enumerate(rows):
               row.click()
               time.sleep(4)
-              # The email content is inside an iframe or a div with class "a3s"
-              # We'll try the main body first
               try:
+                  # The email body is inside a div with class "a3s" or "a3s aiL"
                   body = driver.find_element(By.CSS_SELECTOR, "div.a3s")
-                  email_texts.append(body.text)
+                  content = body.text
               except:
-                  # fallback: grab whole page text (crude)
-                  email_texts.append(driver.find_element(By.TAG_NAME, "body").text)
+                  content = driver.find_element(By.TAG_NAME, "body").text
+              email_texts.append(content)
               # Go back to inbox
               driver.get("https://mail.google.com/mail/u/0/#inbox")
+              wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
               time.sleep(4)
 
-          # Write to email.txt
+          # ============================================================
+          # 8. Save to email.txt
+          # ============================================================
           with open("email.txt", "w", encoding="utf-8") as f:
-              f.write("--- Last two emails ---\n\n")
+              f.write("--- Last two emails fetched from Gmail ---\n\n")
               for i, txt in enumerate(email_texts, 1):
-                  f.write(f"Email {i}:\n{txt}\n\n")
+                  f.write(f"=== Email {i} ===\n{txt}\n\n")
+          print("[*] email.txt saved.")
 
           driver.quit()
-          print("[*] email.txt created.")
           PYEOF
 
-      - name: Commit and push email.txt to repo
+      - name: Commit and push email.txt to repository
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
