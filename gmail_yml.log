@@ -249,3 +249,6 @@ Stacktrace:
 #16 0x7f889f89caa4 <unknown>
 #17 0x7f889f929c6c <unknown>
 
+12:16:06 - Testing decoder with known values...
+12:16:06 - Decoder self‑test passed ✅
+12:16:06 - Starting sign-in session (WARP active)
