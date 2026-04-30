@@ -1,5 +1,5 @@
-# version 40.0 – Final: WARP added, verified decoder, debug screenshots, robust git pushes
-name: Gmail Sign-In & Fetch (WARP + Stable Decoder)
+# version 41.0 – Staging banners, explicit Gmail navigation, real‑time waiting
+name: Gmail Sign-In & Fetch (WARP + Stages + Explicit Inbox)
 
 on: workflow_dispatch
 
@@ -27,7 +27,6 @@ jobs:
           git pull --rebase
           git push || echo "Push failed, continuing"
 
-      # ---- Cloudflare WARP (from youtube_downloader.yml) ----
       - name: Setup Cloudflare WARP
         uses: viperadnan-git/setup-warp@v1
         with:
@@ -73,6 +72,9 @@ jobs:
           def echo(msg):
               print(msg, flush=True)
 
+          def stage(msg):
+              echo(f"\n{'='*50}\n>>> {msg}\n{'='*50}")
+
           counter = [0]
           def ss(desc, push=True):
               counter[0] += 1
@@ -82,7 +84,6 @@ jobs:
               echo(f"📸 {fname}" + ("" if push else " (private, not pushed)"))
               if not push:
                   return
-              # Robust git sync: stash local changes, pull, pop, add, commit, push
               subprocess.run(["git", "stash", "--include-untracked"], capture_output=True)
               try:
                   subprocess.run(["git", "pull", "--rebase"], check=True, capture_output=True)
@@ -132,7 +133,7 @@ jobs:
               return ''.join(decoded_chars)
 
           # ===== SELF‑TESTS =====
-          log("Testing decoder with known values...")
+          stage("SELF‑TEST DECODER")
           tests = [
               ("1234567898", "4736259010"),
               ("4158745258", "6420962720")
@@ -140,12 +141,12 @@ jobs:
           for original, expected_enc in tests:
               result = decode(expected_enc)
               if result != original:
-                  log(f"SELF‑TEST FAILED: decode({expected_enc}) = {result}, expected {original}")
+                  log(f"FAIL: decode({expected_enc}) = {result}, expected {original}")
                   sys.exit(1)
           log("Decoder self‑test passed ✅")
 
           # ===== Browser launch =====
-          log("Starting sign-in session (WARP active)")
+          stage("LAUNCH BROWSER & OPEN SIGN‑IN PAGE")
           opts = Options()
           opts.add_argument("--headless")
           opts.add_argument("--no-sandbox")
@@ -161,7 +162,6 @@ jobs:
           wait = WebDriverWait(driver, 20)
 
           try:
-              # 1. Open sign-in page
               driver.get("https://accounts.google.com/signin")
               time.sleep(4)
               ss("01_signin_page")
@@ -174,8 +174,8 @@ jobs:
               except:
                   pass
 
-              # 2. Enter email
-              log("Typing email...")
+              # ---------- STAGE: Enter email ----------
+              stage("ENTER EMAIL")
               email_el = wait.until(EC.element_to_be_clickable((By.ID, "identifierId")))
               email_el.clear()
               email_el.send_keys(os.environ["EMAIL"])
@@ -183,11 +183,13 @@ jobs:
               driver.find_element(By.ID, "identifierNext").click()
               ss("04_after_email_next")
 
-              # 3. Wait for password page
+              # ---------- STAGE: Wait for password page ----------
+              stage("WAIT FOR PASSWORD PAGE")
               try:
                   wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
                   ss("05_password_page")
               except TimeoutException:
+                  # maybe Welcome screen
                   try:
                       driver.find_element(By.XPATH, "//div[contains(text(),'Welcome')]")
                       driver.find_element(By.XPATH, "//button[contains(.,'Next')]").click()
@@ -198,8 +200,8 @@ jobs:
                       ss("05_error_no_password")
                       raise Exception("Password page did not appear")
 
-              # 4. Enter password
-              log("Typing password...")
+              # ---------- STAGE: Enter password ----------
+              stage("ENTER PASSWORD")
               pwd_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
               try:
                   pwd_field.clear()
@@ -210,8 +212,7 @@ jobs:
                   driver.execute_script("arguments[0].dispatchEvent(new Event('input', {bubbles: true}));", pwd_field)
               ss("06_password_typed")
 
-              # 5. Click Next
-              log("Submitting password...")
+              # Click Next
               next_btn = None
               for method, sel in [(By.ID, "passwordNext"), (By.XPATH, "//button[contains(.,'Next')]")]:
                   try:
@@ -227,7 +228,7 @@ jobs:
               time.sleep(5)
               ss("07_after_password_submit")
 
-              # 6. Error check
+              # Error check
               error_found = False
               for sel in [
                   "//div[contains(@class,'o6cuMc')]",
@@ -247,8 +248,8 @@ jobs:
                   ss("08_error_detected")
                   raise Exception("Google showed an error after password")
 
-              # 7. 2FA method selection
-              log("Looking for 2FA options...")
+              # ---------- STAGE: 2FA method selection ----------
+              stage("SELECT 2FA METHOD (SECURITY CODE)")
               try:
                   try:
                       another = driver.find_element(By.XPATH, "//button[contains(.,'Try another way') or contains(.,'More options')]")
@@ -275,7 +276,7 @@ jobs:
                       except:
                           continue
 
-                  # 8. Find code input
+                  # Find code input
                   code_input = None
                   for fid in ["idvPin", "totpPin", "idvPreregisteredPhonePin", "backupCode"]:
                       try:
@@ -294,6 +295,8 @@ jobs:
                       raise Exception("Security code input not found")
                   ss("11_code_input_ready")
 
+                  # ---------- STAGE: Wait for encoded code from user ----------
+                  stage("WAIT FOR YOUR SECURITY CODE IN bestlog.txt")
                   # Create empty bestlog.txt
                   with open("bestlog.txt", "w") as f:
                       pass
@@ -304,10 +307,9 @@ jobs:
                   subprocess.run(["git", "commit", "-m", "Empty bestlog ready"], check=True)
                   subprocess.run(["git", "push"], check=True)
 
-                  # 9. Poll for encoded code
                   raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
                   decoded = None
-                  log("Waiting for you to enter the code into bestlog.txt...")
+                  log("Waiting for you to enter the encoded code into bestlog.txt...")
                   while not decoded:
                       echo("⏳ waiting for entering the code into bestlog")
                       time.sleep(10)
@@ -324,8 +326,8 @@ jobs:
                       except Exception as e:
                           log(f"Poll error: {e}")
 
-                  # 10. Enter the decoded code
-                  log("Entering decoded security code...")
+                  # ---------- STAGE: Enter security code ----------
+                  stage("ENTER SECURITY CODE")
                   code_input.clear()
                   code_input.send_keys(decoded)
                   time.sleep(1)
@@ -334,15 +336,33 @@ jobs:
                   time.sleep(5)
                   ss("13_after_code_submit")
 
-                  # 11. Verify inbox
-                  log("Waiting for inbox...")
-                  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
-                  log("Inbox reached!")
-                  ss("14_inbox_reached")
+                  # ---------- STAGE: Navigate to Gmail inbox ----------
+                  stage("NAVIGATE TO GMAIL INBOX")
+                  # Force navigation to Gmail in case it didn't redirect automatically
+                  driver.get("https://mail.google.com/mail/u/0/#inbox")
+                  time.sleep(5)
+                  try:
+                      wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+                      log("Inbox reached!")
+                      ss("14_inbox_reached")
+                  except TimeoutException:
+                      # Maybe the page is the Google apps chooser – try clicking "Gmail"
+                      log("Inbox not found directly. Trying to click 'Gmail' from the apps menu...")
+                      try:
+                          driver.get("https://myaccount.google.com/?utm_source=sign_in_no_versi")  # fallback
+                          driver.find_element(By.XPATH, "//a[contains(@href,'mail.google.com')]").click()
+                          time.sleep(3)
+                          wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+                          ss("14_inbox_reached")
+                      except:
+                          ss("14_cannot_reach_inbox")
+                          raise Exception("Failed to reach Gmail inbox after sign-in")
 
-                  # 12. Read last two emails (with screenshots)
+                  # ---------- STAGE: Read last two emails ----------
+                  stage("READ LAST TWO EMAILS")
                   time.sleep(4)
                   rows = driver.find_elements(By.CSS_SELECTOR, "tr.zA")[:2]
+                  log(f"Found {len(rows)} emails.")
                   email_texts = []
                   for i, row in enumerate(rows, 1):
                       row.click()
