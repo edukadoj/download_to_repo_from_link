@@ -399,3 +399,6 @@ Stacktrace:
 13:46:28 - First email: 477 chars
 13:46:30 - email.txt saved (first email only)
 13:46:32 - Browser closed
+13:54:15 - Testing decoder with known values...
+13:54:15 - Decoder self‑test passed ✅
+13:54:15 - Starting sign-in session (WARP active)
