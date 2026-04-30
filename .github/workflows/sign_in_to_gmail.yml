@@ -1,31 +1,29 @@
-# version 44.0 – v39 + WARP + read first email only + no sensitive screenshot push
-name: Gmail Sign-In & Fetch (WARP + Stable Decoder)
+name: Gmail – Cache & Silent Login
 
 on: workflow_dispatch
 
 jobs:
-  signin:
+  access-gmail:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
       EMAIL: ${{ secrets.EMAIL }}
       PASS: ${{ secrets.PASS }}
-      KEY: ${{ secrets.KEY }}
+      SECRETCODE: ${{ secrets.SECRETCODE }}
+      KEY: ${{ secrets.KEY }}                # used for cookie encryption
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure git, clean screenshots & bestlog.txt
+      - name: Configure git & clean
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          rm -rf screenshots
-          rm -f bestlog.txt
+          rm -rf screenshots email.txt
           mkdir -p screenshots
-          git add -A
-          git commit -m "Clean start" || echo "Nothing to commit"
-          git pull --rebase
-          git push || echo "Push failed, continuing"
+          git add -A && git commit -m "Clean start" || echo "Nothing to commit"
+          git pull --rebase && git push || echo "Push failed, continuing"
 
       - name: Setup Cloudflare WARP
         uses: viperadnan-git/setup-warp@v1
@@ -34,27 +32,33 @@ jobs:
           stack: 'dual'
           configure_docker: 'false'
 
-      - name: Verify WARP connection
+      - name: Verify WARP
         run: |
-          echo "Checking WARP status..."
           curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
-          echo "WARP is active."
+          echo "WARP active"
 
       - name: Install dependencies
         run: |
-          sudo apt update
-          sudo apt install -y wget gnupg python3-pip
+          sudo apt update && sudo apt install -y wget gnupg python3-pip
           wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
           sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
-          sudo apt update
-          sudo apt install -y google-chrome-stable
-          pip3 install selenium webdriver-manager requests
+          sudo apt update && sudo apt install -y google-chrome-stable
+          pip3 install selenium webdriver-manager requests cryptography
 
-      - name: Full Sign-In and Email Fetch
+      # ---------- restore encrypted session from cache ----------
+      - name: Restore cached session
+        uses: actions/cache/restore@v3
+        id: cache
+        with:
+          path: session.enc
+          key: gmail-session-v1
+
+      # ---------- main logic ----------
+      - name: Launch (cached or fresh login)
         timeout-minutes: 30
         run: |
           python3 << 'PYEOF'
-          import os, time, subprocess, hashlib, re, requests, sys
+          import os, time, subprocess, hashlib, pickle, sys, json, base64
           from datetime import datetime
           from selenium import webdriver
           from selenium.webdriver.common.by import By
@@ -62,13 +66,9 @@ jobs:
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
-          from selenium.common.exceptions import (
-              ElementNotInteractableException,
-              TimeoutException,
-              NoSuchElementException,
-              StaleElementReferenceException,
-          )
+          from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
+          # -------- helpers --------
           def echo(msg):
               print(msg, flush=True)
 
@@ -78,7 +78,7 @@ jobs:
               now = datetime.now().strftime("%H%M%S")
               fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
               driver.save_screenshot(fname)
-              echo(f"📸 {fname}" + ("" if push else " (private, not pushed)"))
+              echo(f"📸 {fname}" + ("" if push else " (private)"))
               if not push:
                   return
               subprocess.run(["git", "stash", "--include-untracked"], capture_output=True)
@@ -95,7 +95,7 @@ jobs:
                   try:
                       subprocess.run(["git", "push"], check=True)
                   except:
-                      echo("Push failed, will retry later")
+                      echo("Push failed, retry later")
 
           log_file = "gmail_yml.log"
           def log(msg):
@@ -103,36 +103,23 @@ jobs:
                   f.write(f"{datetime.now().strftime('%H:%M:%S')} - {msg}\n")
               echo(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
-          # ===== DECODER (matches C# encoder) =====
+          # -------- cookie encryption / decryption --------
           KEY = os.environ["KEY"]
-          def get_permutation():
-              h = hashlib.sha256(KEY.encode('utf-8')).digest()
-              digits = list(range(10))
-              for i in range(9, 0, -1):
-                  j = h[9 - i] % (i + 1)
-                  digits[i], digits[j] = digits[j], digits[i]
-              return digits
+          ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(KEY.encode()).digest())
 
-          def decode(enc):
-              digits_only = ''.join(c for c in enc if c.isdigit())
-              perm = get_permutation()
-              rev = [0]*10
-              for orig, e in enumerate(perm):
-                  rev[e] = orig
-              return ''.join(str(rev[int(d)]) for d in digits_only[:10])
+          def encrypt_cookies(cookies):
+              from cryptography.fernet import Fernet
+              f = Fernet(ENCRYPTION_KEY)
+              data = pickle.dumps(cookies)
+              return f.encrypt(data)
 
-          # ===== SELF‑TESTS =====
-          log("Testing decoder with known values...")
-          tests = [("1234567898","4736259010"), ("4158745258","6420962720")]
-          for o, e in tests:
-              result = decode(e)
-              if result != o:
-                  log(f"SELF‑TEST FAILED: decode({e}) = {result}, expected {o}")
-                  sys.exit(1)
-          log("Decoder self‑test passed ✅")
+          def decrypt_cookies(encrypted_data):
+              from cryptography.fernet import Fernet
+              f = Fernet(ENCRYPTION_KEY)
+              data = f.decrypt(encrypted_data)
+              return pickle.loads(data)
 
-          # ===== Browser launch =====
-          log("Starting sign-in session (WARP active)")
+          # -------- browser --------
           opts = Options()
           opts.add_argument("--headless")
           opts.add_argument("--no-sandbox")
@@ -148,222 +135,209 @@ jobs:
           wait = WebDriverWait(driver, 20)
 
           try:
-              driver.get("https://accounts.google.com/signin")
-              time.sleep(4)
-              ss("01_signin_page")
-
-              # Cookie consent
-              try:
-                  driver.find_element(By.XPATH, "//button[contains(.,'Accept all') or contains(.,'I agree')]").click()
-                  time.sleep(1)
-                  ss("02_cookies_accepted")
-              except:
-                  pass
-
-              # Enter email
-              log("Typing email...")
-              email_el = wait.until(EC.element_to_be_clickable((By.ID, "identifierId")))
-              email_el.clear()
-              email_el.send_keys(os.environ["EMAIL"])
-              ss("03_email_typed")
-              driver.find_element(By.ID, "identifierNext").click()
-              ss("04_after_email_next")
-
-              # Wait for password page
-              try:
-                  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-                  ss("05_password_page")
-              except TimeoutException:
+              # ====== TRY CACHED SESSION ======
+              cache_loaded = False
+              if os.path.exists("session.enc"):
+                  log("Trying to load cached session...")
                   try:
-                      driver.find_element(By.XPATH, "//div[contains(text(),'Welcome')]")
-                      driver.find_element(By.XPATH, "//button[contains(.,'Next')]").click()
-                      time.sleep(2)
-                      wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-                      ss("05b_password_page")
-                  except:
-                      ss("05_error_no_password")
-                      raise Exception("Password page did not appear")
+                      with open("session.enc", "rb") as f:
+                          encrypted = f.read()
+                      cookies = decrypt_cookies(encrypted)
+                      driver.get("https://mail.google.com")
+                      for c in cookies:
+                          try:
+                              driver.add_cookie(c)
+                          except Exception:
+                              pass
+                      driver.get("https://mail.google.com/mail/u/0/#inbox")
+                      time.sleep(5)
+                      wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+                      log("✅ Cached session restored – inbox reached")
+                      cache_loaded = True
+                      ss("cached_inbox")
+                  except Exception as e:
+                      log(f"Cache failed: {e}")
+                      echo("Cache unusable, falling back to login")
+                      cache_loaded = False
 
-              # Enter password
-              log("Typing password...")
-              pwd_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
-              try:
+              # ====== FRESH LOGIN ======
+              if not cache_loaded:
+                  log("Starting fresh login")
+
+                  # 1. Sign-in page
+                  driver.get("https://accounts.google.com/signin")
+                  time.sleep(4)
+                  ss("01_signin_page")
+
+                  # Cookie consent
+                  try:
+                      driver.find_element(By.XPATH, "//button[contains(.,'Accept all') or contains(.,'I agree')]").click()
+                      time.sleep(1)
+                      ss("01b_cookies_accepted")
+                  except:
+                      pass
+
+                  # 2. Enter email (no screenshot after typing)
+                  log("Typing email...")
+                  email_el = wait.until(EC.element_to_be_clickable((By.ID, "identifierId")))
+                  email_el.clear()
+                  email_el.send_keys(os.environ["EMAIL"])
+                  driver.find_element(By.ID, "identifierNext").click()
+                  ss("02_after_email_next")   # password page, empty field
+
+                  # 3. Password page
+                  try:
+                      wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
+                  except TimeoutException:
+                      try:
+                          driver.find_element(By.XPATH, "//div[contains(text(),'Welcome')]")
+                          driver.find_element(By.XPATH, "//button[contains(.,'Next')]").click()
+                          time.sleep(2)
+                          wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
+                      except:
+                          ss("error_no_password_page")
+                          raise Exception("Password page did not appear")
+
+                  # Type password (no screenshot of typed password)
+                  pwd_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
                   pwd_field.clear()
                   pwd_field.send_keys(os.environ["PASS"])
-              except (ElementNotInteractableException, StaleElementReferenceException):
-                  pwd_field = driver.find_element(By.CSS_SELECTOR, "input[type='password']")
-                  driver.execute_script("arguments[0].value = arguments[1];", pwd_field, os.environ["PASS"])
-                  driver.execute_script("arguments[0].dispatchEvent(new Event('input', {bubbles: true}));", pwd_field)
-              ss("06_password_typed")
+                  # Click Next (no screenshot)
+                  next_btn = driver.find_element(By.ID, "passwordNext")
+                  next_btn.click()
+                  time.sleep(5)
+                  ss("03_after_password_submit")
 
-              # Click Next
-              log("Submitting password...")
-              next_btn = None
-              for m,sel in [(By.ID,"passwordNext"),(By.XPATH,"//button[contains(.,'Next')]")]:
+                  # 4. 2FA – choose backup code
+                  log("Selecting backup code...")
                   try:
-                      next_btn = driver.find_element(m,sel)
-                      if next_btn.is_displayed(): break
-                  except: continue
-              if next_btn: next_btn.click()
-              else: driver.switch_to.active_element.send_keys(Keys.RETURN)
-              time.sleep(5)
-              ss("07_after_password_submit")
-
-              # Error check
-              for sel in ["//div[contains(@class,'o6cuMc')]","//span[contains(text(),'Wrong password')]","//span[contains(text(),'Try again')]","//div[contains(text(),'CAPTCHA')]"]:
-                  try:
-                      el = driver.find_element(By.XPATH,sel)
-                      if el.is_displayed():
-                          log(f"ERROR: {el.text}")
-                          ss("08_error_detected")
-                          raise Exception("Google showed an error after password")
-                  except: pass
-
-              # 2FA method selection
-              log("Looking for 2FA options...")
-              try:
-                  try:
-                      driver.find_element(By.XPATH,"//button[contains(.,'Try another way') or contains(.,'More options')]").click()
+                      driver.find_element(By.XPATH, "//button[contains(.,'Try another way') or contains(.,'More options')]").click()
                       time.sleep(2)
-                      ss("09_try_another_way")
-                  except: pass
-                  for sel in ["//div[@data-challengetype='12']","//div[@data-challengetype='13']","//span[contains(text(),'security code')]","//span[contains(text(),'Backup code')]","//div[@role='link' and contains(.,'code')]"]:
+                      ss("04_try_another_way")
+                  except:
+                      pass
+
+                  # Click the backup code option
+                  for sel in [
+                      "//div[@data-challengetype='12']",
+                      "//span[contains(text(),'Backup code')]",
+                      "//span[contains(text(),'security code')]",
+                  ]:
                       try:
-                          opt = driver.find_element(By.XPATH,sel)
-                          if opt.is_displayed(): opt.click()
-                          time.sleep(2)
-                          ss("10_code_option_selected")
-                          break
-                      except: continue
+                          opt = driver.find_element(By.XPATH, sel)
+                          if opt.is_displayed():
+                              opt.click()
+                              time.sleep(2)
+                              ss("05_backup_code_option_selected")
+                              break
+                      except:
+                          continue
 
                   # Find code input
                   code_input = None
-                  for fid in ["idvPin","totpPin","idvPreregisteredPhonePin","backupCode"]:
+                  for fid in ["idvPin", "totpPin", "idvPreregisteredPhonePin", "backupCode"]:
                       try:
-                          code_input = driver.find_element(By.ID,fid)
-                          if code_input.is_displayed(): break
-                      except: continue
+                          code_input = driver.find_element(By.ID, fid)
+                          if code_input.is_displayed():
+                              break
+                      except:
+                          continue
                   if not code_input:
-                      for inp in driver.find_elements(By.CSS_SELECTOR,"input[type='text'],input[type='tel']"):
-                          if inp.is_displayed(): code_input = inp; break
+                      for inp in driver.find_elements(By.CSS_SELECTOR, "input[type='text'], input[type='tel']"):
+                          if inp.is_displayed():
+                              code_input = inp
+                              break
                   if not code_input:
-                      ss("11_no_code_input")
-                      raise Exception("Security code input not found")
-                  ss("11_code_input_ready")
+                      ss("error_no_code_input")
+                      raise Exception("Code input not found")
+                  ss("06_code_input_ready")
 
-                  # Create empty bestlog.txt
-                  with open("bestlog.txt","w") as f: pass
-                  subprocess.run(["git","stash","--include-untracked"],capture_output=True)
-                  subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
-                  subprocess.run(["git","stash","pop"],capture_output=True)
-                  subprocess.run(["git","add","bestlog.txt"],check=True)
-                  subprocess.run(["git","commit","-m","Empty bestlog ready"],check=True)
-                  subprocess.run(["git","push"],check=True)
-
-                  # POLL for encoded code
-                  raw = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
-                  decoded = None
-                  log("Waiting for you to enter the code into bestlog.txt...")
-                  while not decoded:
-                      echo("⏳ waiting for entering the code into bestlog")
-                      time.sleep(10)
-                      try:
-                          r = requests.get(raw, timeout=10)
-                          if r.status_code==200:
-                              nums = re.findall(r'\d', r.text)
-                              if len(nums)>=10:
-                                  encoded = ''.join(nums[:10])
-                                  decoded = decode(encoded)
-                                  log(f"Encoded digits found: {encoded}")
-                                  break
-                      except Exception as e:
-                          log(f"Poll error: {e}")
-
-                  # Enter the code (no push of sensitive screenshot)
-                  log("Entering decoded security code...")
+                  # Type code (no screenshot)
                   code_input.clear()
-                  code_input.send_keys(decoded)
-                  time.sleep(1)
-                  ss("12_code_entered_sensitive", push=False)   # private only
-                  driver.find_element(By.XPATH,"//button[contains(.,'Next') or contains(.,'Verify')]").click()
+                  code_input.send_keys(os.environ["SECRETCODE"])
+                  driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]").click()
                   time.sleep(5)
-                  ss("13_after_code_submit")
+                  ss("07_after_code_submit")
 
-                  # Verify inbox (force navigate if needed)
-                  log("Waiting for inbox...")
+                  # 5. Reach inbox (force if needed)
                   time.sleep(3)
                   if "mail.google.com" not in driver.current_url:
                       driver.get("https://mail.google.com/mail/u/0/#inbox")
                       time.sleep(5)
                   try:
                       wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
-                      log("Inbox reached!")
-                      ss("14_inbox_reached")
+                      log("✅ Inbox reached after login")
+                      ss("08_inbox_reached")
                   except TimeoutException:
-                      # try clicking Gmail link
                       try:
-                          driver.find_element(By.XPATH,"//a[contains(@href,'mail.google.com')]").click()
+                          driver.find_element(By.XPATH, "//a[contains(@href,'mail.google.com')]").click()
                           time.sleep(3)
-                          wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"tr.zA")))
-                          ss("14_inbox_reached")
+                          wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+                          ss("08_inbox_reached")
                       except:
-                          ss("14_cannot_reach_inbox")
-                          raise Exception("Could not reach Gmail inbox.")
+                          ss("error_cannot_reach_inbox")
+                          raise Exception("Could not reach inbox")
 
-                  # Read ONLY THE FIRST EMAIL
-                  log("Reading first email...")
-                  rows = driver.find_elements(By.CSS_SELECTOR,"tr.zA")
-                  if not rows:
-                      raise Exception("No emails found")
-                  rows[0].click()
-                  time.sleep(4)
-                  try:
-                      body = driver.find_element(By.CSS_SELECTOR,"div.a3s")
-                      content = body.text
-                  except:
-                      content = driver.find_element(By.TAG_NAME,"body").text
-                  log(f"First email: {len(content)} chars")
-                  ss("15_first_email_read")
+                  # Save cookies encrypted for next run
+                  cookies = driver.get_cookies()
+                  encrypted_cookies = encrypt_cookies(cookies)
+                  with open("session.enc", "wb") as f:
+                      f.write(encrypted_cookies)
+                  log("Encrypted session saved for cache")
 
-                  with open("email.txt","w",encoding="utf-8") as f:
-                      f.write("--- First email ---\n\n" + content)
-                  log("email.txt saved")
+              # ====== READ FIRST EMAIL ======
+              log("Reading first email...")
+              rows = driver.find_elements(By.CSS_SELECTOR, "tr.zA")
+              if not rows:
+                  raise Exception("No emails found")
+              rows[0].click()
+              time.sleep(4)
+              try:
+                  body = driver.find_element(By.CSS_SELECTOR, "div.a3s")
+                  content = body.text
+              except:
+                  content = driver.find_element(By.TAG_NAME, "body").text
+              log(f"First email: {len(content)} chars")
+              ss("09_first_email_read")
 
-                  # Final push
-                  subprocess.run(["git","stash","--include-untracked"],capture_output=True)
-                  subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
-                  subprocess.run(["git","stash","pop"],capture_output=True)
-                  subprocess.run(["git","add","email.txt",log_file],check=True)
-                  subprocess.run(["git","commit","-m","Final - first email fetched"],check=True)
-                  subprocess.run(["git","push"],check=True)
-                  echo("🎉 All done! First email saved to email.txt.")
+              with open("email.txt", "w", encoding="utf-8") as f:
+                  f.write("--- First email ---\n\n" + content)
+              log("email.txt saved")
 
-              except Exception as e:
-                  log(f"2FA/code error: {e}")
-                  ss("99_failure")
-                  raise
+              # Final push
+              subprocess.run(["git", "stash", "--include-untracked"], capture_output=True)
+              subprocess.run(["git", "pull", "--rebase"], check=True, capture_output=True)
+              subprocess.run(["git", "stash", "pop"], capture_output=True)
+              subprocess.run(["git", "add", "email.txt", log_file], check=True)
+              subprocess.run(["git", "commit", "-m", "Final - first email fetched"], check=True)
+              subprocess.run(["git", "push"], check=True)
+              echo("🎉 First email saved.")
 
           except Exception as e:
-              log(f"Sign-in failed: {e}")
+              log(f"FAILED: {e}")
               try:
                   ss("99_failure")
               except:
                   pass
               raise
           finally:
+              driver.quit()
+              log("Browser closed")
               try:
-                  driver.quit()
-                  log("Browser closed")
-              except:
-                  pass
-              # Final push attempt
-              try:
-                  subprocess.run(["git","stash","--include-untracked"],capture_output=True)
-                  subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
-                  subprocess.run(["git","stash","pop"],capture_output=True)
-                  subprocess.run(["git","add","screenshots/","gmail_yml.log","email.txt"],check=True)
-                  subprocess.run(["git","commit","-m","Final state"],check=True)
-                  subprocess.run(["git","push"],check=True)
+                  subprocess.run(["git", "stash", "--include-untracked"], capture_output=True)
+                  subprocess.run(["git", "pull", "--rebase"], check=True, capture_output=True)
+                  subprocess.run(["git", "stash", "pop"], capture_output=True)
+                  subprocess.run(["git", "add", "screenshots/", "gmail_yml.log", "email.txt"], check=True)
+                  subprocess.run(["git", "commit", "-m", "Final state"], check=True)
+                  subprocess.run(["git", "push"], check=True)
               except:
                   pass
           PYEOF
+
+      # ---------- save encrypted session to cache ----------
+      - name: Save session to cache
+        if: always() && hashFiles('session.enc') != ''
+        uses: actions/cache/save@v3
+        with:
+          path: session.enc
+          key: gmail-session-v1
