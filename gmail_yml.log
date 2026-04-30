@@ -252,3 +252,4 @@ Stacktrace:
 23:34:02 - Selecting backup/security code option...
 23:34:02 - No 'Try another way' button.
 23:34:04 - Selected code option: //div[@role='link' and contains(.,'code')]
+23:34:06 - Code input field ready.
