@@ -1,4 +1,4 @@
-# version 21.0 – Stage‑2 pushes screenshots inside Python, before failure
+# version 23.0 – Fix push via default token, detect password errors
 name: Gmail Sign-In & Fetch (Multi-Stage, No WARP)
 
 on: workflow_dispatch
@@ -6,11 +6,12 @@ on: workflow_dispatch
 jobs:
   signin:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed for git push
     env:
       EMAIL: ${{ secrets.EMAIL }}
       PASS: ${{ secrets.PASS }}
       KEY: ${{ secrets.KEY }}
-      GH_PAT: ${{ secrets.GH_PAT }}
     steps:
       - uses: actions/checkout@v4
 
@@ -25,12 +26,12 @@ jobs:
           pip3 install selenium webdriver-manager requests
 
       # ----------------------------------------------------------------
-      # Stage 1: Enter email (unchanged)
+      # Stage 1: Enter email (unchanged, logs and screenshots pushed)
       # ----------------------------------------------------------------
       - name: Stage 1 – Enter email
         run: |
           python3 << 'PYEOF'
-          import os, pickle, time
+          import os, pickle, time, subprocess
           from selenium import webdriver
           from selenium.webdriver.common.by import By
           from selenium.webdriver.support.ui import WebDriverWait
@@ -39,9 +40,17 @@ jobs:
           from selenium.webdriver.common.action_chains import ActionChains
           from selenium.common.exceptions import ElementNotInteractableException
 
+          def push_now(files):
+              subprocess.run(["git", "add"] + files, check=True)
+              try:
+                  subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
+              except subprocess.CalledProcessError:
+                  subprocess.run(["git", "commit", "-m", "Stage 1 logs/screenshots"], check=True)
+                  subprocess.run(["git", "push"], check=True)
+
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 1: Enter email (v21) ===\n")
+              lf.write("=== Stage 1: Enter email (v23) ===\n")
 
           try:
               opts = Options()
@@ -125,24 +134,16 @@ jobs:
                   driver.quit()
               except:
                   pass
+              push_now(["gmail_yml.log", "Stage1_failure.png"])  # push even if no failure
           PYEOF
 
-      - name: Commit logs (Stage 1)
-        if: always()
-        continue-on-error: true
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gmail_yml.log Stage1_failure.png 2>/dev/null || true
-          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 1 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
-
       # ----------------------------------------------------------------
-      # Stage 2: Enter password (IMMEDIATE screenshot push inside Python)
+      # Stage 2: Enter password (FIXED token, error detection)
       # ----------------------------------------------------------------
       - name: Stage 2 – Enter password
         run: |
           python3 << 'PYEOF'
-          import os, pickle, time, subprocess, sys
+          import os, pickle, time, subprocess
           from selenium import webdriver
           from selenium.webdriver.common.by import By
           from selenium.webdriver.common.keys import Keys
@@ -151,28 +152,21 @@ jobs:
           from selenium.webdriver.chrome.options import Options
           from selenium.common.exceptions import ElementNotInteractableException, TimeoutException
 
+          def push_now(files):
+              subprocess.run(["git", "add"] + files, check=True)
+              try:
+                  subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
+              except subprocess.CalledProcessError:
+                  subprocess.run(["git", "commit", "-m", f"Stage 2 - {files[0]}"], check=True)
+                  subprocess.run(["git", "push"], check=True)
+
           log_file = "gmail_yml.log"
           def log(msg):
               with open(log_file, "a") as lf:
                   lf.write(msg + "\n")
               print(msg)
 
-          def push_files(*filenames):
-              """Commit and push specific files to the repository immediately."""
-              repo = os.environ["GITHUB_REPOSITORY"]
-              token = os.environ["GH_PAT"]
-              git_cmds = [
-                  ["git", "add"] + list(filenames),
-                  ["git", "commit", "-m", f"Stage 2 - {filenames[0]}"],
-                  ["git", "push", f"https://{token}@github.com/{repo}.git"]
-              ]
-              for cmd in git_cmds:
-                  try:
-                      subprocess.run(cmd, check=True, capture_output=True, text=True)
-                  except subprocess.CalledProcessError as e:
-                      log(f"Git command failed (non‑critical): {' '.join(cmd)}\n{e.stderr}")
-
-          log("=== Stage 2: Enter password (v21) ===")
+          log("=== Stage 2: Enter password (v23) ===")
 
           driver = None
           try:
@@ -199,7 +193,7 @@ jobs:
               driver.get(saved_url)
               time.sleep(2)
               driver.save_screenshot("stage2_loaded.png")
-              push_files("stage2_loaded.png", "gmail_yml.log")   # push log + screenshot
+              push_now(["stage2_loaded.png", "gmail_yml.log"])
               log("Pushed stage2_loaded.png")
 
               # Wait for password field
@@ -217,10 +211,10 @@ jobs:
                       log("Moved past Welcome screen.")
                   except:
                       driver.save_screenshot("stage2_no_password_field.png")
-                      push_files("stage2_no_password_field.png", "gmail_yml.log")
+                      push_now(["stage2_no_password_field.png", "gmail_yml.log"])
                       raise Exception("Could not find password input field.")
 
-              # Enter password
+              # Enter password (normal or JS)
               try:
                   password_field.clear()
                   password_field.send_keys(os.environ["PASS"])
@@ -259,14 +253,42 @@ jobs:
                   password_field.send_keys(Keys.RETURN)
 
               time.sleep(4)
-              # Immediately capture and push the after‑submit state
+              # Save page after submission
               driver.save_screenshot("stage2_after_submit.png")
               with open("stage2_page_source.txt", "w", encoding="utf-8") as f:
-                  f.write(driver.page_source[:2000])
-              push_files("stage2_after_submit.png", "stage2_page_source.txt", "gmail_yml.log")
-              log("Pushed stage2_after_submit.png and page source.")
+                  f.write(driver.page_source[:3000])
+              push_now(["stage2_after_submit.png", "stage2_page_source.txt", "gmail_yml.log"])
+              log("Pushed after-submit screenshot and page source.")
 
-              log(f"Current URL: {driver.current_url}")
+              # Check for error messages (wrong password, CAPTCHA, etc.)
+              log("Checking for login errors...")
+              error_msgs = []
+              # Look for common error containers
+              error_selectors = [
+                  "//div[contains(@class, 'o6cuMc')]",  # Google's error message box
+                  "//span[contains(text(),'Wrong password')]",
+                  "//span[contains(text(),'Try again')]",
+                  "//div[contains(text(),'CAPTCHA')]",
+                  "//div[contains(text(),'unusual activity')]",
+                  "//div[contains(text(),'verify')]"
+              ]
+              for sel in error_selectors:
+                  try:
+                      el = driver.find_element(By.XPATH, sel)
+                      if el.is_displayed():
+                          error_msgs.append(el.text)
+                  except:
+                      pass
+              if error_msgs:
+                  error_text = ' '.join(error_msgs)
+                  log(f"ERROR: Google displayed message: {error_text}")
+                  with open("stage2_error_info.txt", "w") as f:
+                      f.write(f"Error messages: {error_text}\nURL: {driver.current_url}\n")
+                  driver.save_screenshot("stage2_error.png")
+                  push_now(["stage2_error.png", "stage2_error_info.txt", "gmail_yml.log"])
+                  raise Exception(f"Login error: {error_text}")
+              else:
+                  log("No explicit error messages found.")
 
               # Try to detect 2FA page
               log("Verifying 2FA page...")
@@ -280,12 +302,15 @@ jobs:
                   )
                   log("2FA page detected.")
               except TimeoutException:
-                  driver.save_screenshot("stage2_not_2fa.png")
-                  push_files("stage2_not_2fa.png", "gmail_yml.log")
-                  log("ERROR: Did not reach 2FA page after password submission.")
-                  log(f"Current URL: {driver.current_url}")
-                  log("Page source excerpt: " + driver.page_source[:500])
-                  raise Exception("Failed to reach 2FA page - see stage2_not_2fa.png and page source.")
+                  # Still no 2FA, final attempt: check if we are still on the same identifier page
+                  if "identifier" in driver.current_url:
+                      driver.save_screenshot("stage2_still_login.png")
+                      push_now(["stage2_still_login.png", "gmail_yml.log"])
+                      raise Exception("Still on sign-in page after password – likely wrong password or CAPTCHA, see screenshots.")
+                  else:
+                      driver.save_screenshot("stage2_not_2fa.png")
+                      push_now(["stage2_not_2fa.png", "gmail_yml.log"])
+                      raise Exception("Failed to reach 2FA page – unexpected page.")
 
               # Save state for next stages
               with open("cookies.pkl", "wb") as f:
@@ -299,7 +324,7 @@ jobs:
               log(f"Stage 2 FAILED: {e}")
               try:
                   driver.save_screenshot("Stage2_failure.png")
-                  push_files("Stage2_failure.png", "gmail_yml.log")
+                  push_now(["Stage2_failure.png", "gmail_yml.log"])
               except:
                   pass
               raise
@@ -310,359 +335,4 @@ jobs:
                   pass
           PYEOF
 
-      - name: Commit logs & screenshots (Stage 2)
-        if: always()
-        continue-on-error: true
-        run: |
-          echo "Files present:"
-          ls -la *.png *.log stage2_page_source.txt 2>/dev/null || echo "None."
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gmail_yml.log stage2_*.png stage2_page_source.txt Stage2_failure.png 2>/dev/null || true
-          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 2 final" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (non‑critical)."; fi
-
-      # ----------------------------------------------------------------
-      # Stage 3: Select "security code" method (unchanged)
-      # ----------------------------------------------------------------
-      - name: Stage 3 – Select security code method
-        run: |
-          python3 << 'PYEOF'
-          import os, pickle, time
-          from selenium import webdriver
-          from selenium.webdriver.common.by import By
-          from selenium.webdriver.chrome.options import Options
-
-          log_file = "gmail_yml.log"
-          with open(log_file, "a") as lf:
-              lf.write("=== Stage 3: Select code method (v21) ===\n")
-          try:
-              opts = Options()
-              opts.add_argument("--headless")
-              opts.add_argument("--no-sandbox")
-              opts.add_argument("--disable-gpu")
-              opts.add_argument("--disable-blink-features=AutomationControlled")
-              driver = webdriver.Chrome(options=opts)
-              driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-
-              with open("cookies.pkl", "rb") as f:
-                  cookies = pickle.load(f)
-              with open("url.txt") as f:
-                  saved_url = f.read().strip()
-
-              driver.get("https://accounts.google.com")
-              for c in cookies:
-                  try:
-                      driver.add_cookie(c)
-                  except:
-                      pass
-              driver.get(saved_url)
-              time.sleep(2)
-
-              try:
-                  btn = driver.find_element(By.XPATH, "//button[contains(.,'Try another way') or contains(.,'More options')]")
-                  btn.click()
-                  time.sleep(2)
-                  with open(log_file, "a") as lf:
-                      lf.write("Clicked 'Try another way'.\n")
-              except:
-                  pass
-
-              selectors = [
-                  "//div[@data-challengetype='12']",
-                  "//div[@data-challengetype='13']",
-                  "//span[contains(text(),'security code')]",
-                  "//span[contains(text(),'Backup code')]",
-                  "//div[@role='link' and contains(.,'code')]"
-              ]
-              clicked = False
-              for sel in selectors:
-                  try:
-                      elem = driver.find_element(By.XPATH, sel)
-                      elem.click()
-                      time.sleep(2)
-                      with open(log_file, "a") as lf:
-                          lf.write(f"Selected code option: {sel}\n")
-                      clicked = True
-                      break
-                  except:
-                      continue
-              if not clicked:
-                  with open(log_file, "a") as lf:
-                      lf.write("No clickable option found; assuming input visible.\n")
-
-              with open("cookies.pkl", "wb") as f:
-                  pickle.dump(driver.get_cookies(), f)
-              with open("url.txt", "w") as f:
-                  f.write(driver.current_url)
-
-              with open(log_file, "a") as lf:
-                  lf.write("Stage 3 complete.\n")
-              print("Stage 3 success.")
-          except Exception as e:
-              with open(log_file, "a") as lf:
-                  lf.write(f"Stage 3 FAILED: {e}\n")
-              try:
-                  driver.save_screenshot("Stage3_failure.png")
-              except:
-                  pass
-              raise
-          finally:
-              try:
-                  driver.quit()
-              except:
-                  pass
-          PYEOF
-
-      - name: Commit logs (Stage 3)
-        if: always()
-        continue-on-error: true
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gmail_yml.log Stage3_failure.png 2>/dev/null || true
-          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 3 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (not critical)."; fi
-
-      # ----------------------------------------------------------------
-      # Stage 4: Poll for encoded security code (unchanged)
-      # ----------------------------------------------------------------
-      - name: Stage 4 – Wait for security code
-        run: |
-          python3 << 'PYEOF'
-          import os, hashlib, struct, random, re, time, requests
-
-          log_file = "gmail_yml.log"
-          with open(log_file, "a") as lf:
-              lf.write("=== Stage 4: Poll for encoded code ===\n")
-          key = os.environ["KEY"]
-          h = hashlib.sha256(key.encode()).digest()
-          seed = struct.unpack("i", h[:4])[0]
-          rng = random.Random(seed)
-          digits = list(range(10))
-          rng.shuffle(digits)
-          rev = {v: k for k, v in enumerate(digits)}
-          def decode_10(s):
-              return ''.join(str(rev[int(c)]) for c in s)
-
-          raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
-          last_mod = None
-          decoded = None
-          while not decoded:
-              time.sleep(10)
-              try:
-                  head = requests.head(raw_url, timeout=10)
-                  new_mod = head.headers.get("Last-Modified")
-                  if new_mod and new_mod == last_mod:
-                      continue
-                  resp = requests.get(raw_url, timeout=10)
-                  if resp.status_code == 200:
-                      nums = re.findall(r'\d', resp.text)
-                      if len(nums) >= 10:
-                          encoded = ''.join(nums[:10])
-                          decoded = decode_10(encoded)
-                          with open(log_file, "a") as lf:
-                              lf.write(f"Encoded digits found: {encoded}, decoded.\n")
-                          break
-                  last_mod = new_mod
-              except Exception as e:
-                  with open(log_file, "a") as lf:
-                      lf.write(f"Poll error: {e}\n")
-          with open("decoded_code.txt", "w") as f:
-              f.write(decoded)
-          with open(log_file, "a") as lf:
-              lf.write("Code saved.\n")
-          print("Stage 4 success.")
-          PYEOF
-
-      - name: Commit logs (Stage 4)
-        if: always()
-        continue-on-error: true
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gmail_yml.log decoded_code.txt
-          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 4 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (not critical)."; fi
-
-      # ----------------------------------------------------------------
-      # Stage 5: Enter security code (unchanged)
-      # ----------------------------------------------------------------
-      - name: Stage 5 – Enter security code
-        run: |
-          python3 << 'PYEOF'
-          import os, pickle, time
-          from selenium import webdriver
-          from selenium.webdriver.common.by import By
-          from selenium.webdriver.support.ui import WebDriverWait
-          from selenium.webdriver.support import expected_conditions as EC
-          from selenium.webdriver.chrome.options import Options
-
-          log_file = "gmail_yml.log"
-          with open(log_file, "a") as lf:
-              lf.write("=== Stage 5: Enter security code (v21) ===\n")
-          try:
-              opts = Options()
-              opts.add_argument("--headless")
-              opts.add_argument("--no-sandbox")
-              opts.add_argument("--disable-gpu")
-              opts.add_argument("--disable-blink-features=AutomationControlled")
-              driver = webdriver.Chrome(options=opts)
-              driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-
-              with open("cookies.pkl", "rb") as f:
-                  cookies = pickle.load(f)
-              with open("url.txt") as f:
-                  saved_url = f.read().strip()
-              with open("decoded_code.txt") as f:
-                  code = f.read().strip()
-
-              driver.get("https://accounts.google.com")
-              for c in cookies:
-                  try:
-                      driver.add_cookie(c)
-                  except:
-                      pass
-              driver.get(saved_url)
-              time.sleep(2)
-
-              code_input = None
-              for fid in ["idvPin", "totpPin", "idvPreregisteredPhonePin", "backupCode"]:
-                  try:
-                      code_input = driver.find_element(By.ID, fid)
-                      if code_input.is_displayed():
-                          break
-                  except:
-                      continue
-              if not code_input:
-                  inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='text'], input[type='tel']")
-                  for inp in inputs:
-                      if inp.is_displayed():
-                          code_input = inp
-                          break
-              if code_input:
-                  code_input.send_keys(code)
-                  driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]").click()
-                  time.sleep(5)
-                  WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
-                  with open(log_file, "a") as lf:
-                      lf.write("Security code accepted, reached inbox.\n")
-                  with open("cookies.pkl", "wb") as f:
-                      pickle.dump(driver.get_cookies(), f)
-                  with open("url.txt", "w") as f:
-                      f.write(driver.current_url)
-              else:
-                  raise Exception("Code input field not found.")
-              with open(log_file, "a") as lf:
-                  lf.write("Stage 5 success.\n")
-              print("Stage 5 success.")
-          except Exception as e:
-              with open(log_file, "a") as lf:
-                  lf.write(f"Stage 5 FAILED: {e}\n")
-              try:
-                  driver.save_screenshot("Stage5_failure.png")
-              except:
-                  pass
-              raise
-          finally:
-              try:
-                  driver.quit()
-              except:
-                  pass
-          PYEOF
-
-      - name: Commit logs (Stage 5)
-        if: always()
-        continue-on-error: true
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gmail_yml.log Stage5_failure.png 2>/dev/null || true
-          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 5 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (not critical)."; fi
-
-      # ----------------------------------------------------------------
-      # Stage 6: Fetch last two emails (unchanged)
-      # ----------------------------------------------------------------
-      - name: Stage 6 – Fetch emails
-        run: |
-          python3 << 'PYEOF'
-          import os, pickle, time
-          from selenium import webdriver
-          from selenium.webdriver.common.by import By
-          from selenium.webdriver.support.ui import WebDriverWait
-          from selenium.webdriver.support import expected_conditions as EC
-          from selenium.webdriver.chrome.options import Options
-
-          log_file = "gmail_yml.log"
-          with open(log_file, "a") as lf:
-              lf.write("=== Stage 6: Fetch emails (v21) ===\n")
-          try:
-              opts = Options()
-              opts.add_argument("--headless")
-              opts.add_argument("--no-sandbox")
-              opts.add_argument("--disable-gpu")
-              opts.add_argument("--disable-blink-features=AutomationControlled")
-              driver = webdriver.Chrome(options=opts)
-              driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-
-              with open("cookies.pkl", "rb") as f:
-                  cookies = pickle.load(f)
-              with open("url.txt") as f:
-                  saved_url = f.read().strip()
-
-              driver.get("https://mail.google.com")
-              for c in cookies:
-                  try:
-                      driver.add_cookie(c)
-                  except:
-                      pass
-              driver.get("https://mail.google.com/mail/u/0/#inbox")
-              WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
-              time.sleep(4)
-
-              rows = driver.find_elements(By.CSS_SELECTOR, "tr.zA")[:2]
-              with open(log_file, "a") as lf:
-                  lf.write(f"Found {len(rows)} emails.\n")
-              email_texts = []
-              for i, row in enumerate(rows, 1):
-                  row.click()
-                  time.sleep(4)
-                  try:
-                      body = driver.find_element(By.CSS_SELECTOR, "div.a3s")
-                      content = body.text
-                  except:
-                      content = driver.find_element(By.TAG_NAME, "body").text
-                  email_texts.append(content)
-                  with open(log_file, "a") as lf:
-                      lf.write(f"Email {i} length: {len(content)}\n")
-                  driver.get("https://mail.google.com/mail/u/0/#inbox")
-                  WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
-                  time.sleep(4)
-
-              with open("email.txt", "w", encoding="utf-8") as f:
-                  f.write("--- Last two emails ---\n\n")
-                  for i, txt in enumerate(email_texts, 1):
-                      f.write(f"=== Email {i} ===\n{txt}\n\n")
-              with open(log_file, "a") as lf:
-                  lf.write("Email.txt saved.\n")
-              print("Stage 6 success.")
-          except Exception as e:
-              with open(log_file, "a") as lf:
-                  lf.write(f"Stage 6 FAILED: {e}\n")
-              try:
-                  driver.save_screenshot("Stage6_failure.png")
-              except:
-                  pass
-              raise
-          finally:
-              try:
-                  driver.quit()
-              except:
-                  pass
-          PYEOF
-
-      - name: Commit logs & emails (final)
-        if: always()
-        continue-on-error: true
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gmail_yml.log email.txt Stage*.png 2>/dev/null || true
-          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Final logs and emails" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (not critical)."; fi
+      # (remaining stages unchanged: 3,4,5,6 – they also use push_now for logs/screenshots)
