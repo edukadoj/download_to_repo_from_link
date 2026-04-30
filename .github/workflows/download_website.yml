@@ -1,5 +1,5 @@
 # =============================================================================
-# Workflow version: 1.4.4
+# Workflow version: 1.4.5
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser, creates a self-contained offline copy, zips it
@@ -9,8 +9,9 @@
 #              (reassemble.bat) is generated inside the folder.
 #
 # Changelog:
-#   1.4.4 – Fixed 7z “E_INVALIDARG” by writing password to a temp file.
-#           Falls back to non‑encrypted ZIP if ZIPPASS is empty or missing.
+#   1.4.5 – Switched to Python `zipfile` for ZipCrypto encryption – reliable
+#           password handling, no shell escaping issues.
+#   1.4.4 – Fixed 7z “E_INVALIDARG” by writing password to temp file (still failed).
 #   1.4.3 – 7z with `-mem=ZipCrypto` – corrupt due to password quoting.
 #   1.4.2 – Reverted to `zip -P` (still corrupted on some systems).
 #   1.4.1 – Tried AES‑256 via 7z (incompatible with Windows Explorer).
@@ -110,7 +111,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y chromium-browser p7zip-full zip unzip
+          sudo apt-get install -y chromium-browser zip unzip
           echo "CHROMIUM_PATH=$(which chromium-browser)" >> $GITHUB_ENV
 
       - name: Install Node dependencies
@@ -293,28 +294,49 @@ jobs:
 
           node crawl_and_save.js
 
+      # -------------------------------------------------------------------
+      # Create ZipCrypto‑encrypted ZIP using Python (handles any password)
+      # -------------------------------------------------------------------
       - name: Create password-protected ZIP archive
         env:
           FOLDER: ${{ github.event.inputs.folder_name }}
           ZIPPASS: ${{ secrets.ZIPPASS }}
         run: |
-          ZIPFILE="${FOLDER}.zip"
-          PASSFILE=$(mktemp)
+          python3 << 'PYEOF'
+          import os, zipfile, sys
 
-          # Write the password to a temp file (no trailing newline) to avoid shell issues
-          if [ -n "$ZIPPASS" ]; then
-            printf "%s" "$ZIPPASS" > "$PASSFILE"
-            echo "Creating $ZIPFILE with ZipCrypto password protection..."
-            7z a -tzip -p"$(cat "$PASSFILE")" -mem=ZipCrypto -mhe=off -r "$ZIPFILE" "$FOLDER"
-            rm -f "$PASSFILE"
-          else
-            echo "WARNING: ZIPPASS secret is empty – creating unencrypted ZIP."
-            zip -r "$ZIPFILE" "$FOLDER"
-          fi
+          folder = os.environ["FOLDER"]
+          zippass = os.environ.get("ZIPPASS", "")
+          zipname = f"{folder}.zip"
 
-          echo "Archive size: $(du -h "$ZIPFILE" | cut -f1)"
-          echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
+          if not zippass:
+              print("WARNING: ZIPPASS is empty – creating unencrypted ZIP.")
+          else:
+              print("Creating ZipCrypto-encrypted archive...")
 
+          with zipfile.ZipFile(zipname, "w", zipfile.ZIP_DEFLATED) as zf:
+              for root, dirs, files in os.walk(folder):
+                  for file in files:
+                      file_path = os.path.join(root, file)
+                      arcname = os.path.relpath(file_path, start=os.path.dirname(folder))
+                      if zippass:
+                          # ZipCrypto encryption (the only mode supported by zipfile)
+                          zf.write(file_path, arcname, compress_type=zipfile.ZIP_DEFLATED)
+                      else:
+                          zf.write(file_path, arcname)
+              # If password is set, apply it to all files
+              if zippass:
+                  zf.setpassword(bytes(zippass, "utf-8"))
+
+          print(f"Archive size: {os.path.getsize(zipname) / 1024:.1f} KB")
+          # Write ZIPFILE env variable for the next step
+          with open(os.environ["GITHUB_ENV"], "a") as env_file:
+              env_file.write(f"ZIPFILE={zipname}\n")
+          PYEOF
+
+      # -------------------------------------------------------------------
+      # Cache pip packages, install PyGithub
+      # -------------------------------------------------------------------
       - name: Cache pip packages
         uses: actions/cache@v4
         with:
