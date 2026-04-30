@@ -1,20 +1,20 @@
-# version 8.0 – Segmented Gmail sign‑in with logging, robust waits, and email fetch
-name: Gmail Sign-In & Fetch (Logged)
+# version 9.0 – Multi‑stage sign‑in, state passed via cookies, per‑stage log commit
+name: Gmail Sign-In & Fetch (Multi-Stage)
 
 on: workflow_dispatch
 
 jobs:
-  signin-and-fetch:
+  signin:
     runs-on: ubuntu-latest
     env:
       EMAIL: ${{ secrets.EMAIL }}
       PASS: ${{ secrets.PASS }}
-      KEY: ${{ secrets.KEY }}                # "nHsjknhwknh"
-      GH_PAT: ${{ secrets.GH_PAT }}          # PAT with repo write access
+      KEY: ${{ secrets.KEY }}
+      GH_PAT: ${{ secrets.GH_PAT }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies (Chrome, Python libs)
+      - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y wget gnupg python3-pip
@@ -31,42 +31,229 @@ jobs:
           stack: 'dual'
           configure_docker: 'false'
 
-      - name: Verify WARP connection
-        run: |
-          echo "Checking WARP status..."
-          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
-          echo "WARP is active."
-
-      - name: Full sign-in, 2FA, poll for code, fetch emails (logged stages)
+      # ------------------------------------------------------------------
+      # Stage 1: Enter email
+      # ------------------------------------------------------------------
+      - name: Stage 1 – Enter email
+        env:
+          STAGE: "1"
         run: |
           python3 << 'PYEOF'
-          import os, time, hashlib, struct, random, re, sys, logging
-          import requests
+          import os, pickle, logging, sys, subprocess
           from selenium import webdriver
           from selenium.webdriver.common.by import By
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
-          from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-          # ------------------------------------------------------------
-          # Setup logging to both console and a file
-          # ------------------------------------------------------------
           log_file = "gmail_yml.log"
-          logging.basicConfig(
-              level=logging.INFO,
-              format="%(asctime)s - %(levelname)s - %(message)s",
-              handlers=[
-                  logging.FileHandler(log_file, mode='w'),
-                  logging.StreamHandler(sys.stdout)
-              ]
-          )
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s",
+                              handlers=[logging.FileHandler(log_file, mode='a'), logging.StreamHandler()])
           logger = logging.getLogger()
 
-          # ------------------------------------------------------------
-          # Stage 0: Decoder setup (same as before)
-          # ------------------------------------------------------------
-          logger.info("=== Stage 0: Initializing decoder ===")
+          opts = Options()
+          opts.add_argument("--headless")
+          opts.add_argument("--no-sandbox")
+          opts.add_argument("--disable-gpu")
+          opts.add_argument("--disable-blink-features=AutomationControlled")
+          opts.add_argument("--window-size=1920,1080")
+          driver = webdriver.Chrome(options=opts)
+          driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+          wait = WebDriverWait(driver, 20)
+
+          try:
+              logger.info("Stage 1: Opening sign-in page")
+              driver.get("https://accounts.google.com/signin")
+              email_el = wait.until(EC.presence_of_element_located((By.ID, "identifierId")))
+              email_el.send_keys(os.environ["EMAIL"])
+              driver.find_element(By.ID, "identifierNext").click()
+              logger.info("Email submitted, waiting for password page...")
+              wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
+              logger.info("Password field visible, saving state.")
+          except Exception as e:
+              logger.exception("Stage 1 failed")
+              raise
+          finally:
+              # Save cookies and current URL
+              with open("cookies.pkl", "wb") as f:
+                  pickle.dump(driver.get_cookies(), f)
+              with open("url.txt", "w") as f:
+                  f.write(driver.current_url)
+              driver.quit()
+              # Commit log
+              subprocess.run(["git", "add", log_file])
+              subprocess.run(["git", "commit", "-m", "Stage 1 log update"], check=False)
+              subprocess.run(["git", "push", f"https://{os.environ['GH_PAT']}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"], check=False)
+          PYEOF
+
+      # ------------------------------------------------------------------
+      # Stage 2: Enter password
+      # ------------------------------------------------------------------
+      - name: Stage 2 – Enter password
+        env:
+          STAGE: "2"
+        run: |
+          python3 << 'PYEOF'
+          import os, pickle, logging, sys, subprocess
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+          from selenium.webdriver.chrome.options import Options
+
+          log_file = "gmail_yml.log"
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s",
+                              handlers=[logging.FileHandler(log_file, mode='a'), logging.StreamHandler()])
+          logger = logging.getLogger()
+
+          opts = Options()
+          opts.add_argument("--headless")
+          opts.add_argument("--no-sandbox")
+          opts.add_argument("--disable-gpu")
+          opts.add_argument("--disable-blink-features=AutomationControlled")
+          opts.add_argument("--window-size=1920,1080")
+          driver = webdriver.Chrome(options=opts)
+          driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+          try:
+              # Load previous state
+              with open("cookies.pkl", "rb") as f:
+                  cookies = pickle.load(f)
+              with open("url.txt") as f:
+                  url = f.read().strip()
+              driver.get(url)
+              for c in cookies:
+                  driver.add_cookie(c)
+              driver.get(url)  # refresh after cookies
+              wait = WebDriverWait(driver, 20)
+              logger.info("Stage 2: Waiting for password field")
+              pwd = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
+              pwd.send_keys(os.environ["PASS"])
+              driver.find_element(By.ID, "passwordNext").click()
+              logger.info("Password submitted, waiting for 2FA page...")
+              time.sleep(4)   # allow redirect
+              # Now we might be on the 2FA method selection page
+              # Wait for something 2FA related
+              WebDriverWait(driver, 15).until(
+                  EC.any_of(
+                      EC.presence_of_element_located((By.ID, "idvPin")),
+                      EC.presence_of_element_located((By.XPATH, "//button[contains(.,'Try another way')]")),
+                      EC.presence_of_element_located((By.XPATH, "//div[@data-challengetype]"))
+                  )
+              )
+              logger.info("2FA page detected, saving state.")
+          except Exception as e:
+              logger.exception("Stage 2 failed")
+              raise
+          finally:
+              with open("cookies.pkl", "wb") as f:
+                  pickle.dump(driver.get_cookies(), f)
+              with open("url.txt", "w") as f:
+                  f.write(driver.current_url)
+              driver.quit()
+              subprocess.run(["git", "add", log_file])
+              subprocess.run(["git", "commit", "-m", "Stage 2 log update"], check=False)
+              subprocess.run(["git", "push", f"https://{os.environ['GH_PAT']}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"], check=False)
+          PYEOF
+
+      # ------------------------------------------------------------------
+      # Stage 3: Select "Enter a security code" method
+      # ------------------------------------------------------------------
+      - name: Stage 3 – Select security code method
+        env:
+          STAGE: "3"
+        run: |
+          python3 << 'PYEOF'
+          import os, pickle, time, logging, sys, subprocess
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+          from selenium.webdriver.chrome.options import Options
+
+          log_file = "gmail_yml.log"
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s",
+                              handlers=[logging.FileHandler(log_file, mode='a'), logging.StreamHandler()])
+          logger = logging.getLogger()
+
+          opts = Options()
+          opts.add_argument("--headless")
+          opts.add_argument("--no-sandbox")
+          opts.add_argument("--disable-gpu")
+          opts.add_argument("--disable-blink-features=AutomationControlled")
+          driver = webdriver.Chrome(options=opts)
+          driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+          try:
+              with open("cookies.pkl", "rb") as f:
+                  cookies = pickle.load(f)
+              with open("url.txt") as f:
+                  url = f.read().strip()
+              driver.get(url)
+              for c in cookies:
+                  driver.add_cookie(c)
+              driver.get(url)
+              logger.info("Stage 3: Clicking 'Try another way' if present")
+              try:
+                  btn = driver.find_element(By.XPATH, "//button[contains(.,'Try another way') or contains(.,'More options')]")
+                  btn.click()
+                  time.sleep(2)
+                  logger.info("Clicked 'Try another way'")
+              except:
+                  pass
+
+              # Click the code option
+              selectors = [
+                  "//div[@data-challengetype='12']",
+                  "//div[@data-challengetype='13']",
+                  "//span[contains(text(),'security code')]",
+                  "//span[contains(text(),'Backup code')]",
+                  "//div[@role='link' and contains(.,'code')]"
+              ]
+              found = False
+              for sel in selectors:
+                  try:
+                      elem = driver.find_element(By.XPATH, sel)
+                      elem.click()
+                      time.sleep(2)
+                      found = True
+                      logger.info(f"Selected code option: {sel}")
+                      break
+                  except:
+                      continue
+              if not found:
+                  logger.warning("No clickable code option found; assuming input visible.")
+              time.sleep(2)
+              logger.info("Stage 3 complete, saving state.")
+          except Exception as e:
+              logger.exception("Stage 3 failed")
+              raise
+          finally:
+              with open("cookies.pkl", "wb") as f:
+                  pickle.dump(driver.get_cookies(), f)
+              with open("url.txt", "w") as f:
+                  f.write(driver.current_url)
+              driver.quit()
+              subprocess.run(["git", "add", log_file])
+              subprocess.run(["git", "commit", "-m", "Stage 3 log update"], check=False)
+              subprocess.run(["git", "push", f"https://{os.environ['GH_PAT']}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"], check=False)
+          PYEOF
+
+      # ------------------------------------------------------------------
+      # Stage 4: Poll for encoded security code
+      # ------------------------------------------------------------------
+      - name: Stage 4 – Wait for security code
+        env:
+          STAGE: "4"
+        run: |
+          python3 << 'PYEOF'
+          import os, pickle, time, hashlib, struct, random, re, requests, logging, sys, subprocess
+          log_file = "gmail_yml.log"
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s",
+                              handlers=[logging.FileHandler(log_file, mode='a'), logging.StreamHandler()])
+          logger = logging.getLogger()
+
+          # Decoder setup
           key = os.environ["KEY"]
           h = hashlib.sha256(key.encode()).digest()
           seed = struct.unpack("i", h[:4])[0]
@@ -74,129 +261,89 @@ jobs:
           digits = list(range(10))
           rng.shuffle(digits)
           rev_map = {v: k for k, v in enumerate(digits)}
+          def decode_10(s): return ''.join(str(rev_map[int(c)]) for c in s)
 
-          def decode_10_digits(s):
-              return ''.join(str(rev_map[int(c)]) for c in s)
+          raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
+          last_mod = None
+          try:
+              resp = requests.head(raw_url, timeout=10)
+              last_mod = resp.headers.get("Last-Modified")
+          except:
+              pass
 
-          logger.info("Decoder ready.")
+          def extract_10(txt):
+              nums = re.findall(r'\d', txt)
+              return ''.join(nums[:10]) if len(nums)>=10 else None
 
-          # ------------------------------------------------------------
-          # Stage 1: Browser launch
-          # ------------------------------------------------------------
-          logger.info("=== Stage 1: Launching Chrome ===")
-          chrome_options = Options()
-          chrome_options.add_argument("--headless")
-          chrome_options.add_argument("--no-sandbox")
-          chrome_options.add_argument("--disable-gpu")
-          chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-          chrome_options.add_argument("--window-size=1920,1080")
-          chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.7727.137 Safari/537.36")
-          chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-          chrome_options.add_experimental_option('useAutomationExtension', False)
+          decoded = None
+          logger.info("Stage 4: Polling for encoded code...")
+          while not decoded:
+              time.sleep(10)
+              try:
+                  head = requests.head(raw_url, timeout=10)
+                  new_mod = head.headers.get("Last-Modified")
+                  if new_mod and new_mod == last_mod:
+                      continue
+                  r = requests.get(raw_url, timeout=10)
+                  if r.status_code==200:
+                      digs = extract_10(r.text)
+                      if digs:
+                          decoded = decode_10(digs)
+                          logger.info(f"Decoded code: {decoded}")
+                          break
+                      else:
+                          last_mod = new_mod
+              except Exception as e:
+                  logger.warning(f"Poll error: {e}")
+          with open("decoded_code.txt", "w") as f:
+              f.write(decoded)
+          logger.info("Code saved.")
+          # Commit log push
+          subprocess.run(["git", "add", log_file])
+          subprocess.run(["git", "commit", "-m", "Stage 4 log update"], check=False)
+          subprocess.run(["git", "push", f"https://{os.environ['GH_PAT']}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"], check=False)
+          PYEOF
 
-          driver = webdriver.Chrome(options=chrome_options)
+      # ------------------------------------------------------------------
+      # Stage 5: Enter security code
+      # ------------------------------------------------------------------
+      - name: Stage 5 – Enter security code
+        env:
+          STAGE: "5"
+        run: |
+          python3 << 'PYEOF'
+          import os, pickle, time, logging, sys, subprocess
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.chrome.options import Options
+
+          log_file = "gmail_yml.log"
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s",
+                              handlers=[logging.FileHandler(log_file, mode='a'), logging.StreamHandler()])
+          logger = logging.getLogger()
+
+          opts = Options()
+          opts.add_argument("--headless")
+          opts.add_argument("--no-sandbox")
+          opts.add_argument("--disable-gpu")
+          opts.add_argument("--disable-blink-features=AutomationControlled")
+          driver = webdriver.Chrome(options=opts)
           driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-          wait = WebDriverWait(driver, 20)
-          logger.info("Chrome launched.")
 
           try:
-              # ------------------------------------------------------------
-              # Stage 2: Enter email
-              # ------------------------------------------------------------
-              logger.info("=== Stage 2: Entering email ===")
-              driver.get("https://accounts.google.com/signin")
-              email_field = wait.until(EC.presence_of_element_located((By.ID, "identifierId")))
-              email_field.send_keys(os.environ["EMAIL"])
-              driver.find_element(By.ID, "identifierNext").click()
-              logger.info("Email submitted.")
-
-              # ------------------------------------------------------------
-              # Stage 3: Enter password
-              # ------------------------------------------------------------
-              logger.info("=== Stage 3: Entering password ===")
-              password_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='password']")))
-              password_field.send_keys(os.environ["PASS"])
-              driver.find_element(By.ID, "passwordNext").click()
-              logger.info("Password submitted.")
-
-              # ------------------------------------------------------------
-              # Stage 4: 2FA method selection
-              # ------------------------------------------------------------
-              logger.info("=== Stage 4: Selecting 'Use security code' method ===")
-              time.sleep(4)
-              # Try "Try another way"
-              try:
-                  another_way = driver.find_element(By.XPATH, "//button[contains(.,'Try another way') or contains(.,'More options')]")
-                  another_way.click()
-                  time.sleep(2)
-                  logger.info("Clicked 'Try another way'.")
-              except:
-                  logger.info("No 'Try another way' button found.")
-              # Select code option
-              code_selectors = [
-                  "//div[@data-challengetype='12']",
-                  "//div[@data-challengetype='13']",
-                  "//span[contains(text(),'security code')]",
-                  "//span[contains(text(),'Backup code')]",
-                  "//span[contains(text(),'Enter a verification code')]",
-                  "//div[@role='link' and contains(.,'code')]"
-              ]
-              selected = False
-              for sel in code_selectors:
-                  try:
-                      elem = driver.find_element(By.XPATH, sel)
-                      elem.click()
-                      time.sleep(2)
-                      selected = True
-                      logger.info(f"Selected code option via: {sel}")
-                      break
-                  except:
-                      continue
-              if not selected:
-                  logger.info("No clickable code option found; assuming input already visible.")
-
-              # ------------------------------------------------------------
-              # Stage 5: Poll bestlog.txt for encoded security code
-              # ------------------------------------------------------------
-              logger.info("=== Stage 5: Polling for encoded security code ===")
-              raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
-              last_mod = None
-              try:
-                  resp = requests.head(raw_url, timeout=10)
-                  last_mod = resp.headers.get("Last-Modified")
-              except:
-                  pass
-
-              def extract_10_digits(text):
-                  nums = re.findall(r'\d', text)
-                  return ''.join(nums[:10]) if len(nums) >= 10 else None
-
-              decoded = None
-              while not decoded:
-                  time.sleep(10)
-                  try:
-                      head_resp = requests.head(raw_url, timeout=10)
-                      new_mod = head_resp.headers.get("Last-Modified")
-                      if new_mod and new_mod == last_mod:
-                          continue
-                      get_resp = requests.get(raw_url, timeout=10)
-                      if get_resp.status_code == 200:
-                          text = get_resp.text
-                          digits_only = extract_10_digits(text)
-                          if digits_only:
-                              decoded = decode_10_digits(digits_only)
-                              logger.info(f"Found 10 digits: {digits_only}, decoded to: {decoded}")
-                              break
-                          else:
-                              last_mod = new_mod
-                  except Exception as e:
-                      logger.warning(f"Polling error: {e}")
-
-              # ------------------------------------------------------------
-              # Stage 6: Enter security code
-              # ------------------------------------------------------------
-              logger.info("=== Stage 6: Entering security code ===")
+              with open("cookies.pkl", "rb") as f:
+                  cookies = pickle.load(f)
+              with open("url.txt") as f:
+                  url = f.read().strip()
+              with open("decoded_code.txt") as f:
+                  code = f.read().strip()
+              driver.get(url)
+              for c in cookies:
+                  driver.add_cookie(c)
+              driver.get(url)
               time.sleep(2)
+              logger.info("Stage 5: Entering security code")
+              # Locate code input field
               code_input = None
               for fid in ["idvPin", "totpPin", "idvPreregisteredPhonePin", "backupCode"]:
                   try:
@@ -212,24 +359,68 @@ jobs:
                           code_input = inp
                           break
               if code_input:
-                  code_input.send_keys(decoded)
-                  next_btn = driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]")
-                  next_btn.click()
+                  code_input.send_keys(code)
+                  driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]").click()
                   time.sleep(5)
-                  logger.info("Security code entered.")
+                  logger.info("Code submitted, waiting for Gmail inbox...")
+                  WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+                  logger.info("Successfully signed in, reached inbox.")
               else:
-                  raise Exception("Could not locate security code input field.")
+                  raise Exception("Code input not found")
+          except Exception as e:
+              logger.exception("Stage 5 failed")
+              raise
+          finally:
+              with open("cookies.pkl", "wb") as f:
+                  pickle.dump(driver.get_cookies(), f)
+              with open("url.txt", "w") as f:
+                  f.write(driver.current_url)
+              driver.quit()
+              subprocess.run(["git", "add", log_file])
+              subprocess.run(["git", "commit", "-m", "Stage 5 log update"], check=False)
+              subprocess.run(["git", "push", f"https://{os.environ['GH_PAT']}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"], check=False)
+          PYEOF
 
-              # ------------------------------------------------------------
-              # Stage 7: Fetch last two emails
-              # ------------------------------------------------------------
-              logger.info("=== Stage 7: Fetching last two emails ===")
+      # ------------------------------------------------------------------
+      # Stage 6: Fetch last two emails
+      # ------------------------------------------------------------------
+      - name: Stage 6 – Fetch emails
+        env:
+          STAGE: "6"
+        run: |
+          python3 << 'PYEOF'
+          import os, pickle, time, logging, sys, subprocess
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.chrome.options import Options
+
+          log_file = "gmail_yml.log"
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s",
+                              handlers=[logging.FileHandler(log_file, mode='a'), logging.StreamHandler()])
+          logger = logging.getLogger()
+
+          opts = Options()
+          opts.add_argument("--headless")
+          opts.add_argument("--no-sandbox")
+          opts.add_argument("--disable-gpu")
+          opts.add_argument("--disable-blink-features=AutomationControlled")
+          driver = webdriver.Chrome(options=opts)
+          driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+          try:
+              with open("cookies.pkl", "rb") as f:
+                  cookies = pickle.load(f)
+              with open("url.txt") as f:
+                  url = f.read().strip()
+              driver.get(url)
+              for c in cookies:
+                  driver.add_cookie(c)
               driver.get("https://mail.google.com/mail/u/0/#inbox")
-              wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+              WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
               time.sleep(4)
-              email_texts = []
               rows = driver.find_elements(By.CSS_SELECTOR, "tr.zA")[:2]
-              logger.info(f"Found {len(rows)} email rows.")
+              logger.info(f"Found {len(rows)} email rows")
+              email_texts = []
               for i, row in enumerate(rows, 1):
                   row.click()
                   time.sleep(4)
@@ -239,33 +430,21 @@ jobs:
                   except:
                       content = driver.find_element(By.TAG_NAME, "body").text
                   email_texts.append(content)
-                  logger.info(f"Email {i} content length: {len(content)} characters.")
+                  logger.info(f"Email {i}: {len(content)} chars")
                   driver.get("https://mail.google.com/mail/u/0/#inbox")
-                  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
+                  WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr.zA")))
                   time.sleep(4)
-
-              # ------------------------------------------------------------
-              # Stage 8: Save email.txt
-              # ------------------------------------------------------------
-              logger.info("=== Stage 8: Saving email.txt ===")
               with open("email.txt", "w", encoding="utf-8") as f:
-                  f.write("--- Last two emails fetched from Gmail ---\n\n")
+                  f.write("--- Last two emails ---\n\n")
                   for i, txt in enumerate(email_texts, 1):
                       f.write(f"=== Email {i} ===\n{txt}\n\n")
               logger.info("email.txt saved.")
-
           except Exception as e:
-              logger.exception("An error occurred during sign-in process.")
+              logger.exception("Stage 6 failed")
               raise
           finally:
               driver.quit()
-              logger.info("Chrome quit.")
+              subprocess.run(["git", "add", log_file, "email.txt"])
+              subprocess.run(["git", "commit", "-m", "Stage 6 – final logs and emails"], check=False)
+              subprocess.run(["git", "push", f"https://{os.environ['GH_PAT']}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"], check=False)
           PYEOF
-
-      - name: Commit logs and email.txt
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gmail_yml.log email.txt
-          git commit -m "Update logs and emails" || echo "No changes to commit"
-          git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
