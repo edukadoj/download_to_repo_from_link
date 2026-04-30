@@ -1,0 +1,1265 @@
+1
+00:00:00,080 --> 00:00:02,909
+
+hey everyone welcome back to my Channel
+
+2
+00:00:02,909 --> 00:00:02,919
+hey everyone welcome back to my Channel
+ 
+
+3
+00:00:02,919 --> 00:00:05,390
+hey everyone welcome back to my Channel
+today I'm going to challenge myself to
+
+4
+00:00:05,390 --> 00:00:05,400
+today I'm going to challenge myself to
+ 
+
+5
+00:00:05,400 --> 00:00:09,589
+today I'm going to challenge myself to
+browse the web using only terminal
+
+6
+00:00:09,589 --> 00:00:09,599
+browse the web using only terminal
+ 
+
+7
+00:00:09,599 --> 00:00:15,029
+browse the web using only terminal
+browser no mouse No Graphics just plain
+
+8
+00:00:15,029 --> 00:00:15,039
+browser no mouse No Graphics just plain
+ 
+
+9
+00:00:15,039 --> 00:00:19,630
+browser no mouse No Graphics just plain
+text we all been there clicking from top
+
+10
+00:00:19,630 --> 00:00:19,640
+text we all been there clicking from top
+ 
+
+11
+00:00:19,640 --> 00:00:23,509
+text we all been there clicking from top
+to another getting sidetracked by social
+
+12
+00:00:23,509 --> 00:00:23,519
+to another getting sidetracked by social
+ 
+
+13
+00:00:23,519 --> 00:00:25,109
+to another getting sidetracked by social
+media or email
+
+14
+00:00:25,109 --> 00:00:25,119
+media or email
+ 
+
+15
+00:00:25,119 --> 00:00:28,189
+media or email
+notifications and before you know it an
+
+16
+00:00:28,189 --> 00:00:28,199
+notifications and before you know it an
+ 
+
+17
+00:00:28,199 --> 00:00:32,470
+notifications and before you know it an
+hour has passed and you still St on the
+
+18
+00:00:32,470 --> 00:00:32,480
+hour has passed and you still St on the
+ 
+
+19
+00:00:32,480 --> 00:00:34,950
+hour has passed and you still St on the
+same web page
+
+20
+00:00:34,950 --> 00:00:34,960
+same web page
+ 
+
+21
+00:00:34,960 --> 00:00:38,190
+same web page
+traditionally web browsing can be really
+
+22
+00:00:38,190 --> 00:00:38,200
+traditionally web browsing can be really
+ 
+
+23
+00:00:38,200 --> 00:00:42,270
+traditionally web browsing can be really
+productivity killer with the content
+
+24
+00:00:42,270 --> 00:00:42,280
+productivity killer with the content
+ 
+
+25
+00:00:42,280 --> 00:00:47,069
+productivity killer with the content
+noise of ads popups and suggested
+
+26
+00:00:47,069 --> 00:00:47,079
+noise of ads popups and suggested
+ 
+
+27
+00:00:47,079 --> 00:00:50,990
+noise of ads popups and suggested
+content it's easy to get lost in the
+
+28
+00:00:50,990 --> 00:00:51,000
+content it's easy to get lost in the
+ 
+
+29
+00:00:51,000 --> 00:00:56,270
+content it's easy to get lost in the
+mess and I found an answer to this
+
+30
+00:00:56,270 --> 00:00:56,280
+mess and I found an answer to this
+ 
+
+31
+00:00:56,280 --> 00:01:00,470
+mess and I found an answer to this
+Linux this is a text based web browser
+
+32
+00:01:00,470 --> 00:01:00,480
+Linux this is a text based web browser
+ 
+
+33
+00:01:00,480 --> 00:01:03,430
+Linux this is a text based web browser
+that's perfect for those who want to
+
+34
+00:01:03,430 --> 00:01:03,440
+that's perfect for those who want to
+ 
+
+35
+00:01:03,440 --> 00:01:06,950
+that's perfect for those who want to
+browse the web without any
+
+36
+00:01:06,950 --> 00:01:06,960
+browse the web without any
+ 
+
+37
+00:01:06,960 --> 00:01:10,710
+browse the web without any
+hustle today I'll show you how to
+
+38
+00:01:10,710 --> 00:01:10,720
+hustle today I'll show you how to
+ 
+
+39
+00:01:10,720 --> 00:01:14,670
+hustle today I'll show you how to
+install links and give you a quick tour
+
+40
+00:01:14,670 --> 00:01:14,680
+install links and give you a quick tour
+ 
+
+41
+00:01:14,680 --> 00:01:18,230
+install links and give you a quick tour
+of how to use it let's
+
+42
+00:01:18,230 --> 00:01:18,240
+of how to use it let's
+ 
+
+43
+00:01:18,240 --> 00:01:27,950
+of how to use it let's
+[Music]
+
+44
+00:01:27,950 --> 00:01:27,960
+[Music]
+ 
+
+45
+00:01:27,960 --> 00:01:33,149
+[Music]
+start let's focus on the Linux systems
+
+46
+00:01:33,149 --> 00:01:33,159
+start let's focus on the Linux systems
+ 
+
+47
+00:01:33,159 --> 00:01:35,910
+start let's focus on the Linux systems
+and you can install links on the Windows
+
+48
+00:01:35,910 --> 00:01:35,920
+and you can install links on the Windows
+ 
+
+49
+00:01:35,920 --> 00:01:39,069
+and you can install links on the Windows
+as well but for Windows um it's a bit
+
+50
+00:01:39,069 --> 00:01:39,079
+as well but for Windows um it's a bit
+ 
+
+51
+00:01:39,079 --> 00:01:41,550
+as well but for Windows um it's a bit
+complicated not bit complicated but you
+
+52
+00:01:41,550 --> 00:01:41,560
+complicated not bit complicated but you
+ 
+
+53
+00:01:41,560 --> 00:01:44,149
+complicated not bit complicated but you
+have to do extra step you have to
+
+54
+00:01:44,149 --> 00:01:44,159
+have to do extra step you have to
+ 
+
+55
+00:01:44,159 --> 00:01:45,670
+have to do extra step you have to
+install
+
+56
+00:01:45,670 --> 00:01:45,680
+install
+ 
+
+57
+00:01:45,680 --> 00:01:49,149
+install
+sigin H which is a large collection of
+
+58
+00:01:49,149 --> 00:01:49,159
+sigin H which is a large collection of
+ 
+
+59
+00:01:49,159 --> 00:01:53,230
+sigin H which is a large collection of
+gnu and open-source tools and during the
+
+60
+00:01:53,230 --> 00:01:53,240
+gnu and open-source tools and during the
+ 
+
+61
+00:01:53,240 --> 00:01:56,590
+gnu and open-source tools and during the
+installation process you have to select
+
+62
+00:01:56,590 --> 00:01:56,600
+installation process you have to select
+ 
+
+63
+00:01:56,600 --> 00:02:00,990
+installation process you have to select
+links from the package list now now once
+
+64
+00:02:00,990 --> 00:02:01,000
+links from the package list now now once
+ 
+
+65
+00:02:01,000 --> 00:02:04,149
+links from the package list now now once
+swing is installed you can launch links
+
+66
+00:02:04,149 --> 00:02:04,159
+swing is installed you can launch links
+ 
+
+67
+00:02:04,159 --> 00:02:06,230
+swing is installed you can launch links
+through the swing
+
+68
+00:02:06,230 --> 00:02:06,240
+through the swing
+ 
+
+69
+00:02:06,240 --> 00:02:10,550
+through the swing
+terminal but we will focus on the Linux
+
+70
+00:02:10,550 --> 00:02:10,560
+terminal but we will focus on the Linux
+ 
+
+71
+00:02:10,560 --> 00:02:16,270
+terminal but we will focus on the Linux
+so for a dear or Ubuntu we are going to
+
+72
+00:02:16,270 --> 00:02:16,280
+so for a dear or Ubuntu we are going to
+ 
+
+73
+00:02:16,280 --> 00:02:23,309
+so for a dear or Ubuntu we are going to
+use AP install for a red hat send OS
+
+74
+00:02:23,309 --> 00:02:23,319
+use AP install for a red hat send OS
+ 
+
+75
+00:02:23,319 --> 00:02:29,030
+use AP install for a red hat send OS
+based systems we use umum or dnf for Arc
+
+76
+00:02:29,030 --> 00:02:29,040
+based systems we use umum or dnf for Arc
+ 
+
+77
+00:02:29,040 --> 00:02:30,990
+based systems we use umum or dnf for Arc
+it's pack
+
+78
+00:02:30,990 --> 00:02:31,000
+it's pack
+ 
+
+79
+00:02:31,000 --> 00:02:33,509
+it's pack
+Das capital S
+
+80
+00:02:33,509 --> 00:02:33,519
+Das capital S
+ 
+
+81
+00:02:33,519 --> 00:02:36,630
+Das capital S
+links and for
+
+82
+00:02:36,630 --> 00:02:36,640
+links and for
+ 
+
+83
+00:02:36,640 --> 00:02:40,270
+links and for
+maros brew install
+
+84
+00:02:40,270 --> 00:02:40,280
+maros brew install
+ 
+
+85
+00:02:40,280 --> 00:02:43,509
+maros brew install
+links if you have home run
+
+86
+00:02:43,509 --> 00:02:43,519
+links if you have home run
+ 
+
+87
+00:02:43,519 --> 00:02:47,830
+links if you have home run
+installed so as you can see on my screen
+
+88
+00:02:47,830 --> 00:02:47,840
+installed so as you can see on my screen
+ 
+
+89
+00:02:47,840 --> 00:02:51,589
+installed so as you can see on my screen
+I have a Ubuntu machine it's a fresh
+
+90
+00:02:51,589 --> 00:02:51,599
+I have a Ubuntu machine it's a fresh
+ 
+
+91
+00:02:51,599 --> 00:02:54,390
+I have a Ubuntu machine it's a fresh
+installation so the first thing we need
+
+92
+00:02:54,390 --> 00:02:54,400
+installation so the first thing we need
+ 
+
+93
+00:02:54,400 --> 00:03:01,869
+installation so the first thing we need
+to do is to update system
+
+94
+00:03:01,869 --> 00:03:01,879
+
+ 
+
+95
+00:03:01,879 --> 00:03:16,589
+
+now we need to install
+
+96
+00:03:16,589 --> 00:03:16,599
+
+ 
+
+97
+00:03:16,599 --> 00:03:20,789
+
+links and in a few moments we will get
+
+98
+00:03:20,789 --> 00:03:20,799
+links and in a few moments we will get
+ 
+
+99
+00:03:20,799 --> 00:03:26,550
+links and in a few moments we will get
+links
+
+100
+00:03:26,550 --> 00:03:26,560
+
+ 
+
+101
+00:03:26,560 --> 00:03:29,949
+
+installed okay and installation finished
+
+102
+00:03:29,949 --> 00:03:29,959
+installed okay and installation finished
+ 
+
+103
+00:03:29,959 --> 00:03:32,710
+installed okay and installation finished
+so let's clear the
+
+104
+00:03:32,710 --> 00:03:32,720
+so let's clear the
+ 
+
+105
+00:03:32,720 --> 00:03:35,789
+so let's clear the
+screen now that we've installed links
+
+106
+00:03:35,789 --> 00:03:35,799
+screen now that we've installed links
+ 
+
+107
+00:03:35,799 --> 00:03:39,190
+screen now that we've installed links
+let's go over how to use it to start
+
+108
+00:03:39,190 --> 00:03:39,200
+let's go over how to use it to start
+ 
+
+109
+00:03:39,200 --> 00:03:44,229
+let's go over how to use it to start
+links open Terminal and type
+
+110
+00:03:44,229 --> 00:03:44,239
+links open Terminal and type
+ 
+
+111
+00:03:44,239 --> 00:03:46,589
+links open Terminal and type
+links simply as
+
+112
+00:03:46,589 --> 00:03:46,599
+links simply as
+ 
+
+113
+00:03:46,599 --> 00:03:50,830
+links simply as
+that TA down when you first launch links
+
+114
+00:03:50,830 --> 00:03:50,840
+that TA down when you first launch links
+ 
+
+115
+00:03:50,840 --> 00:03:55,710
+that TA down when you first launch links
+you will see help screen now how would
+
+116
+00:03:55,710 --> 00:03:55,720
+you will see help screen now how would
+ 
+
+117
+00:03:55,720 --> 00:03:59,470
+you will see help screen now how would
+you operate in that browser so there's a
+
+118
+00:03:59,470 --> 00:03:59,480
+you operate in that browser so there's a
+ 
+
+119
+00:03:59,480 --> 00:04:05,030
+you operate in that browser so there's a
+few shortcuts a g for go to URL Q for
+
+120
+00:04:05,030 --> 00:04:05,040
+few shortcuts a g for go to URL Q for
+ 
+
+121
+00:04:05,040 --> 00:04:08,949
+few shortcuts a g for go to URL Q for
+quit links arrows to navigate up and
+
+122
+00:04:08,949 --> 00:04:08,959
+quit links arrows to navigate up and
+ 
+
+123
+00:04:08,959 --> 00:04:12,270
+quit links arrows to navigate up and
+down uh up and down going to the content
+
+124
+00:04:12,270 --> 00:04:12,280
+down uh up and down going to the content
+ 
+
+125
+00:04:12,280 --> 00:04:14,270
+down uh up and down going to the content
+um forward and
+
+126
+00:04:14,270 --> 00:04:14,280
+um forward and
+ 
+
+127
+00:04:14,280 --> 00:04:17,270
+um forward and
+backwards arrow to the right is go to
+
+128
+00:04:17,270 --> 00:04:17,280
+backwards arrow to the right is go to
+ 
+
+129
+00:04:17,280 --> 00:04:21,629
+backwards arrow to the right is go to
+the link Arrow left is go back P is for
+
+130
+00:04:21,629 --> 00:04:21,639
+the link Arrow left is go back P is for
+ 
+
+131
+00:04:21,639 --> 00:04:24,830
+the link Arrow left is go back P is for
+print or save the document slash for
+
+132
+00:04:24,830 --> 00:04:24,840
+print or save the document slash for
+ 
+
+133
+00:04:24,840 --> 00:04:29,870
+print or save the document slash for
+seage within a page and a for add a book
+
+134
+00:04:29,870 --> 00:04:29,880
+seage within a page and a for add a book
+ 
+
+135
+00:04:29,880 --> 00:04:33,909
+seage within a page and a for add a book
+bookmark so let's go to the website
+
+136
+00:04:33,909 --> 00:04:33,919
+bookmark so let's go to the website
+ 
+
+137
+00:04:33,919 --> 00:04:37,990
+bookmark so let's go to the website
+press G and you can see there's a place
+
+138
+00:04:37,990 --> 00:04:38,000
+press G and you can see there's a place
+ 
+
+139
+00:04:38,000 --> 00:04:41,870
+press G and you can see there's a place
+to type in url so we type
+
+140
+00:04:41,870 --> 00:04:41,880
+to type in url so we type
+ 
+
+141
+00:04:41,880 --> 00:04:47,310
+to type in url so we type
+angry sis ops.com
+
+142
+00:04:47,310 --> 00:04:47,320
+
+ 
+
+143
+00:04:47,320 --> 00:04:50,790
+
+click
+
+144
+00:04:50,790 --> 00:04:50,800
+
+ 
+
+145
+00:04:50,800 --> 00:04:55,710
+
+enter and this is my page so now let's
+
+146
+00:04:55,710 --> 00:04:55,720
+enter and this is my page so now let's
+ 
+
+147
+00:04:55,720 --> 00:04:59,110
+enter and this is my page so now let's
+press arrow down to go through the menu
+
+148
+00:04:59,110 --> 00:04:59,120
+press arrow down to go through the menu
+ 
+
+149
+00:04:59,120 --> 00:05:01,909
+press arrow down to go through the menu
+and let let's say we want to see section
+
+150
+00:05:01,909 --> 00:05:01,919
+and let let's say we want to see section
+ 
+
+151
+00:05:01,919 --> 00:05:06,670
+and let let's say we want to see section
+about me so now once I did arrow
+
+152
+00:05:06,670 --> 00:05:06,680
+about me so now once I did arrow
+ 
+
+153
+00:05:06,680 --> 00:05:10,230
+about me so now once I did arrow
+down and it's highlighted you see it's
+
+154
+00:05:10,230 --> 00:05:10,240
+down and it's highlighted you see it's
+ 
+
+155
+00:05:10,240 --> 00:05:14,469
+down and it's highlighted you see it's
+yellowish I press the arrow to the
+
+156
+00:05:14,469 --> 00:05:14,479
+yellowish I press the arrow to the
+ 
+
+157
+00:05:14,479 --> 00:05:19,790
+yellowish I press the arrow to the
+right and under man is my page about me
+
+158
+00:05:19,790 --> 00:05:19,800
+right and under man is my page about me
+ 
+
+159
+00:05:19,800 --> 00:05:23,150
+right and under man is my page about me
+as you can see this is the
+
+160
+00:05:23,150 --> 00:05:23,160
+as you can see this is the
+ 
+
+161
+00:05:23,160 --> 00:05:27,550
+as you can see this is the
+content okay now I can press Arrow up to
+
+162
+00:05:27,550 --> 00:05:27,560
+content okay now I can press Arrow up to
+ 
+
+163
+00:05:27,560 --> 00:05:32,670
+content okay now I can press Arrow up to
+go back and let's see if we go to
+
+164
+00:05:32,670 --> 00:05:32,680
+go back and let's see if we go to
+ 
+
+165
+00:05:32,680 --> 00:05:35,350
+go back and let's see if we go to
+declaimer and we see the content is
+
+166
+00:05:35,350 --> 00:05:35,360
+declaimer and we see the content is
+ 
+
+167
+00:05:35,360 --> 00:05:39,830
+declaimer and we see the content is
+there let's see another
+
+168
+00:05:39,830 --> 00:05:39,840
+there let's see another
+ 
+
+169
+00:05:39,840 --> 00:05:43,070
+there let's see another
+um another page let's see what's the
+
+170
+00:05:43,070 --> 00:05:43,080
+um another page let's see what's the
+ 
+
+171
+00:05:43,080 --> 00:05:47,590
+um another page let's see what's the
+articles for esxi AR to the right and we
+
+172
+00:05:47,590 --> 00:05:47,600
+articles for esxi AR to the right and we
+ 
+
+173
+00:05:47,600 --> 00:05:51,909
+articles for esxi AR to the right and we
+can see that under category SX we have
+
+174
+00:05:51,909 --> 00:05:51,919
+can see that under category SX we have
+ 
+
+175
+00:05:51,919 --> 00:05:55,749
+can see that under category SX we have
+few posts and we can continue to read
+
+176
+00:05:55,749 --> 00:05:55,759
+few posts and we can continue to read
+ 
+
+177
+00:05:55,759 --> 00:05:56,510
+few posts and we can continue to read
+let's
+
+178
+00:05:56,510 --> 00:05:56,520
+let's
+ 
+
+179
+00:05:56,520 --> 00:06:00,189
+let's
+see and there's a article
+
+180
+00:06:00,189 --> 00:06:00,199
+see and there's a article
+ 
+
+181
+00:06:00,199 --> 00:06:04,070
+see and there's a article
+so as you can see it's quick it's fast
+
+182
+00:06:04,070 --> 00:06:04,080
+so as you can see it's quick it's fast
+ 
+
+183
+00:06:04,080 --> 00:06:08,589
+so as you can see it's quick it's fast
+and it gives us information without any
+
+184
+00:06:08,589 --> 00:06:08,599
+and it gives us information without any
+ 
+
+185
+00:06:08,599 --> 00:06:12,950
+and it gives us information without any
+hassle let's see maybe um the other page
+
+186
+00:06:12,950 --> 00:06:12,960
+hassle let's see maybe um the other page
+ 
+
+187
+00:06:12,960 --> 00:06:18,270
+hassle let's see maybe um the other page
+let's go for G and let's
+
+188
+00:06:18,270 --> 00:06:18,280
+let's go for G and let's
+ 
+
+189
+00:06:18,280 --> 00:06:24,230
+let's go for G and let's
+type
+
+190
+00:06:24,230 --> 00:06:24,240
+
+ 
+
+191
+00:06:24,240 --> 00:06:27,270
+
+google.com it ask us for a cookie we
+
+192
+00:06:27,270 --> 00:06:27,280
+google.com it ask us for a cookie we
+ 
+
+193
+00:06:27,280 --> 00:06:35,909
+google.com it ask us for a cookie we
+will allow it
+
+194
+00:06:35,909 --> 00:06:35,919
+
+ 
+
+195
+00:06:35,919 --> 00:06:38,270
+
+and that's how the Google looks like
+
+196
+00:06:38,270 --> 00:06:38,280
+and that's how the Google looks like
+ 
+
+197
+00:06:38,280 --> 00:06:42,550
+and that's how the Google looks like
+over here so here is a search
+
+198
+00:06:42,550 --> 00:06:42,560
+over here so here is a search
+ 
+
+199
+00:06:42,560 --> 00:06:45,350
+over here so here is a search
+bar and we can
+
+200
+00:06:45,350 --> 00:06:45,360
+bar and we can
+ 
+
+201
+00:06:45,360 --> 00:06:48,430
+bar and we can
+type angry
+
+202
+00:06:48,430 --> 00:06:48,440
+type angry
+ 
+
+203
+00:06:48,440 --> 00:06:53,749
+type angry
+iss.com let's see and press enter s
+
+204
+00:06:53,749 --> 00:06:53,759
+iss.com let's see and press enter s
+ 
+
+205
+00:06:53,759 --> 00:06:57,029
+iss.com let's see and press enter s
+Google there you are that's the links to
+
+206
+00:06:57,029 --> 00:06:57,039
+Google there you are that's the links to
+ 
+
+207
+00:06:57,039 --> 00:07:00,550
+Google there you are that's the links to
+my website in the Google search uh let's
+
+208
+00:07:00,550 --> 00:07:00,560
+my website in the Google search uh let's
+ 
+
+209
+00:07:00,560 --> 00:07:02,469
+my website in the Google search uh let's
+maybe search something
+
+210
+00:07:02,469 --> 00:07:02,479
+maybe search something
+ 
+
+211
+00:07:02,479 --> 00:07:16,790
+maybe search something
+more
+
+212
+00:07:16,790 --> 00:07:16,800
+
+ 
+
+213
+00:07:16,800 --> 00:07:19,869
+
+generate and there you are so as you can
+
+214
+00:07:19,869 --> 00:07:19,879
+generate and there you are so as you can
+ 
+
+215
+00:07:19,879 --> 00:07:23,510
+generate and there you are so as you can
+see it's easy it's quick and without any
+
+216
+00:07:23,510 --> 00:07:23,520
+see it's easy it's quick and without any
+ 
+
+217
+00:07:23,520 --> 00:07:27,749
+see it's easy it's quick and without any
+hassle okay guys that would be it for
+
+218
+00:07:27,749 --> 00:07:27,759
+hassle okay guys that would be it for
+ 
+
+219
+00:07:27,759 --> 00:07:31,830
+hassle okay guys that would be it for
+today uh I hope hope I introduce you to
+
+220
+00:07:31,830 --> 00:07:31,840
+today uh I hope hope I introduce you to
+ 
+
+221
+00:07:31,840 --> 00:07:34,909
+today uh I hope hope I introduce you to
+something new I hope uh that was
+
+222
+00:07:34,909 --> 00:07:34,919
+something new I hope uh that was
+ 
+
+223
+00:07:34,919 --> 00:07:37,589
+something new I hope uh that was
+interesting as you can see you can work
+
+224
+00:07:37,589 --> 00:07:37,599
+interesting as you can see you can work
+ 
+
+225
+00:07:37,599 --> 00:07:39,510
+interesting as you can see you can work
+in the terminal you don't need to leave
+
+226
+00:07:39,510 --> 00:07:39,520
+in the terminal you don't need to leave
+ 
+
+227
+00:07:39,520 --> 00:07:43,550
+in the terminal you don't need to leave
+your terminal to browse the web uh to
+
+228
+00:07:43,550 --> 00:07:43,560
+your terminal to browse the web uh to
+ 
+
+229
+00:07:43,560 --> 00:07:48,149
+your terminal to browse the web uh to
+quit links just press q and it ask you
+
+230
+00:07:48,149 --> 00:07:48,159
+quit links just press q and it ask you
+ 
+
+231
+00:07:48,159 --> 00:07:50,950
+quit links just press q and it ask you
+do you want it why and you are back to
+
+232
+00:07:50,950 --> 00:07:50,960
+do you want it why and you are back to
+ 
+
+233
+00:07:50,960 --> 00:07:54,670
+do you want it why and you are back to
+the terminal so without leaving terminal
+
+234
+00:07:54,670 --> 00:07:54,680
+the terminal so without leaving terminal
+ 
+
+235
+00:07:54,680 --> 00:07:56,309
+the terminal so without leaving terminal
+you can browse the
+
+236
+00:07:56,309 --> 00:07:56,319
+you can browse the
+ 
+
+237
+00:07:56,319 --> 00:08:01,790
+you can browse the
+web I think this deserve a like this
+
+238
+00:08:01,790 --> 00:08:01,800
+web I think this deserve a like this
+ 
+
+239
+00:08:01,800 --> 00:08:05,070
+web I think this deserve a like this
+deserve to subscribe to my channel and
+
+240
+00:08:05,070 --> 00:08:05,080
+deserve to subscribe to my channel and
+ 
+
+241
+00:08:05,080 --> 00:08:07,950
+deserve to subscribe to my channel and
+that will help to grow my channel it
+
+242
+00:08:07,950 --> 00:08:07,960
+that will help to grow my channel it
+ 
+
+243
+00:08:07,960 --> 00:08:09,270
+that will help to grow my channel it
+cost you nothing you can always
+
+244
+00:08:09,270 --> 00:08:09,280
+cost you nothing you can always
+ 
+
+245
+00:08:09,280 --> 00:08:12,510
+cost you nothing you can always
+unsubscribe but please do subscribe and
+
+246
+00:08:12,510 --> 00:08:12,520
+unsubscribe but please do subscribe and
+ 
+
+247
+00:08:12,520 --> 00:08:14,189
+unsubscribe but please do subscribe and
+click on the notification Bell not to
+
+248
+00:08:14,189 --> 00:08:14,199
+click on the notification Bell not to
+ 
+
+249
+00:08:14,199 --> 00:08:17,510
+click on the notification Bell not to
+miss another video and see you in
+
+250
+00:08:17,510 --> 00:08:17,520
+miss another video and see you in
+ 
+
+251
+00:08:17,520 --> 00:08:21,930
+miss another video and see you in
+another one very soon bye
+
+252
+00:08:21,930 --> 00:08:21,940
+another one very soon bye
+ 
+
+253
+00:08:21,940 --> 00:08:32,740
+another one very soon bye
+[Music]
+
