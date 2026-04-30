@@ -43,3 +43,29 @@ Stage 2 FAILED: Still on login page – wrong password or verification required.
 09:22:50 - Typing email...
 09:22:51 - Clicked Next after email.
 09:22:52 - Password page reached.
+09:22:53 - Typing password...
+09:22:53 - ❌ Sign-in failed: Message: stale element reference: stale element not found in the current frame
+  (Session info: chrome=147.0.7727.137); For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#staleelementreferenceexception
+Stacktrace:
+#0 0x55e63ccfeb6a <unknown>
+#1 0x55e63c700265 <unknown>
+#2 0x55e63c707111 <unknown>
+#3 0x55e63c70995b <unknown>
+#4 0x55e63c709a03 <unknown>
+#5 0x55e63c754cd0 <unknown>
+#6 0x55e63c74a799 <unknown>
+#7 0x55e63c747e07 <unknown>
+#8 0x55e63c79b969 <unknown>
+#9 0x55e63c7465cf <unknown>
+#10 0x55e63c747391 <unknown>
+#11 0x55e63ccc404b <unknown>
+#12 0x55e63ccc700d <unknown>
+#13 0x55e63ccb0808 <unknown>
+#14 0x55e63ccc7ba0 <unknown>
+#15 0x55e63cc97280 <unknown>
+#16 0x55e63ccebdb8 <unknown>
+#17 0x55e63ccebf88 <unknown>
+#18 0x55e63ccfd5de <unknown>
+#19 0x7f6bf0e9caa4 <unknown>
+#20 0x7f6bf0f29c6c <unknown>
+
