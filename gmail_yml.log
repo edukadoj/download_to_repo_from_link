@@ -81,3 +81,5 @@ Stacktrace:
 09:38:40 - Clicked 'Try another way'
 09:38:41 - Selected code option: //div[@role='link' and contains(.,'code')]
 09:53:26 - Starting full sign-in session
+09:53:33 - No cookie popup
+09:53:33 - Typing email...
