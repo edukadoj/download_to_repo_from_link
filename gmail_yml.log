@@ -363,3 +363,28 @@ Stacktrace:
 13:21:30 - Encoded digits found: 5032375661
 13:21:51 - Inbox reached!
 13:21:58 - Email 1: 461 chars
+13:22:04 - FAILED: Message: stale element reference: stale element not found in the current frame
+  (Session info: chrome=147.0.7727.137); For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#staleelementreferenceexception
+Stacktrace:
+#0 0x558a22c5fb6a <unknown>
+#1 0x558a22661265 <unknown>
+#2 0x558a22668111 <unknown>
+#3 0x558a2266a95b <unknown>
+#4 0x558a2266aa03 <unknown>
+#5 0x558a226b5cd0 <unknown>
+#6 0x558a226a9437 <unknown>
+#7 0x558a226a8e07 <unknown>
+#8 0x558a226fc969 <unknown>
+#9 0x558a226a75cf <unknown>
+#10 0x558a226a8391 <unknown>
+#11 0x558a22c2504b <unknown>
+#12 0x558a22c2800d <unknown>
+#13 0x558a22c11808 <unknown>
+#14 0x558a22c28ba0 <unknown>
+#15 0x558a22bf8280 <unknown>
+#16 0x558a22c4cdb8 <unknown>
+#17 0x558a22c4cf88 <unknown>
+#18 0x558a22c5e5de <unknown>
+#19 0x7f9a0929caa4 <unknown>
+#20 0x7f9a09329c6c <unknown>
+
