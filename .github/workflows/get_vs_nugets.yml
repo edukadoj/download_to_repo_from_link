@@ -1,8 +1,8 @@
 # ==============================================================================
-#  version: 3.3
+#  version: 3.4
 #  Offline NuGet Feed Builder for Visual Studio 2026 Community
 #  - Priority packages processed individually (full restore or direct download).
-#  - Fallback download now respects the @version (bug fix).
+#  - Fallback download now tolerates failures (step won't die).
 #  - Top popular packages strictly skipped when checkbox is ticked.
 # ==============================================================================
 
@@ -14,23 +14,23 @@ on:
       priority_packages:
         description: |
           **Packages you definitely need** (comma‑separated).
-          You can include a version with @, e.g. Newtonsoft.Json@13.0.3.
-          Each package will be restored with all its dependencies (if possible).
+          Optionally add @version, e.g. Newtonsoft.Json@13.0.3.
+          Each will be restored with all dependencies if possible.
           Example:
             Microsoft.Maui.Controls, ClosedXML@0.104.2, xunit
         type: string
         default: ''
       skip_top_packages:
-        description: 'Check this box to download ONLY the priority packages above (ignore popular packages).'
+        description: 'Check to download ONLY the priority packages (ignore popular).'
         type: boolean
         required: false
         default: false
       search_term:
-        description: 'Optional keyword to filter top packages (e.g. maui, excel, opencv). Leave empty for overall most popular.'
+        description: 'Keyword to filter top packages (e.g. maui, excel). Leave empty for all.'
         type: string
         default: ''
       max_size_gb:
-        description: 'Maximum total feed size in GB (only for top packages). Default: 10.'
+        description: 'Maximum feed size in GB (only for top packages). Default: 10.'
         type: string
         default: '10'
 
@@ -49,8 +49,7 @@ jobs:
         with:
           dotnet-version: '10.x'
 
-      # Workloads installed only if top packages are NOT skipped
-      - name: Install workloads (MAUI, WASM, Aspire)
+      - name: Install workloads (MAUI, WASM, Aspire) – only if top packages are not skipped
         if: inputs.skip_top_packages != 'true' && inputs.skip_top_packages != true
         run: |
           dotnet workload install maui wasm-tools aspire --skip-sign-check
@@ -60,7 +59,7 @@ jobs:
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-v33-" +
+          $key = "nuget-offline-feed-v34-" +
             "search-${{ inputs.search_term }}" +
             "-maxGB-${{ inputs.max_size_gb }}" +
             "-topskip-${{ inputs.skip_top_packages }}"
@@ -74,28 +73,27 @@ jobs:
           echo "FEED_DIR=$feedDir" >> $env:GITHUB_ENV
 
       # ---------------------------------------------------------------
-      # 1. PRIORITY PACKAGES (processed individually)
+      # 1. PRIORITY PACKAGES (each processed individually)
       # ---------------------------------------------------------------
-      - name: Download priority packages (each processed individually)
+      - name: Download priority packages (tolerant fallback)
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Continue'   # don't stop on non‑terminating errors
           $feedDir = $env:FEED_DIR
 
-          # Read user input (may be empty)
+          # Parse input
           $input = @"
           ${{ inputs.priority_packages }}
           "@
-
-          # Clean up: remove comments and newlines, split by comma
           $input = $input -replace '^\s*#.*$', '' -replace "`r`n", ' ' -replace "`n", ' '
           $tokens = $input -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
 
           if ($tokens.Count -eq 0) {
-            Write-Host "No priority packages provided – nothing to download."
+            Write-Host "No priority packages – nothing to download."
             exit 0
           }
 
-          Write-Host "Processing $($tokens.Count) priority packages individually..."
+          Write-Host "Processing $($tokens.Count) priority packages..."
 
           foreach ($tok in $tokens) {
             Write-Host "--- Processing: $tok ---"
@@ -110,6 +108,7 @@ jobs:
               $pkgRef = "<PackageReference Include=`"$id`" Version=`"*`" />"
             }
 
+            # Attempt restore (with full dependencies)
             $tempCsproj = Join-Path $env:RUNNER_TEMP "prio_$([Guid]::NewGuid()).csproj"
             @"
           <Project Sdk="Microsoft.NET.Sdk">
@@ -135,12 +134,18 @@ jobs:
               } else {
                 dotnet package download $id --output $feedDir 2>&1 | Out-Null
               }
+              if ($LASTEXITCODE -ne 0) {
+                Write-Warning "  Failed to download $tok – skipped."
+              }
+              # Reset LASTEXITCODE so it doesn't poison subsequent commands
+              $global:LASTEXITCODE = 0
             }
 
             Remove-Item $tempCsproj -Force -ErrorAction SilentlyContinue
           }
 
           Write-Host "All priority packages processed."
+          exit 0   # ensure step always succeeds
 
       # ---------------------------------------------------------------
       # 2. Measure initial feed size
@@ -156,7 +161,7 @@ jobs:
           echo "CURRENT_SIZE=$size" >> $env:GITHUB_ENV
 
       # ---------------------------------------------------------------
-      # DEBUG: show input values
+      # DEBUG: show inputs
       # ---------------------------------------------------------------
       - name: Debug inputs
         shell: pwsh
@@ -177,7 +182,6 @@ jobs:
           $maxSizeBytes = [double]${{ inputs.max_size_gb }} * 1GB
           $currentSize = [long]$env:CURRENT_SIZE
 
-          # ---- get package IDs from NuGet search API ----
           $searchTerm = "${{ inputs.search_term }}"
           $baseUrl = "https://azuresearch-usnc.nuget.org/query"
           $ids = [System.Collections.ArrayList]::new()
@@ -198,7 +202,6 @@ jobs:
           if ($ids.Count -eq 0) { Write-Host "No top packages found." ; exit 0 }
           Write-Host "Fetched $($ids.Count) top package IDs."
 
-          # ---- process each ID individually ----
           $processed = 0
           foreach ($id in $ids) {
             if ($currentSize -ge $maxSizeBytes) {
@@ -271,7 +274,7 @@ jobs:
           }
 
       # ---------------------------------------------------------------
-      # 6. Split zip and upload chunks
+      # 6. Split and upload chunks
       # ---------------------------------------------------------------
       - name: Split zip and upload chunks
         shell: powershell
