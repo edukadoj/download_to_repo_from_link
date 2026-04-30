@@ -1,4 +1,4 @@
-# version 20.0 – Capture page after password, even if 2FA not detected
+# version 21.0 – Stage‑2 pushes screenshots inside Python, before failure
 name: Gmail Sign-In & Fetch (Multi-Stage, No WARP)
 
 on: workflow_dispatch
@@ -41,7 +41,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 1: Enter email (v20) ===\n")
+              lf.write("=== Stage 1: Enter email (v21) ===\n")
 
           try:
               opts = Options()
@@ -137,19 +137,19 @@ jobs:
           if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 1 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
       # ----------------------------------------------------------------
-      # Stage 2: Enter password (DEBUG CAPTURE)
+      # Stage 2: Enter password (IMMEDIATE screenshot push inside Python)
       # ----------------------------------------------------------------
       - name: Stage 2 – Enter password
         run: |
           python3 << 'PYEOF'
-          import os, pickle, time
+          import os, pickle, time, subprocess, sys
           from selenium import webdriver
           from selenium.webdriver.common.by import By
           from selenium.webdriver.common.keys import Keys
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
-          from selenium.common.exceptions import ElementNotInteractableException, NoSuchElementException, TimeoutException
+          from selenium.common.exceptions import ElementNotInteractableException, TimeoutException
 
           log_file = "gmail_yml.log"
           def log(msg):
@@ -157,7 +157,22 @@ jobs:
                   lf.write(msg + "\n")
               print(msg)
 
-          log("=== Stage 2: Enter password (v20) ===")
+          def push_files(*filenames):
+              """Commit and push specific files to the repository immediately."""
+              repo = os.environ["GITHUB_REPOSITORY"]
+              token = os.environ["GH_PAT"]
+              git_cmds = [
+                  ["git", "add"] + list(filenames),
+                  ["git", "commit", "-m", f"Stage 2 - {filenames[0]}"],
+                  ["git", "push", f"https://{token}@github.com/{repo}.git"]
+              ]
+              for cmd in git_cmds:
+                  try:
+                      subprocess.run(cmd, check=True, capture_output=True, text=True)
+                  except subprocess.CalledProcessError as e:
+                      log(f"Git command failed (non‑critical): {' '.join(cmd)}\n{e.stderr}")
+
+          log("=== Stage 2: Enter password (v21) ===")
 
           driver = None
           try:
@@ -184,6 +199,8 @@ jobs:
               driver.get(saved_url)
               time.sleep(2)
               driver.save_screenshot("stage2_loaded.png")
+              push_files("stage2_loaded.png", "gmail_yml.log")   # push log + screenshot
+              log("Pushed stage2_loaded.png")
 
               # Wait for password field
               wait = WebDriverWait(driver, 20)
@@ -200,9 +217,10 @@ jobs:
                       log("Moved past Welcome screen.")
                   except:
                       driver.save_screenshot("stage2_no_password_field.png")
+                      push_files("stage2_no_password_field.png", "gmail_yml.log")
                       raise Exception("Could not find password input field.")
 
-              # Enter password (normal or JS)
+              # Enter password
               try:
                   password_field.clear()
                   password_field.send_keys(os.environ["PASS"])
@@ -241,16 +259,16 @@ jobs:
                   password_field.send_keys(Keys.RETURN)
 
               time.sleep(4)
-              # Capture the page immediately after submission
+              # Immediately capture and push the after‑submit state
               driver.save_screenshot("stage2_after_submit.png")
-              log("Captured screenshot after submit: stage2_after_submit.png")
-              log(f"Current URL: {driver.current_url}")
-              # Save page source snippet for debugging
               with open("stage2_page_source.txt", "w", encoding="utf-8") as f:
                   f.write(driver.page_source[:2000])
-              log("Page source snippet saved to stage2_page_source.txt")
+              push_files("stage2_after_submit.png", "stage2_page_source.txt", "gmail_yml.log")
+              log("Pushed stage2_after_submit.png and page source.")
 
-              # Try to detect 2FA page, but if not found, log details and raise
+              log(f"Current URL: {driver.current_url}")
+
+              # Try to detect 2FA page
               log("Verifying 2FA page...")
               try:
                   WebDriverWait(driver, 15).until(
@@ -262,8 +280,8 @@ jobs:
                   )
                   log("2FA page detected.")
               except TimeoutException:
-                  # No 2FA elements found - capture current state
                   driver.save_screenshot("stage2_not_2fa.png")
+                  push_files("stage2_not_2fa.png", "gmail_yml.log")
                   log("ERROR: Did not reach 2FA page after password submission.")
                   log(f"Current URL: {driver.current_url}")
                   log("Page source excerpt: " + driver.page_source[:500])
@@ -281,6 +299,7 @@ jobs:
               log(f"Stage 2 FAILED: {e}")
               try:
                   driver.save_screenshot("Stage2_failure.png")
+                  push_files("Stage2_failure.png", "gmail_yml.log")
               except:
                   pass
               raise
@@ -299,13 +318,8 @@ jobs:
           ls -la *.png *.log stage2_page_source.txt 2>/dev/null || echo "None."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gmail_yml.log stage2_*.png stage2_page_source.txt Stage2_failure.png Stage*.png 2>/dev/null || true
-          if git diff --cached --quiet; then
-            echo "Nothing to commit."
-          else
-            git commit -m "Stage 2 log & screenshots"
-            git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (check your GH_PAT token)."
-          fi
+          git add gmail_yml.log stage2_*.png stage2_page_source.txt Stage2_failure.png 2>/dev/null || true
+          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 2 final" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (non‑critical)."; fi
 
       # ----------------------------------------------------------------
       # Stage 3: Select "security code" method (unchanged)
@@ -320,7 +334,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 3: Select code method (v20) ===\n")
+              lf.write("=== Stage 3: Select code method (v21) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -483,7 +497,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 5: Enter security code (v20) ===\n")
+              lf.write("=== Stage 5: Enter security code (v21) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -578,7 +592,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 6: Fetch emails (v20) ===\n")
+              lf.write("=== Stage 6: Fetch emails (v21) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -652,5 +666,3 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log email.txt Stage*.png 2>/dev/null || true
           if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Final logs and emails" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (not critical)."; fi
-
-          
