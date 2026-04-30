@@ -1,5 +1,5 @@
-# version 13.0 – Aggressive Stage 1 fix (robust focus, element location, & fallback strategies)
-name: Gmail Sign-In & Fetch (Robust Multi-Stage)
+# version 14.0 – No WARP, Stage‑1 robust input, improved commit safety
+name: Gmail Sign-In & Fetch (Multi-Stage, No WARP)
 
 on: workflow_dispatch
 
@@ -24,40 +24,24 @@ jobs:
           sudo apt install -y google-chrome-stable
           pip3 install selenium webdriver-manager requests
 
-      - name: Setup Cloudflare WARP
-        uses: viperadnan-git/setup-warp@v1
-        with:
-          mode: 'client'
-          stack: 'dual'
-          configure_docker: 'false'
-
-      - name: Force WARP connection (optional)
-        continue-on-error: true
-        run: |
-          warp-cli connect || echo "WARP connect failed, continuing without it"
-          sleep 3
-          echo "WARP status (may show disconnected):"
-          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc" || true
-          echo "Proceeding with current IP."
-
       # ================================================================
-      # Stage 1: Enter email (FIX: multi-strategy email input + screenshot)
+      # Stage 1: Enter email (robust multi‑strategy)
       # ================================================================
       - name: Stage 1 – Enter email
         run: |
           python3 << 'PYEOF'
-          import os, pickle, time, base64
+          import os, pickle, time
           from selenium import webdriver
           from selenium.webdriver.common.by import By
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
           from selenium.webdriver.common.action_chains import ActionChains
-          from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementNotInteractableException
+          from selenium.common.exceptions import ElementNotInteractableException
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 1: Enter email (v13) ===\n")
+              lf.write("=== Stage 1: Enter email (v14) ===\n")
 
           try:
               opts = Options()
@@ -75,9 +59,9 @@ jobs:
               wait = WebDriverWait(driver, 30)
 
               driver.get("https://accounts.google.com/signin")
-              time.sleep(5)  # generous initial load
+              time.sleep(5)  # let page fully load
 
-              # Minimize bot detection by simulating human-like mouse move
+              # Small human-like mouse move
               try:
                   action = ActionChains(driver)
                   action.move_by_offset(100, 200).perform()
@@ -85,24 +69,22 @@ jobs:
               except:
                   pass
 
+              # Try multiple selectors
               email_field = None
-              # Strategy 1: direct attempts with multiple selectors
-              selectors = [
-                  (By.ID, "identifierId"),
-                  (By.CSS_SELECTOR, "input[type='email']"),
-                  (By.CSS_SELECTOR, "input[name='identifier']"),
-                  (By.XPATH, "//input[@type='email' or @name='identifier']")
-              ]
-              for method, val in selectors:
+              for selector in [(By.ID, "identifierId"),
+                               (By.CSS_SELECTOR, "input[type='email']"),
+                               (By.CSS_SELECTOR, "input[name='identifier']"),
+                               (By.XPATH, "//input[@type='email' or @name='identifier']")]:
                   try:
-                      email_field = driver.find_element(method, val)
-                      if email_field.is_displayed():
+                      elem = driver.find_element(*selector)
+                      if elem.is_displayed():
+                          email_field = elem
                           break
                   except:
                       continue
 
+              # Fallback: JavaScript focus
               if not email_field:
-                  # Strategy 2: try to bring focus via JavaScript, then retry
                   driver.execute_script("document.querySelector('input[type=\"email\"], input[name=\"identifier\"]').focus();")
                   time.sleep(1)
                   email_field = driver.switch_to.active_element
@@ -110,41 +92,23 @@ jobs:
                       email_field = None
 
               if not email_field:
-                  raise Exception("Could not locate email input field after all attempts.")
+                  raise Exception("Could not locate email input field.")
 
-              # Attempt to send keys normally
+              # Try to send keys normally, else use JavaScript
               try:
                   email_field.clear()
                   email_field.send_keys(os.environ["EMAIL"])
               except ElementNotInteractableException:
-                  # Fallback: set via JavaScript
                   driver.execute_script("arguments[0].value = arguments[1];", email_field, os.environ["EMAIL"])
-                  # Also dispatch events to simulate typing
                   driver.execute_script("arguments[0].dispatchEvent(new Event('input', { bubbles: true }));", email_field)
                   driver.execute_script("arguments[0].dispatchEvent(new Event('change', { bubbles: true }));", email_field)
 
-              # Click next button
-              next_btn = None
-              next_selectors = [
-                  (By.ID, "identifierNext"),
-                  (By.XPATH, "//button[contains(.,'Next')]"),
-                  (By.CSS_SELECTOR, "button[type='button']")
-              ]
-              for method, val in next_selectors:
-                  try:
-                      next_btn = driver.find_element(method, val)
-                      if next_btn.is_displayed():
-                          break
-                  except:
-                      continue
-              if next_btn:
-                  next_btn.click()
-              else:
-                  raise Exception("Next button not found")
+              # Click Next
+              next_btn = driver.find_element(By.ID, "identifierNext")
+              next_btn.click()
 
-              # Wait for password field
+              # Wait for password page
               wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-
               with open(log_file, "a") as lf:
                   lf.write("Email submitted, password field visible.\n")
 
@@ -158,11 +122,10 @@ jobs:
           except Exception as e:
               with open(log_file, "a") as lf:
                   lf.write(f"Stage 1 FAILED: {e}\n")
-              # Take screenshot for debugging
               try:
                   driver.save_screenshot("Stage1_failure.png")
                   with open(log_file, "a") as lf:
-                      lf.write("Screenshot saved to Stage1_failure.png\n")
+                      lf.write("Screenshot saved.\n")
               except:
                   pass
               raise
@@ -173,18 +136,23 @@ jobs:
                   pass
           PYEOF
 
-      - name: Commit logs & screenshot (Stage 1)
+      - name: Commit logs (Stage 1)
         if: always()
+        continue-on-error: true  # don't kill whole pipeline if push fails
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log Stage1_failure.png 2>/dev/null || true
-          git diff --cached --quiet || git commit -m "Stage 1 log"
-          git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "Stage 1 log"
+            git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
+          fi
 
-      # ----------------------------------------------------------------
-      # Stage 2: Enter password (unchanged, but with similar robustness)
-      # ----------------------------------------------------------------
+      # ================================================================
+      # Stage 2: Enter password
+      # ================================================================
       - name: Stage 2 – Enter password
         run: |
           python3 << 'PYEOF'
@@ -240,14 +208,16 @@ jobs:
 
       - name: Commit logs (Stage 2)
         if: always()
+        continue-on-error: true
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log
-          git diff --cached --quiet || git commit -m "Stage 2 log"
-          git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
+          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 2 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
-      # ----------------------------------------------------------------
+      # ================================================================
       # Stage 3: Select "security code" method
-      # ----------------------------------------------------------------
+      # ================================================================
       - name: Stage 3 – Select security code method
         run: |
           python3 << 'PYEOF'
@@ -328,14 +298,16 @@ jobs:
 
       - name: Commit logs (Stage 3)
         if: always()
+        continue-on-error: true
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log
-          git diff --cached --quiet || git commit -m "Stage 3 log"
-          git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
+          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 3 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
-      # ----------------------------------------------------------------
+      # ================================================================
       # Stage 4: Poll for encoded security code
-      # ----------------------------------------------------------------
+      # ================================================================
       - name: Stage 4 – Wait for security code
         run: |
           python3 << 'PYEOF'
@@ -386,14 +358,16 @@ jobs:
 
       - name: Commit logs (Stage 4)
         if: always()
+        continue-on-error: true
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log decoded_code.txt
-          git diff --cached --quiet || git commit -m "Stage 4 log"
-          git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
+          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 4 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
-      # ----------------------------------------------------------------
+      # ================================================================
       # Stage 5: Enter security code
-      # ----------------------------------------------------------------
+      # ================================================================
       - name: Stage 5 – Enter security code
         run: |
           python3 << 'PYEOF'
@@ -469,14 +443,16 @@ jobs:
 
       - name: Commit logs (Stage 5)
         if: always()
+        continue-on-error: true
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log
-          git diff --cached --quiet || git commit -m "Stage 5 log"
-          git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
+          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 5 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
-      # ----------------------------------------------------------------
+      # ================================================================
       # Stage 6: Fetch last two emails
-      # ----------------------------------------------------------------
+      # ================================================================
       - name: Stage 6 – Fetch emails
         run: |
           python3 << 'PYEOF'
@@ -546,7 +522,9 @@ jobs:
 
       - name: Commit logs & emails (final)
         if: always()
+        continue-on-error: true
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log email.txt
-          git diff --cached --quiet || git commit -m "Final logs and emails"
-          git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
+          if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Final logs and emails" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
