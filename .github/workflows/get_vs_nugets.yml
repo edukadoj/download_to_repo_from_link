@@ -1,9 +1,9 @@
 # ==============================================================================
-#  version: 3.5
+#  version: 3.6
 #  Offline NuGet Feed Builder for Visual Studio 2026 Community
-#  - Priority packages: restore → dotnet package download → direct NuGet V2 download.
-#  - Exact version (@x.y.z) is guaranteed via a direct NuGet API call.
-#  - Top packages optional (skip checkbox).
+#  - If a package has an explicit version, we always download it directly
+#    from the NuGet V2 API (guarantees exact version).
+#  - Top packages are optional (skip checkbox).
 # ==============================================================================
 
 name: Download NuGet Packages Offline
@@ -15,7 +15,6 @@ on:
         description: |
           **Packages you definitely need** (comma‑separated).
           Optionally add @version, e.g. Newtonsoft.Json@13.0.3.
-          Each will be restored with all dependencies if possible.
           Example:
             Microsoft.Maui.Controls, ClosedXML@0.104.2, xunit
         type: string
@@ -59,7 +58,7 @@ jobs:
         id: cache-key
         shell: pwsh
         run: |
-          $key = "nuget-offline-feed-v35-" +
+          $key = "nuget-offline-feed-v36-" +
             "search-${{ inputs.search_term }}" +
             "-maxGB-${{ inputs.max_size_gb }}" +
             "-topskip-${{ inputs.skip_top_packages }}"
@@ -73,9 +72,9 @@ jobs:
           echo "FEED_DIR=$feedDir" >> $env:GITHUB_ENV
 
       # ---------------------------------------------------------------
-      # 1. PRIORITY PACKAGES (processed individually, fallback with direct NuGet V2)
+      # 1. PRIORITY PACKAGES (versioned = direct V2 download)
       # ---------------------------------------------------------------
-      - name: Download priority packages (exact version via NuGet V2 fallback)
+      - name: Download priority packages (exact version guaranteed)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -100,16 +99,19 @@ jobs:
               $parts = $tok -split '@', 2
               $id = $parts[0].Trim()
               $ver = $parts[1].Trim()
-              $pkgRef = "<PackageReference Include=`"$id`" Version=`"$ver`" />"
+              $hasVersion = $true
             } else {
               $id = $tok
               $ver = $null
-              $pkgRef = "<PackageReference Include=`"$id`" Version=`"*`" />"
+              $hasVersion = $false
             }
 
-            # 1) Try full restore (may fail for platform packs)
-            $tempCsproj = Join-Path $env:RUNNER_TEMP "prio_$([Guid]::NewGuid()).csproj"
-            @"
+            # ---------- CASE 1: NO VERSION ----------
+            if (-not $hasVersion) {
+              # Try restore with full dependencies
+              $pkgRef = "<PackageReference Include=`"$id`" Version=`"*`" />"
+              $tempCsproj = Join-Path $env:RUNNER_TEMP "prio_$([Guid]::NewGuid()).csproj"
+              @"
           <Project Sdk="Microsoft.NET.Sdk">
             <PropertyGroup>
               <TargetFrameworks>net10.0;net10.0-android;net10.0-ios;net10.0-maccatalyst;net10.0-windows10.0.19041.0</TargetFrameworks>
@@ -120,44 +122,48 @@ jobs:
           </Project>
           "@ | Out-File -FilePath $tempCsproj -Encoding UTF8
 
-            $restoreOk = $false
-            try {
-              dotnet restore $tempCsproj --packages $feedDir 2>&1 | Out-Null
-              if ($LASTEXITCODE -eq 0) { $restoreOk = $true }
-            } catch { }
+              $restoreOk = $false
+              try {
+                dotnet restore $tempCsproj --packages $feedDir 2>&1 | Out-Null
+                if ($LASTEXITCODE -eq 0) { $restoreOk = $true }
+              } catch { }
 
-            if ($restoreOk) {
-              Write-Host "  Restored with all dependencies."
-            } else {
-              Write-Host "  Restore failed – trying dotnet package download..."
-              if ($ver) {
-                dotnet package download $id --version $ver --output $feedDir 2>&1 | Out-Null
-              } else {
+              if (-not $restoreOk) {
+                Write-Host "  Restore failed – downloading as bare .nupkg (no deps)."
                 dotnet package download $id --output $feedDir 2>&1 | Out-Null
-              }
-              $dotnetExit = $LASTEXITCODE
-              $global:LASTEXITCODE = 0
-
-              if ($dotnetExit -ne 0 -or $null -eq (Get-ChildItem -Path $feedDir -Recurse -Filter "$id.*.nupkg")) {
-                Write-Host "  dotnet package download failed or missing – downloading from NuGet V2 API..."
-                if ($ver) {
-                  $nupkgUrl = "https://www.nuget.org/api/v2/package/$id/$ver"
-                  $outFile = Join-Path $feedDir "$id.$ver.nupkg"
-                  try {
-                    Invoke-WebRequest -Uri $nupkgUrl -OutFile $outFile -ErrorAction Stop
-                    Write-Host "  Exact .nupkg downloaded: $outFile"
-                  } catch {
-                    Write-Warning "  Direct download failed for $id@$ver : $_"
-                  }
-                } else {
-                  Write-Warning "  No version specified – cannot perform direct download."
+                if ($LASTEXITCODE -ne 0) {
+                  Write-Warning "  Failed to download $id – skipped."
                 }
+                $global:LASTEXITCODE = 0
               } else {
-                Write-Host "  dotnet package download succeeded."
+                Write-Host "  Restored with all dependencies."
+              }
+              Remove-Item $tempCsproj -Force -ErrorAction SilentlyContinue
+            }
+            # ---------- CASE 2: EXACT VERSION ----------
+            else {
+              Write-Host "  Downloading exact version $ver from NuGet V2 API..."
+              $nupkgUrl = "https://www.nuget.org/api/v2/package/$id/$ver"
+              # Output file in the feed root (NuGet will find it if registered as a local source)
+              $outFile = Join-Path $feedDir "$id.$ver.nupkg"
+              try {
+                Invoke-WebRequest -Uri $nupkgUrl -OutFile $outFile -ErrorAction Stop
+                if (Test-Path $outFile) {
+                  Write-Host "  Exact .nupkg saved: $outFile"
+                } else {
+                  Write-Warning "  Download seemed to succeed, but file not found."
+                }
+              } catch {
+                Write-Warning "  Direct V2 download failed for $id@$ver : $_"
+                # As a last resort, fall back to dotnet package download (though it may get the wrong version)
+                Write-Host "  Attempting dotnet package download as last resort..."
+                dotnet package download $id --version $ver --output $feedDir 2>&1 | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                  Write-Warning "  dotnet package download also failed."
+                }
+                $global:LASTEXITCODE = 0
               }
             }
-
-            Remove-Item $tempCsproj -Force -ErrorAction SilentlyContinue
           }
 
           Write-Host "All priority packages processed."
