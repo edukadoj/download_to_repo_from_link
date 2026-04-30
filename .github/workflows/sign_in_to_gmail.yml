@@ -1,4 +1,4 @@
-# version 19.0 – Stage‑2 fix: missing Next button → click any Next/Enter fallback, robust commit
+# version 20.0 – Capture page after password, even if 2FA not detected
 name: Gmail Sign-In & Fetch (Multi-Stage, No WARP)
 
 on: workflow_dispatch
@@ -41,7 +41,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 1: Enter email (v19) ===\n")
+              lf.write("=== Stage 1: Enter email (v20) ===\n")
 
           try:
               opts = Options()
@@ -137,7 +137,7 @@ jobs:
           if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Stage 1 log" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git; fi
 
       # ----------------------------------------------------------------
-      # Stage 2: Enter password (FIX: handle missing Next button)
+      # Stage 2: Enter password (DEBUG CAPTURE)
       # ----------------------------------------------------------------
       - name: Stage 2 – Enter password
         run: |
@@ -157,7 +157,7 @@ jobs:
                   lf.write(msg + "\n")
               print(msg)
 
-          log("=== Stage 2: Enter password (v19) ===")
+          log("=== Stage 2: Enter password (v20) ===")
 
           driver = None
           try:
@@ -185,7 +185,7 @@ jobs:
               time.sleep(2)
               driver.save_screenshot("stage2_loaded.png")
 
-              # Wait for password field presence
+              # Wait for password field
               wait = WebDriverWait(driver, 20)
               try:
                   password_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
@@ -214,7 +214,7 @@ jobs:
                   driver.execute_script("arguments[0].dispatchEvent(new Event('change', { bubbles: true }));", password_field)
                   log("Password set via JS.")
 
-              # Try to click Next button – multiple fallback strategies
+              # Click Next
               log("Looking for Next button...")
               next_btn = None
               selectors = [
@@ -237,14 +237,20 @@ jobs:
                   next_btn.click()
                   log("Clicked Next button.")
               else:
-                  # No visible clickable Next button, press Enter
-                  log("No Next button found. Pressing Enter in password field.")
+                  log("No Next button found. Pressing Enter.")
                   password_field.send_keys(Keys.RETURN)
 
               time.sleep(4)
-              driver.save_screenshot("stage2_after_password.png")
+              # Capture the page immediately after submission
+              driver.save_screenshot("stage2_after_submit.png")
+              log("Captured screenshot after submit: stage2_after_submit.png")
+              log(f"Current URL: {driver.current_url}")
+              # Save page source snippet for debugging
+              with open("stage2_page_source.txt", "w", encoding="utf-8") as f:
+                  f.write(driver.page_source[:2000])
+              log("Page source snippet saved to stage2_page_source.txt")
 
-              # Verify we reached 2FA page
+              # Try to detect 2FA page, but if not found, log details and raise
               log("Verifying 2FA page...")
               try:
                   WebDriverWait(driver, 15).until(
@@ -255,11 +261,15 @@ jobs:
                       )
                   )
                   log("2FA page detected.")
-              except:
+              except TimeoutException:
+                  # No 2FA elements found - capture current state
                   driver.save_screenshot("stage2_not_2fa.png")
-                  raise Exception("Did not reach 2FA page after password submission.")
+                  log("ERROR: Did not reach 2FA page after password submission.")
+                  log(f"Current URL: {driver.current_url}")
+                  log("Page source excerpt: " + driver.page_source[:500])
+                  raise Exception("Failed to reach 2FA page - see stage2_not_2fa.png and page source.")
 
-              # Save state
+              # Save state for next stages
               with open("cookies.pkl", "wb") as f:
                   pickle.dump(driver.get_cookies(), f)
               with open("url.txt", "w") as f:
@@ -281,20 +291,20 @@ jobs:
                   pass
           PYEOF
 
-      - name: Commit logs (Stage 2)
+      - name: Commit logs & screenshots (Stage 2)
         if: always()
         continue-on-error: true
         run: |
-          echo "=== Debug: file listing ==="
-          ls -la *.png *.log 2>/dev/null || echo "No log/png files found."
+          echo "Files present:"
+          ls -la *.png *.log stage2_page_source.txt 2>/dev/null || echo "None."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gmail_yml.log stage2_*.png Stage2_failure.png Stage1_failure.png 2>/dev/null || true
+          git add gmail_yml.log stage2_*.png stage2_page_source.txt Stage2_failure.png Stage*.png 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "Nothing to commit."
           else
-            git commit -m "Stage 2 log"
-            git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Git push failed (not critical)."
+            git commit -m "Stage 2 log & screenshots"
+            git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (check your GH_PAT token)."
           fi
 
       # ----------------------------------------------------------------
@@ -310,7 +320,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 3: Select code method (v19) ===\n")
+              lf.write("=== Stage 3: Select code method (v20) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -393,8 +403,6 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          echo "=== Debug: file listing ==="
-          ls -la *.png *.log 2>/dev/null || echo "No log/png files."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log Stage3_failure.png 2>/dev/null || true
@@ -475,7 +483,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 5: Enter security code (v19) ===\n")
+              lf.write("=== Stage 5: Enter security code (v20) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -570,7 +578,7 @@ jobs:
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 6: Fetch emails (v19) ===\n")
+              lf.write("=== Stage 6: Fetch emails (v20) ===\n")
           try:
               opts = Options()
               opts.add_argument("--headless")
@@ -644,3 +652,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add gmail_yml.log email.txt Stage*.png 2>/dev/null || true
           if git diff --cached --quiet; then echo "Nothing to commit"; else git commit -m "Final logs and emails" && git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git || echo "Push failed (not critical)."; fi
+
+          
