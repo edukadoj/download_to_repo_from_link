@@ -1,4 +1,4 @@
-# version 38.0 – Final working decoder, verified self‑tests, complete sign‑in & email fetch
+# version 39.0 – Final: verified decoder, debug screenshot after code, fixed git pushes
 name: Gmail Sign-In & Fetch (Final Stable)
 
 on: workflow_dispatch
@@ -68,10 +68,13 @@ jobs:
               echo(f"📸 {fname}" + ("" if push else " (private, not pushed)"))
               if not push:
                   return
+              # Robust git sync: stash local changes, pull, pop, add, commit, push
+              subprocess.run(["git", "stash", "--include-untracked"], capture_output=True)
               try:
                   subprocess.run(["git", "pull", "--rebase"], check=True, capture_output=True)
               except:
                   pass
+              subprocess.run(["git", "stash", "pop"], capture_output=True)
               subprocess.run(["git", "add", fname, "gmail_yml.log"], check=True)
               try:
                   subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
@@ -114,7 +117,7 @@ jobs:
                   decoded_chars.append(str(reverse_perm[d]))
               return ''.join(decoded_chars)
 
-          # ===== SELF‑TESTS (verified with C# encoder) =====
+          # ===== SELF‑TESTS =====
           log("Testing decoder with known values...")
           tests = [
               ("1234567898", "4736259010"),
@@ -280,15 +283,14 @@ jobs:
                   # Create empty bestlog.txt
                   with open("bestlog.txt", "w") as f:
                       pass
+                  subprocess.run(["git", "stash", "--include-untracked"], capture_output=True)
+                  subprocess.run(["git", "pull", "--rebase"], check=True, capture_output=True)
+                  subprocess.run(["git", "stash", "pop"], capture_output=True)
                   subprocess.run(["git", "add", "bestlog.txt"], check=True)
                   subprocess.run(["git", "commit", "-m", "Empty bestlog ready"], check=True)
-                  try:
-                      subprocess.run(["git", "pull", "--rebase"], check=True)
-                  except:
-                      pass
                   subprocess.run(["git", "push"], check=True)
 
-                  # 9. Poll for encoded code (real‑time waiting)
+                  # 9. Poll for encoded code
                   raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
                   decoded = None
                   log("Waiting for you to enter the code into bestlog.txt...")
@@ -308,10 +310,13 @@ jobs:
                       except Exception as e:
                           log(f"Poll error: {e}")
 
-                  # 10. Enter and submit security code (NO SCREENSHOT)
+                  # 10. Enter the decoded code ---- TAKE SCREENSHOT RIGHT AFTER TYPING ----
                   log("Entering decoded security code...")
                   code_input.clear()
                   code_input.send_keys(decoded)
+                  time.sleep(1)
+                  ss("12_code_entered_sensitive")   # ⚠️ This screenshot shows the decoded code! For debugging only.
+                  # Click Next/Verify
                   driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]").click()
                   time.sleep(5)
                   ss("13_after_code_submit")
@@ -346,12 +351,12 @@ jobs:
                       for i, txt in enumerate(email_texts, 1):
                           f.write(f"=== Email {i} ===\n{txt}\n\n")
                   log("email.txt saved")
+                  # Final push
+                  subprocess.run(["git", "stash", "--include-untracked"], capture_output=True)
+                  subprocess.run(["git", "pull", "--rebase"], check=True, capture_output=True)
+                  subprocess.run(["git", "stash", "pop"], capture_output=True)
                   subprocess.run(["git", "add", "email.txt", log_file], check=True)
                   subprocess.run(["git", "commit", "-m", "Final - emails fetched"], check=True)
-                  try:
-                      subprocess.run(["git", "pull", "--rebase"], check=True)
-                  except:
-                      pass
                   subprocess.run(["git", "push"], check=True)
                   echo("🎉 All done! Check email.txt in your repo.")
 
@@ -373,11 +378,11 @@ jobs:
                   log("Browser closed")
               except:
                   pass
+              # Final push attempt
               try:
-                  subprocess.run(["git", "pull", "--rebase"], check=True)
-              except:
-                  pass
-              try:
+                  subprocess.run(["git", "stash", "--include-untracked"], capture_output=True)
+                  subprocess.run(["git", "pull", "--rebase"], check=True, capture_output=True)
+                  subprocess.run(["git", "stash", "pop"], capture_output=True)
                   subprocess.run(["git", "add", "screenshots/", "gmail_yml.log", "email.txt", "error_page_source.txt"], check=True)
                   subprocess.run(["git", "commit", "-m", "Final state"], check=True)
                   subprocess.run(["git", "push"], check=True)
