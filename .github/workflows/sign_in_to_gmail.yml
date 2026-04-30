@@ -1,4 +1,4 @@
-# version 12.0 – Stage 1 fix: handle cookie consent & robust email input selectors
+# version 13.0 – Aggressive Stage 1 fix (robust focus, element location, & fallback strategies)
 name: Gmail Sign-In & Fetch (Robust Multi-Stage)
 
 on: workflow_dispatch
@@ -41,22 +41,23 @@ jobs:
           echo "Proceeding with current IP."
 
       # ================================================================
-      # Stage 1: Enter email (FIX: handle cookie popup + smarter selectors)
+      # Stage 1: Enter email (FIX: multi-strategy email input + screenshot)
       # ================================================================
       - name: Stage 1 – Enter email
         run: |
           python3 << 'PYEOF'
-          import os, pickle, time
+          import os, pickle, time, base64
           from selenium import webdriver
           from selenium.webdriver.common.by import By
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
-          from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException
+          from selenium.webdriver.common.action_chains import ActionChains
+          from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementNotInteractableException
 
           log_file = "gmail_yml.log"
           with open(log_file, "a") as lf:
-              lf.write("=== Stage 1: Enter email ===\n")
+              lf.write("=== Stage 1: Enter email (v13) ===\n")
 
           try:
               opts = Options()
@@ -65,66 +66,89 @@ jobs:
               opts.add_argument("--disable-gpu")
               opts.add_argument("--disable-blink-features=AutomationControlled")
               opts.add_argument("--window-size=1920,1080")
+              opts.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.7727.137 Safari/537.36")
+              opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+              opts.add_experimental_option('useAutomationExtension', False)
+
               driver = webdriver.Chrome(options=opts)
               driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-              wait = WebDriverWait(driver, 20)
+              wait = WebDriverWait(driver, 30)
 
               driver.get("https://accounts.google.com/signin")
-              time.sleep(3)  # allow page to fully load, including any popups
+              time.sleep(5)  # generous initial load
 
-              # --- Handle cookie consent / "Before you continue" popup ---
+              # Minimize bot detection by simulating human-like mouse move
               try:
-                  # The consent button often has text "Accept all" or "I agree"
-                  consent_btn = driver.find_element(By.XPATH, "//button[contains(.,'Accept all') or contains(.,'I agree')]")
-                  consent_btn.click()
-                  with open(log_file, "a") as lf:
-                      lf.write("Cookie consent accepted.\n")
+                  action = ActionChains(driver)
+                  action.move_by_offset(100, 200).perform()
+                  time.sleep(0.5)
+              except:
+                  pass
+
+              email_field = None
+              # Strategy 1: direct attempts with multiple selectors
+              selectors = [
+                  (By.ID, "identifierId"),
+                  (By.CSS_SELECTOR, "input[type='email']"),
+                  (By.CSS_SELECTOR, "input[name='identifier']"),
+                  (By.XPATH, "//input[@type='email' or @name='identifier']")
+              ]
+              for method, val in selectors:
+                  try:
+                      email_field = driver.find_element(method, val)
+                      if email_field.is_displayed():
+                          break
+                  except:
+                      continue
+
+              if not email_field:
+                  # Strategy 2: try to bring focus via JavaScript, then retry
+                  driver.execute_script("document.querySelector('input[type=\"email\"], input[name=\"identifier\"]').focus();")
                   time.sleep(1)
-              except:
-                  pass
+                  email_field = driver.switch_to.active_element
+                  if not email_field or email_field.tag_name != "input":
+                      email_field = None
 
-              # --- Find email input using multiple strategies ---
-              email_input = None
-              # Strategy 1: known ID
+              if not email_field:
+                  raise Exception("Could not locate email input field after all attempts.")
+
+              # Attempt to send keys normally
               try:
-                  email_input = driver.find_element(By.ID, "identifierId")
-                  if not email_input.is_displayed():
-                      email_input = None
-              except:
-                  pass
+                  email_field.clear()
+                  email_field.send_keys(os.environ["EMAIL"])
+              except ElementNotInteractableException:
+                  # Fallback: set via JavaScript
+                  driver.execute_script("arguments[0].value = arguments[1];", email_field, os.environ["EMAIL"])
+                  # Also dispatch events to simulate typing
+                  driver.execute_script("arguments[0].dispatchEvent(new Event('input', { bubbles: true }));", email_field)
+                  driver.execute_script("arguments[0].dispatchEvent(new Event('change', { bubbles: true }));", email_field)
 
-              if not email_input:
-                  # Strategy 2: input type='email'
+              # Click next button
+              next_btn = None
+              next_selectors = [
+                  (By.ID, "identifierNext"),
+                  (By.XPATH, "//button[contains(.,'Next')]"),
+                  (By.CSS_SELECTOR, "button[type='button']")
+              ]
+              for method, val in next_selectors:
                   try:
-                      email_input = driver.find_element(By.CSS_SELECTOR, "input[type='email']")
+                      next_btn = driver.find_element(method, val)
+                      if next_btn.is_displayed():
+                          break
                   except:
-                      pass
+                      continue
+              if next_btn:
+                  next_btn.click()
+              else:
+                  raise Exception("Next button not found")
 
-              if not email_input:
-                  # Strategy 3: input name='identifier'
-                  try:
-                      email_input = driver.find_element(By.NAME, "identifier")
-                  except:
-                      pass
-
-              if not email_input:
-                  raise Exception("Could not locate email input field.")
-
-              # Wait until the email field is clickable & type
-              wait.until(EC.element_to_be_clickable((By.XPATH, "//input[@id='identifierId' or @type='email' or @name='identifier']")))
-              email_input.clear()
-              email_input.send_keys(os.environ["EMAIL"])
-
-              # Click Next
-              next_btn = driver.find_element(By.ID, "identifierNext")
-              next_btn.click()
-
-              # Wait for password field to appear (indicates success)
+              # Wait for password field
               wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
+
               with open(log_file, "a") as lf:
                   lf.write("Email submitted, password field visible.\n")
 
-              # Save cookies & URL for next stages
+              # Save state
               with open("cookies.pkl", "wb") as f:
                   pickle.dump(driver.get_cookies(), f)
               with open("url.txt", "w") as f:
@@ -134,6 +158,13 @@ jobs:
           except Exception as e:
               with open(log_file, "a") as lf:
                   lf.write(f"Stage 1 FAILED: {e}\n")
+              # Take screenshot for debugging
+              try:
+                  driver.save_screenshot("Stage1_failure.png")
+                  with open(log_file, "a") as lf:
+                      lf.write("Screenshot saved to Stage1_failure.png\n")
+              except:
+                  pass
               raise
           finally:
               try:
@@ -142,17 +173,17 @@ jobs:
                   pass
           PYEOF
 
-      - name: Commit logs (Stage 1)
+      - name: Commit logs & screenshot (Stage 1)
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add gmail_yml.log
+          git add gmail_yml.log Stage1_failure.png 2>/dev/null || true
           git diff --cached --quiet || git commit -m "Stage 1 log"
           git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
 
       # ----------------------------------------------------------------
-      # Stage 2: Enter password
+      # Stage 2: Enter password (unchanged, but with similar robustness)
       # ----------------------------------------------------------------
       - name: Stage 2 – Enter password
         run: |
