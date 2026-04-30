@@ -40,3 +40,4 @@
 23:21:13 - Password submitted.
 23:21:19 - Selecting backup/security code option...
 23:21:21 - Clicked 'Try another way'.
+23:21:25 - Selected code option: //div[@role='link' and contains(.,'code')]
