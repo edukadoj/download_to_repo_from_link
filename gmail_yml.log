@@ -359,3 +359,5 @@ Stacktrace:
 #20 0x7fc01e129c6c <unknown>
 
 13:15:35 - Decoder self‑test passed ✅
+13:16:07 - Waiting for encoded code in bestlog.txt...
+13:21:30 - Encoded digits found: 5032375661
