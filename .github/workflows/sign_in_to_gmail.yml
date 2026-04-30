@@ -1,19 +1,20 @@
-# version 4.0 – sign in, wait for encoded code, decode, enter
-name: Gmail Sign-In with Polling
+# version 5.0 – sign in, poll for 2FA, fetch last 2 emails, save to repo
+name: Gmail Sign‑In + Fetch Emails
 
 on: workflow_dispatch
 
 jobs:
-  signin:
+  signin-and-fetch:
     runs-on: ubuntu-latest
     env:
       EMAIL: ${{ secrets.EMAIL }}
       PASS: ${{ secrets.PASS }}
-      KEY: ${{ secrets.KEY }}              # "nHsjknhwknh"
+      KEY: ${{ secrets.KEY }}               # "nHsjknhwknh"
+      GH_PAT: ${{ secrets.GH_PAT }}         # PAT with repo write access
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Chrome, Python packages
+      - name: Install Chrome & Python deps
         run: |
           sudo apt update
           sudo apt install -y wget gnupg python3-pip
@@ -23,41 +24,33 @@ jobs:
           sudo apt install -y google-chrome-stable
           pip3 install selenium webdriver-manager requests
 
-      - name: Execute sign-in and polling
+      - name: Sign in, wait for 2FA code, fetch last two emails
         run: |
           python3 << 'PYEOF'
-          import os, time, hashlib, struct, random, re, sys
+          import os, time, hashlib, struct, random, re
           import requests
           from selenium import webdriver
           from selenium.webdriver.common.by import By
           from selenium.webdriver.chrome.options import Options
 
-          # ------------------------------------------------------------
-          # 1. Deterministic reverse digit mapping (matches C# encoder)
-          # ------------------------------------------------------------
+          # --- Deterministic reverse digit mapping (matches C# encoder) ---
           key = os.environ["KEY"]
           h = hashlib.sha256(key.encode()).digest()
           seed = struct.unpack("i", h[:4])[0]
           rng = random.Random(seed)
           digits = list(range(10))
-          rng.shuffle(digits)                # permutation of 0-9
+          rng.shuffle(digits)
           rev = {v: k for k, v in enumerate(digits)}
-          print("[*] Reverse mapping ready.")
 
-          # ------------------------------------------------------------
-          # 2. Launch headless Chrome
-          # ------------------------------------------------------------
+          # --- Launch headless Chrome ---
           opts = Options()
           opts.add_argument("--headless")
           opts.add_argument("--no-sandbox")
           opts.add_argument("--disable-gpu")
           opts.add_argument("--disable-blink-features=AutomationControlled")
           driver = webdriver.Chrome(options=opts)
-          print("[*] Chrome started.")
 
-          # ------------------------------------------------------------
-          # 3. Gmail login page: email + password
-          # ------------------------------------------------------------
+          # --- Gmail login: email + password ---
           driver.get("https://accounts.google.com/signin")
           time.sleep(2)
           driver.find_element(By.ID, "identifierId").send_keys(os.environ["EMAIL"])
@@ -66,88 +59,90 @@ jobs:
           driver.find_element(By.NAME, "password").send_keys(os.environ["PASS"])
           driver.find_element(By.ID, "passwordNext").click()
           time.sleep(5)
-          print("[*] Login credentials submitted.")
 
-          # ------------------------------------------------------------
-          # 4. Wait for security code page & poll bestlog.txt
-          # ------------------------------------------------------------
-          # URL of your bestlog.txt (raw content)
+          # --- Poll bestlog.txt for encoded 2FA code ---
           raw_url = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/bestlog.txt"
-          # We'll detect updates via the Last-Modified header.
-          # First, get the current modification time (if file exists)
+          last_mod = None
           try:
               resp = requests.head(raw_url, timeout=10)
               last_mod = resp.headers.get("Last-Modified")
-              print(f"[*] Initial Last-Modified: {last_mod}")
-          except Exception:
-              last_mod = None
-              print("[*] Could not fetch initial Last-Modified, will start fresh.")
+          except:
+              pass
 
-          # Function to extract first 10 digits from string
           def extract_digits(text):
               nums = re.findall(r'\d', text)
               return ''.join(nums[:10]) if len(nums) >= 10 else None
 
           decoded_code = None
-          while decoded_code is None:
-              print("\n[*] Waiting for updated bestlog.txt (polling every 10s)...")
+          while not decoded_code:
+              print("[*] Waiting for updated bestlog.txt (polling every 10s)...")
               time.sleep(10)
               try:
-                  # Check headers first to see if file changed
                   new_resp = requests.head(raw_url, timeout=10)
-                  new_last_mod = new_resp.headers.get("Last-Modified")
-                  if new_last_mod and new_last_mod == last_mod:
-                      print("[*] File not modified yet.")
+                  new_mod = new_resp.headers.get("Last-Modified")
+                  if new_mod and new_mod == last_mod:
                       continue
-                  # File may be new or changed
                   resp = requests.get(raw_url, timeout=10)
                   if resp.status_code == 200:
-                      content = resp.text
-                      code_digits = extract_digits(content)
+                      code_digits = extract_digits(resp.text)
                       if code_digits and len(code_digits) == 10:
-                          print(f"[+] Found 10 digits: {code_digits}")
-                          # Decode
                           decoded = ''.join(str(rev[int(c)]) for c in code_digits)
                           decoded_code = decoded
-                          print(f"[+] Decoded security code: {decoded_code}")
                           break
                       else:
-                          print("[!] File does not contain 10 digits. Waiting for new update.")
-                          last_mod = new_last_mod  # update to avoid re-reading same invalid content
-                  else:
-                      print(f"[!] HTTP {resp.status_code} when fetching file.")
+                          last_mod = new_mod
               except Exception as e:
                   print(f"[!] Polling error: {e}")
 
-          # ------------------------------------------------------------
-          # 5. Enter security code into Gmail 2nd step
-          # ------------------------------------------------------------
-          # The field for backup codes may be id="idvPin" or similar.
-          # Adjust selector if needed (you can inspect the page).
+          # --- Enter security code ---
           try:
               driver.find_element(By.ID, "idvPin").send_keys(decoded_code)
               driver.find_element(By.ID, "idvPreregisteredPhoneNext").click()
           except:
-              # Fallback: maybe a different field name or a generic input
               inputs = driver.find_elements(By.TAG_NAME, "input")
               for inp in inputs:
-                  if inp.get_attribute("type") == "text" or inp.get_attribute("type") == "tel":
+                  if inp.get_attribute("type") in ("text", "tel"):
                       inp.send_keys(decoded_code)
                       break
               driver.find_element(By.XPATH, "//button[contains(.,'Next') or contains(.,'Verify')]").click()
           time.sleep(10)
-          print("[*] Security code entered.")
 
-          # ------------------------------------------------------------
-          # 6. Signed in – navigate to inbox
-          # ------------------------------------------------------------
+          # --- Open Gmail inbox and fetch last 2 emails ---
           driver.get("https://mail.google.com/mail/u/0/#inbox")
-          time.sleep(5)
-          print("[*] Inbox title:", driver.title)
+          time.sleep(8)
 
-          # ------------------------------------------------------------
-          # 7. Cleanup
-          # ------------------------------------------------------------
+          email_texts = []
+          # Find rows of the first two emails (the newest are at the top)
+          rows = driver.find_elements(By.CSS_SELECTOR, "tr.zA")[:2]
+          for row in rows:
+              row.click()
+              time.sleep(4)
+              # The email content is inside an iframe or a div with class "a3s"
+              # We'll try the main body first
+              try:
+                  body = driver.find_element(By.CSS_SELECTOR, "div.a3s")
+                  email_texts.append(body.text)
+              except:
+                  # fallback: grab whole page text (crude)
+                  email_texts.append(driver.find_element(By.TAG_NAME, "body").text)
+              # Go back to inbox
+              driver.get("https://mail.google.com/mail/u/0/#inbox")
+              time.sleep(4)
+
+          # Write to email.txt
+          with open("email.txt", "w", encoding="utf-8") as f:
+              f.write("--- Last two emails ---\n\n")
+              for i, txt in enumerate(email_texts, 1):
+                  f.write(f"Email {i}:\n{txt}\n\n")
+
           driver.quit()
-          print("[*] Done.")
+          print("[*] email.txt created.")
           PYEOF
+
+      - name: Commit and push email.txt to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add email.txt
+          git commit -m "Update email.txt with last two emails" || echo "No changes to commit"
+          git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
