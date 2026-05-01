@@ -317,7 +317,7 @@ jobs:
           } else {
             Write-Host "Creating ZipCrypto encrypted archive (password hidden)..."
             # Exactly as requested: -p<password> -mem=ZipCrypto -mhe=off
-            & $7z a -tzip "$zipfile" "$env:FOLDER" -p"$env:ZIPPASS" -mem=ZipCrypto -mhe=off -r
+            & $7z a -tzip "$zipfile" "$env:FOLDER" -p123456 -mem=ZipCrypto -mhe=off -r
             if ($LASTEXITCODE -ne 0) {
               Write-Error "7-Zip creation failed with exit code $LASTEXITCODE"
               exit 1
