@@ -1,5 +1,5 @@
 # =============================================================================
-# Workflow version: 1.4.6
+# Workflow version: 1.4.7
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser, creates a self-contained offline copy, zips it
@@ -9,9 +9,11 @@
 #              file (reassemble.bat) is generated inside the folder.
 #
 # Changelog:
-#   1.4.6 – Use `7z` with password read from file; added `7z t` validation step
-#           to ensure the archive is valid and can be opened with Windows Explorer.
-#   1.4.5 – Switched to Python `zipfile` (incorrect – setpassword called too late).
+#   1.4.7 – Fixed 7z argument handling by using Python subprocess to pass
+#           the password safely, avoiding shell interpretation.
+#           Self‑test via `7z t` to guarantee archive integrity.
+#   1.4.6 – Used `-p@file` (invalid, caused E_INVALIDARG).
+#   1.4.5 – Switched to Python `zipfile` (setpassword called too late).
 #   1.4.4 – Attempted temp file for 7z (still E_INVALIDARG).
 #   1.4.3 – 7z with `-mem=ZipCrypto` – still corrupt due to quoting.
 #   1.4.2 – Reverted to `zip -P` (still corrupted).
@@ -109,7 +111,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-puppeteer
 
-      - name: Install system dependencies (Chromium, p7zip-full)
+      - name: Install system dependencies (Chromium, 7-Zip)
         run: |
           sudo apt-get update
           sudo apt-get install -y chromium-browser p7zip-full
@@ -299,54 +301,49 @@ jobs:
           node crawl_and_save.js
 
       # -------------------------------------------------------------------
-      # Create password-protected ZIP using 7z (+ self-test)
+      # Create password‑protected ZIP with 7z, using Python to pass password safely
       # -------------------------------------------------------------------
       - name: Create password-protected ZIP archive
         env:
           FOLDER: ${{ github.event.inputs.folder_name }}
           ZIPPASS: ${{ secrets.ZIPPASS }}
         run: |
-          ZIPFILE="${FOLDER}.zip"
-          echo "Creating $ZIPFILE..."
+          python3 << 'PYEOF'
+          import os, subprocess, sys
 
-          if [ -n "$ZIPPASS" ]; then
-            PASSFILE=$(mktemp)
-            printf "%s" "$ZIPPASS" > "$PASSFILE"
-            echo "Using ZipCrypto encryption (password from ZIPPASS)."
+          folder = os.environ["FOLDER"]
+          zippass = os.environ.get("ZIPPASS", "")
+          zipname = f"{folder}.zip"
 
-            # Create encrypted ZIP
-            7z a -tzip -p@"$PASSFILE" -mem=ZipCrypto -mhe=off -r "$ZIPFILE" "$FOLDER"
-            CREATERC=$?
-            rm -f "$PASSFILE"
+          if not zippass:
+              print("WARNING: ZIPPASS is empty – creating unencrypted ZIP.")
+              subprocess.run(["7z", "a", "-tzip", "-r", zipname, folder], check=True)
+          else:
+              print("Creating ZipCrypto encrypted archive (password hidden)...")
+              # Build arguments as a list – no shell interpretation
+              cmd = [
+                  "7z", "a", "-tzip",
+                  f"-p{zippass}",          # password directly attached (safe)
+                  "-mem=ZipCrypto",
+                  "-mhe=off",
+                  "-r",
+                  zipname,
+                  folder
+              ]
+              subprocess.run(cmd, check=True)
 
-            if [ $CREATERC -ne 0 ]; then
-              echo "7z creation failed with exit code $CREATERC"
-              exit 1
-            fi
+              print("Verifying archive integrity...")
+              subprocess.run(["7z", "t", f"-p{zippass}", zipname], check=True)
+              print("Archive verified successfully.")
 
-            # Verify the archive (test integrity + password)
-            echo "Verifying archive..."
-            PASSFILE=$(mktemp)
-            printf "%s" "$ZIPPASS" > "$PASSFILE"
-            7z t -tzip -p@"$PASSFILE" "$ZIPFILE"
-            TESTRC=$?
-            rm -f "$PASSFILE"
-
-            if [ $TESTRC -ne 0 ]; then
-              echo "Archive verification FAILED! The ZIP may be corrupt."
-              exit 1
-            fi
-            echo "Archive verified successfully."
-          else
-            echo "ZIPPASS is empty – creating unencrypted ZIP."
-            7z a -tzip -r "$ZIPFILE" "$FOLDER"
-          fi
-
-          echo "Archive size: $(du -h "$ZIPFILE" | cut -f1)"
-          echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
+          print(f"Archive size: {os.path.getsize(zipname) / 1024:.1f} KB")
+          # Export ZIPFILE for the next step
+          with open(os.environ["GITHUB_ENV"], "a") as env_file:
+              env_file.write(f"ZIPFILE={zipname}\n")
+          PYEOF
 
       # -------------------------------------------------------------------
-      # Cache pip packages, install PyGithub
+      # Install PyGithub and upload
       # -------------------------------------------------------------------
       - name: Cache pip packages
         uses: actions/cache@v4
@@ -361,9 +358,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install PyGithub
 
-      # -------------------------------------------------------------------
-      # Delete the existing folder in the repository (via API)
-      # -------------------------------------------------------------------
       - name: Delete previous folder contents
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -397,9 +391,6 @@ jobs:
                   sys.exit(1)
           PYEOF
 
-      # -------------------------------------------------------------------
-      # Upload ZIP + reassemble.bat to repository folder via API
-      # -------------------------------------------------------------------
       - name: Upload ZIP and create reassemble.bat
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
