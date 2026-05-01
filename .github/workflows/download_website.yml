@@ -1,18 +1,19 @@
 # =============================================================================
-# Workflow version: 2.2.1
+# Workflow version: 2.2.2
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser with Cloudflare WARP, creates a self-contained
-#              offline copy, zips it using Python's built-in zipfile (no extra
-#              packages), splits if needed, and uploads everything directly to
-#              the repository via the GitHub API. A Windows batch file
-#              (reassemble.bat) is generated inside the folder.
+#              offline copy, zips it using Python's built-in zipfile, splits if
+#              needed, and uploads everything directly to the repository via the
+#              GitHub API. A Windows batch file (reassemble.bat) is generated
+#              inside the folder.
 #
 # Changelog:
-#   2.2.1 – Removed `zip unzip` from system dependencies; ZIP creation now uses
-#           Python's built-in `zipfile` to avoid installation hangs.
+#   2.2.2 – Removed system Chromium installation; puppeteer now manages its own
+#           Chromium binary, avoiding Snap Store issues.
+#   2.2.1 – Removed `zip unzip` from system dependencies; used Python zipfile.
 #   2.2.0 – Removed all password protection; ZIP is now unencrypted.
-#   2.1.0 – Added Cloudflare WARP, puppeteer-extra + stealth, fixed 7‑Zip issues.
+#   2.1.0 – Added Cloudflare WARP, puppeteer-extra + stealth.
 # =============================================================================
 
 name: Make a website offline
@@ -111,27 +112,54 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
+      # Puppeteer will download its own Chromium to ~/.cache/puppeteer – cache it
       - name: Cache Puppeteer Chromium
         uses: actions/cache@v4
         with:
           path: ~/.cache/puppeteer
-          key: ${{ runner.os }}-puppeteer
+          key: ${{ runner.os }}-puppeteer-chrome-${{ hashFiles('package.json') }}
           restore-keys: |
-            ${{ runner.os }}-puppeteer
+            ${{ runner.os }}-puppeteer-chrome-
 
-      # Only Chromium is required – no zip/unzip
-      - name: Install system dependencies
+      # Install only the minimal system libraries that puppeteer needs
+      - name: Install system dependencies (for Puppeteer/Chromium)
         run: |
           sudo apt-get update
-          sudo apt-get install -y chromium-browser
-          echo "CHROMIUM_PATH=$(which chromium-browser)" >> $GITHUB_ENV
+          # These libraries are required by Chromium but already present on ubuntu-latest;
+          # install only if needed. Keeping the list explicit avoids snap.
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates \
+            fonts-liberation \
+            libasound2 \
+            libatk-bridge2.0-0 \
+            libatk1.0-0 \
+            libcups2 \
+            libdrm2 \
+            libgbm1 \
+            libgtk-3-0 \
+            libnspr4 \
+            libnss3 \
+            libu2f-udev \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxkbcommon0 \
+            libxrandr2 \
+            xdg-utils
 
       - name: Install Node dependencies
         run: |
           npm install puppeteer-extra puppeteer-extra-plugin-stealth single-file-cli
 
+      # Install Puppeteer's own managed Chromium and any extra OS dependencies
+      - name: Install Chromium via Puppeteer
+        run: |
+          npx puppeteer browsers install chrome
+          # The command also checks and installs missing shared libraries
+          echo "Chromium installed by Puppeteer."
+
       # -------------------------------------------------------------------
-      # Download the website
+      # Download the website (Puppeteer‑extra + stealth + single‑file)
       # -------------------------------------------------------------------
       - name: Download website with headless browser
         env:
@@ -181,7 +209,6 @@ jobs:
           async function main() {
             const browser = await puppeteer.launch({
               headless: 'new',
-              executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser',
               args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -326,7 +353,7 @@ jobs:
           find "${{ github.event.inputs.folder_name }}" -type f -exec ls -lh {} \;
 
       # -------------------------------------------------------------------
-      # Create ZIP using Python's built-in zipfile (no extra packages)
+      # Create ZIP using Python's built-in zipfile
       # -------------------------------------------------------------------
       - name: Create ZIP archive
         env:
@@ -348,7 +375,6 @@ jobs:
 
           size = os.path.getsize(zipname)
           print(f"Archive size: {size / 1024:.1f} KB")
-          # Export ZIPFILE for the next step
           with open(os.environ["GITHUB_ENV"], "a") as env_file:
               env_file.write(f"ZIPFILE={zipname}\n")
           PYEOF
