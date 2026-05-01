@@ -1,16 +1,16 @@
 # =============================================================================
-# Workflow version: 2.1.0
+# Workflow version: 2.2.0
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser with Cloudflare WARP, creates a self-contained
-#              offline copy, zips it with standard ZipCrypto encryption (password
-#              from ZIPPASS secret), verifies the archive, splits if needed, and
+#              offline copy, zips it (unencrypted), splits if needed, and
 #              uploads everything directly to the repository via the GitHub API.
-#              A Windows batch file (reassemble.bat) is generated inside the folder.
+#              A Windows batch file (reassemble.bat) is generated inside the
+#              folder.
 #
 # Changelog:
-#   2.1.0 – Added Cloudflare WARP to bypass bot‑blocking, puppeteer-extra + stealth,
-#           fixed 7‑Zip password handling with a temporary file, archive verification.
+#   2.2.0 – Removed all password protection; ZIP is now standard and unencrypted.
+#   2.1.0 – Added Cloudflare WARP, puppeteer-extra + stealth, fixed 7‑Zip issues.
 #   2.0.1 – Windows runner: 7‑Zip argument fix attempt (still failed).
 #   2.0.0 – Moved to Windows runner (windows‑latest).
 #   1.4.9 – Linux attempts (all failed due to tooling issues).
@@ -120,10 +120,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-puppeteer
 
-      - name: Install system dependencies (Chromium, 7z)
+      - name: Install system dependencies (Chromium, zip)
         run: |
           sudo apt-get update
-          sudo apt-get install -y chromium-browser p7zip-full
+          sudo apt-get install -y chromium-browser zip unzip
           echo "CHROMIUM_PATH=$(which chromium-browser)" >> $GITHUB_ENV
 
       - name: Install Node dependencies (puppeteer-extra + stealth)
@@ -326,47 +326,15 @@ jobs:
           find "${{ github.event.inputs.folder_name }}" -type f -exec ls -lh {} \;
 
       # -------------------------------------------------------------------
-      # Create ZipCrypto‑encrypted ZIP with 7z (password from file)
+      # Create a normal, unencrypted ZIP
       # -------------------------------------------------------------------
-      - name: Create password-protected ZIP archive
+      - name: Create ZIP archive
         env:
           FOLDER: ${{ github.event.inputs.folder_name }}
-          ZIPPASS: ${{ secrets.ZIPPASS }}
         run: |
           ZIPFILE="${FOLDER}.zip"
-          echo "Creating $ZIPFILE..."
-
-          if [ -z "$ZIPPASS" ]; then
-            echo "No password – creating unencrypted ZIP."
-            7z a -tzip "$ZIPFILE" "$FOLDER" -r
-          else
-            # Write password to a temp file (no trailing newline)
-            PASSFILE=$(mktemp)
-            printf "%s" "$ZIPPASS" > "$PASSFILE"
-            echo "Creating ZipCrypto encrypted archive (password hidden)..."
-            7z a -tzip "$ZIPFILE" "$FOLDER" -p@"$PASSFILE" -mem=ZipCrypto -mhe=off -r
-            CREATERC=$?
-            rm -f "$PASSFILE"
-
-            if [ $CREATERC -ne 0 ]; then
-              echo "7z creation failed with exit code $CREATERC"
-              exit 1
-            fi
-
-            echo "Verifying archive..."
-            PASSFILE=$(mktemp)
-            printf "%s" "$ZIPPASS" > "$PASSFILE"
-            7z t "$ZIPFILE" -p@"$PASSFILE"
-            TESTRC=$?
-            rm -f "$PASSFILE"
-
-            if [ $TESTRC -ne 0 ]; then
-              echo "Archive verification FAILED! The ZIP may be corrupt."
-              exit 1
-            fi
-            echo "Archive verified successfully."
-          fi
-
+          echo "Creating $ZIPFILE (unencrypted)..."
+          zip -r "$ZIPFILE" "$FOLDER"
           echo "Archive size: $(du -h "$ZIPFILE" | cut -f1)"
           echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
 
@@ -505,10 +473,7 @@ jobs:
               else:
                   bat_lines.append(f"echo {name} was downloaded as a single file (no chunks).")
           bat_lines.append("echo ========================================")
-          bat_lines.append("echo The ZIP archive is encrypted with ZipCrypto.")
-          bat_lines.append("echo You can open it with Windows Explorer, 7-Zip, WinRAR, etc.")
-          bat_lines.append("echo Use the correct password when prompted.")
-          bat_lines.append("echo All done! Press any key to exit.")
+          bat_lines.append("echo All done! You can now extract the ZIP archive.")
           bat_lines.append("pause >nul")
 
           bat_content = "\r\n".join(bat_lines)
