@@ -1,0 +1,13 @@
+--- First email ---
+
+  [edukadoj/download_to_repo_from_link] Make a website offline workflow run
+    Make a website offline: All jobs have failed
+  View workflow run
+  Status Job Annotations
+Make a website offline / mirror-and-upload
+Failed in 1 minute and 3 seconds
+2
+    —
+You are receiving this because you are subscribed to this thread.
+Manage your GitHub Actions notifications
+  GitHub, Inc. ・88 Colin P Kelly Jr Street ・San Francisco, CA 94107
