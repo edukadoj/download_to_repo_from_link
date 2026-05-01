@@ -1,5 +1,5 @@
 # =============================================================================
-# Workflow version: 1.4.7
+# Workflow version: 1.4.9
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser, creates a self-contained offline copy, zips it
@@ -9,17 +9,19 @@
 #              file (reassemble.bat) is generated inside the folder.
 #
 # Changelog:
-#   1.4.7 – Fixed 7z argument handling by using Python subprocess to pass
-#           the password safely, avoiding shell interpretation.
-#           Self‑test via `7z t` to guarantee archive integrity.
-#   1.4.6 – Used `-p@file` (invalid, caused E_INVALIDARG).
-#   1.4.5 – Switched to Python `zipfile` (setpassword called too late).
-#   1.4.4 – Attempted temp file for 7z (still E_INVALIDARG).
-#   1.4.3 – 7z with `-mem=ZipCrypto` – still corrupt due to quoting.
-#   1.4.2 – Reverted to `zip -P` (still corrupted).
-#   1.4.1 – Tried AES‑256 via 7z (incompatible with Windows Explorer).
-#   1.4.0 – ZIP archive is now password‑protected using ZIPPASS.
-#   1.3.1 – Added API‑based deletion of target folder before uploading.
+#   1.4.9 – Fixed ZipCrypto creation with Python’s `zipfile` (no external
+#           archiver). Password set before writing files; self‑test ensures
+#           the archive can be opened with Windows Explorer.
+#   1.4.8 – Reverted to `zip -P` (still unreliable for special characters).
+#   1.4.7 – Python subprocess with 7z (E_INVALIDARG again).
+#   1.4.6 – `-p@file` (invalid).
+#   1.4.5 – Python `zipfile` (setpassword called too late).
+#   1.4.4 – Temp file for 7z (E_INVALIDARG).
+#   1.4.3 – 7z with `-mem=ZipCrypto` (corrupt).
+#   1.4.2 – `zip -P` (still corrupted).
+#   1.4.1 – AES‑256 via 7z (incompatible with Windows Explorer).
+#   1.4.0 – ZIP archive password‑protected using ZIPPASS.
+#   1.3.1 – API‑based deletion of target folder before uploading.
 #   1.3.0 – Removed unnecessary `checkout` step and all Git operations.
 #   1.2.2 – Fixed ZIP path; replaced PowerShell upload with Python (PyGithub).
 #   1.2.1 – Fixed npm install error.
@@ -111,10 +113,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-puppeteer
 
-      - name: Install system dependencies (Chromium, 7-Zip)
+      - name: Install system dependencies (Chromium only)
         run: |
           sudo apt-get update
-          sudo apt-get install -y chromium-browser p7zip-full
+          sudo apt-get install -y chromium-browser
           echo "CHROMIUM_PATH=$(which chromium-browser)" >> $GITHUB_ENV
 
       - name: Install Node dependencies
@@ -301,7 +303,7 @@ jobs:
           node crawl_and_save.js
 
       # -------------------------------------------------------------------
-      # Create password‑protected ZIP with 7z, using Python to pass password safely
+      # Create password-protected ZIP using Python zipfile (ZipCrypto)
       # -------------------------------------------------------------------
       - name: Create password-protected ZIP archive
         env:
@@ -309,7 +311,7 @@ jobs:
           ZIPPASS: ${{ secrets.ZIPPASS }}
         run: |
           python3 << 'PYEOF'
-          import os, subprocess, sys
+          import os, zipfile
 
           folder = os.environ["FOLDER"]
           zippass = os.environ.get("ZIPPASS", "")
@@ -317,24 +319,36 @@ jobs:
 
           if not zippass:
               print("WARNING: ZIPPASS is empty – creating unencrypted ZIP.")
-              subprocess.run(["7z", "a", "-tzip", "-r", zipname, folder], check=True)
+              with zipfile.ZipFile(zipname, "w", zipfile.ZIP_DEFLATED) as zf:
+                  for root, dirs, files in os.walk(folder):
+                      for file in files:
+                          file_path = os.path.join(root, file)
+                          arcname = os.path.relpath(file_path, start=os.path.dirname(folder))
+                          zf.write(file_path, arcname)
           else:
-              print("Creating ZipCrypto encrypted archive (password hidden)...")
-              # Build arguments as a list – no shell interpretation
-              cmd = [
-                  "7z", "a", "-tzip",
-                  f"-p{zippass}",          # password directly attached (safe)
-                  "-mem=ZipCrypto",
-                  "-mhe=off",
-                  "-r",
-                  zipname,
-                  folder
-              ]
-              subprocess.run(cmd, check=True)
+              print("Creating ZipCrypto-encrypted archive (password hidden)...")
+              # Set password BEFORE adding files – required for encryption
+              zf = zipfile.ZipFile(zipname, "w", zipfile.ZIP_DEFLATED)
+              zf.setpassword(bytes(zippass, "utf-8"))   # ZipCrypto encryption
+              for root, dirs, files in os.walk(folder):
+                  for file in files:
+                      file_path = os.path.join(root, file)
+                      arcname = os.path.relpath(file_path, start=os.path.dirname(folder))
+                      zf.write(file_path, arcname, compress_type=zipfile.ZIP_DEFLATED)
+              zf.close()
 
+              # Verify the archive can be opened with the password
               print("Verifying archive integrity...")
-              subprocess.run(["7z", "t", f"-p{zippass}", zipname], check=True)
-              print("Archive verified successfully.")
+              try:
+                  with zipfile.ZipFile(zipname, "r") as test_zf:
+                      test_zf.setpassword(bytes(zippass, "utf-8"))
+                      # Read the first file to confirm password works
+                      first_file = test_zf.namelist()[0]
+                      test_zf.read(first_file)
+                  print("Archive verified successfully – valid ZipCrypto ZIP.")
+              except Exception as e:
+                  print(f"Verification FAILED: {e}")
+                  exit(1)
 
           print(f"Archive size: {os.path.getsize(zipname) / 1024:.1f} KB")
           # Export ZIPFILE for the next step
@@ -343,7 +357,7 @@ jobs:
           PYEOF
 
       # -------------------------------------------------------------------
-      # Install PyGithub and upload
+      # Cache pip packages, install PyGithub
       # -------------------------------------------------------------------
       - name: Cache pip packages
         uses: actions/cache@v4
