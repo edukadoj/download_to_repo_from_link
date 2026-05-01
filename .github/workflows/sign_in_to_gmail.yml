@@ -1,5 +1,5 @@
-# version 51.0 – Fixed cookie injection (strip sameSite), forced bestlog cleanup, verbose echoes
-name: Gmail – Cache + Real‑time Code (Verbose & Fixed)
+# version 52.0 – Portable Chrome profile cache, encrypted + self‑test, manual 2FA fallback
+name: Gmail – Portable Chrome Profile Cache
 
 on: workflow_dispatch
 
@@ -17,14 +17,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure git & clean (keep session.enc)
+      - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          rm -rf screenshots email.txt bestlog.txt
-          mkdir -p screenshots
-          git add -A && git commit -m "Clean start" || echo "Nothing to commit"
-          git pull --rebase && git push || echo "Push failed, continuing"
 
       - name: Setup Cloudflare WARP
         uses: viperadnan-git/setup-warp@v1
@@ -46,18 +42,18 @@ jobs:
           sudo apt update && sudo apt install -y google-chrome-stable
           pip3 install selenium webdriver-manager requests cryptography
 
-      - name: Restore cached session
+      - name: Restore cached Chrome profile
         uses: actions/cache/restore@v3
         id: cache
         with:
-          path: session.enc
-          key: gmail-session-v3
+          path: profile_cache.tar.enc
+          key: chrome-profile-v1
 
-      - name: Full Automation (Cache or Fresh Login)
+      - name: Full Automation (Portable Profile or Fresh Login)
         timeout-minutes: 30
         run: |
           python3 << 'PYEOF'
-          import os, time, subprocess, hashlib, pickle, sys, base64, re, requests
+          import os, time, subprocess, hashlib, pickle, sys, base64, re, requests, shutil, tarfile, io
           from datetime import datetime
           from selenium import webdriver
           from selenium.webdriver.common.by import By
@@ -66,9 +62,6 @@ jobs:
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
           from selenium.common.exceptions import TimeoutException, NoSuchElementException
-
-          # force line‑buffered output
-          sys.stdout.reconfigure(line_buffering=True)
 
           # ── helpers ──
           def echo(msg):
@@ -108,23 +101,43 @@ jobs:
           with open(log_file,"w") as f:
               f.write(f"============================================================\n"
                       f"  Gmail workflow started at {now_str}\n"
-                      f"  Version: 51.0\n"
+                      f"  Version: 52.0\n"
                       f"============================================================\n\n")
 
-          # ── cookie encryption ──
+          # ── cleanup old screenshots & bestlog.txt ──
+          shutil.rmtree("screenshots", ignore_errors=True)
+          os.makedirs("screenshots", exist_ok=True)
+          if os.path.exists("bestlog.txt"):
+              os.remove("bestlog.txt")
+          log("Cleaned screenshots and bestlog.txt.")
+
+          # ── encryption ──
           from cryptography.fernet import Fernet
           KEY = os.environ["KEY"]
           ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(KEY.encode()).digest())
 
-          def encrypt_cookies(cookies):
+          def encrypt_data(data):
               f = Fernet(ENCRYPTION_KEY)
-              data = pickle.dumps(cookies)
               return f.encrypt(data)
 
-          def decrypt_cookies(encrypted_data):
+          def decrypt_data(encrypted_data):
               f = Fernet(ENCRYPTION_KEY)
-              data = f.decrypt(encrypted_data)
-              return pickle.loads(data)
+              return f.decrypt(encrypted_data)
+
+          # ── tar/untar profile ──
+          PROFILE_DIR = "/tmp/chrome_profile"
+
+          def tar_profile():
+              buf = io.BytesIO()
+              with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+                  tar.add(PROFILE_DIR, arcname='chrome_profile')
+              return buf.getvalue()
+
+          def untar_profile(data):
+              shutil.rmtree(PROFILE_DIR, ignore_errors=True)
+              buf = io.BytesIO(data)
+              with tarfile.open(fileobj=buf, mode='r:gz') as tar:
+                  tar.extractall('/tmp')
 
           # ── decoder (matches C# encoder) ──
           def get_permutation():
@@ -160,66 +173,52 @@ jobs:
           opts.add_argument("--disable-gpu")
           opts.add_argument("--disable-blink-features=AutomationControlled")
           opts.add_argument("--window-size=1920,1080")
+          opts.add_argument(f"--user-data-dir={PROFILE_DIR}")
+          opts.add_argument("--profile-directory=Default")
           opts.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.7727.137 Safari/537.36")
           opts.add_experimental_option("excludeSwitches",["enable-automation"])
           opts.add_experimental_option('useAutomationExtension',False)
 
-          driver = webdriver.Chrome(options=opts)
-          driver.execute_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
-          wait = WebDriverWait(driver,20)
-          log("Browser ready.")
-
+          driver = None
           try:
-              cache_loaded = False
-              if os.path.exists("session.enc"):
-                  stage("ATTEMPT CACHED SESSION")
-                  log("Cached session found. Decrypting…")
+              profile_loaded = False
+
+              # ====== RESTORE PROFILE ======
+              if os.path.exists("profile_cache.tar.enc"):
+                  stage("RESTORE CHROME PROFILE")
+                  log("Cached profile found. Decrypting…")
                   try:
-                      with open("session.enc","rb") as f:
+                      with open("profile_cache.tar.enc","rb") as f:
                           encrypted = f.read()
-                      cookies = decrypt_cookies(encrypted)
-                      log(f"Decrypted {len(cookies)} cookies.")
-
-                      # encryption self‑test
-                      log("Running encryption self‑test…")
-                      test_enc = encrypt_cookies(cookies)
-                      test_dec = decrypt_cookies(test_enc)
-                      if repr(test_dec) == repr(cookies):
-                          log("Encryption self‑test passed ✅")
-                      else:
-                          log("Encryption self‑test FAILED ❌ – cookies mismatch!")
-                          raise Exception("Encryption self‑test failed")
-
-                      # strip sameSite from every cookie (Selenium may reject it)
-                      for c in cookies:
-                          c.pop('sameSite', None)
-
-                      # inject cookies on parent domain
-                      log("Injecting cookies on google.com…")
-                      driver.get("https://www.google.com")
-                      for c in cookies:
-                          try:
-                              driver.add_cookie(c)
-                              log(f"  ✓ injected {c.get('name')}")
-                          except Exception as e:
-                              log(f"  ✗ skipped {c.get('name')}: {e}")
-                      log("Cookies injected. Navigating to Gmail…")
+                      decrypted = decrypt_data(encrypted)
+                      untar_profile(decrypted)
+                      log("Profile restored. Launching Chrome…")
+                      # Chrome will use the restored profile
+                      driver = webdriver.Chrome(options=opts)
+                      driver.execute_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
+                      wait = WebDriverWait(driver,20)
+                      # test if session is alive
                       driver.get("https://mail.google.com/mail/u/0/#inbox")
-                      time.sleep(6)
+                      time.sleep(5)
                       wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"tr.zA")))
-                      log("✅ Cached session restored – inbox reached!")
-                      cache_loaded = True
+                      log("✅ Restored profile is valid – inbox reached!")
+                      profile_loaded = True
                       ss("cached_inbox")
                   except Exception as e:
-                      log(f"Cache restoration failed: {e}")
+                      log(f"Profile restoration failed: {e}")
                       echo("Falling back to fresh login.")
-                      cache_loaded = False
+                      profile_loaded = False
               else:
-                  log("No cached session file found.")
+                  log("No cached profile found.")
 
-              if not cache_loaded:
+              # ====== FRESH LOGIN ======
+              if not profile_loaded:
                   stage("FRESH LOGIN")
-                  log("Starting full login…")
+                  # clean profile dir for fresh login
+                  shutil.rmtree(PROFILE_DIR, ignore_errors=True)
+                  driver = webdriver.Chrome(options=opts)
+                  driver.execute_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
+                  wait = WebDriverWait(driver,20)
 
                   # open sign‑in
                   driver.get("https://accounts.google.com/signin")
@@ -297,12 +296,9 @@ jobs:
                   log("Code input ready.")
                   ss("07_code_input_ready")
 
-                  # poll bestlog.txt  ── FORCE DELETE & ENSURE EMPTY ──
+                  # poll bestlog.txt
                   stage("WAIT FOR CODE")
-                  log("Deleting any leftover bestlog.txt…")
-                  if os.path.exists("bestlog.txt"):
-                      os.remove("bestlog.txt")
-                  # create a truly empty file
+                  log("Creating empty bestlog.txt…")
                   with open("bestlog.txt","w") as f:
                       f.write("")
                   subprocess.run(["git","stash","--include-untracked"],capture_output=True)
@@ -311,7 +307,7 @@ jobs:
                   subprocess.run(["git","add","bestlog.txt"],check=True)
                   subprocess.run(["git","commit","-m","Empty bestlog ready"],check=True)
                   subprocess.run(["git","push"],check=True)
-                  log("bestlog.txt pushed and verified empty. Encode your code with the C# tool and paste it there.")
+                  log("bestlog.txt pushed. Encode your code and paste it there.")
 
                   raw = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
                   decoded = None
@@ -359,42 +355,35 @@ jobs:
                           ss("error_cannot_reach_inbox")
                           raise Exception("Could not reach inbox")
 
-                  # save cookies
-                  stage("SAVE SESSION")
-                  log("Collecting cookies for all Google domains…")
-                  driver.get("https://accounts.google.com")
-                  time.sleep(2)
-                  all_cookies = driver.get_cookies()
-                  driver.get("https://mail.google.com")
-                  time.sleep(2)
-                  all_cookies += driver.get_cookies()
-
-                  # rewrite domain & strip sameSite
-                  for c in all_cookies:
-                      if 'domain' in c and c['domain']:
-                          c['domain'] = '.google.com'
-                      c.pop('sameSite', None)
-                  # deduplicate by name
-                  seen = set()
-                  unique = []
-                  for c in all_cookies:
-                      if c['name'] not in seen:
-                          seen.add(c['name'])
-                          unique.append(c)
-                  log(f"Collected {len(unique)} unique cookies with .google.com domain.")
-
-                  # encrypt & self‑test
-                  encrypted = encrypt_cookies(unique)
-                  test_dec = decrypt_cookies(encrypted)
-                  if repr(test_dec) == repr(unique):
-                      log("Encryption self‑test passed ✅")
-                  else:
-                      log("Encryption self‑test FAILED ❌")
-                  with open("session.enc","wb") as f:
+                  # save profile
+                  stage("SAVE PROFILE")
+                  log("Closing browser to flush profile data…")
+                  driver.quit()
+                  driver = None
+                  log("Packing profile…")
+                  profile_tar = tar_profile()
+                  encrypted = encrypt_data(profile_tar)
+                  # self‑test decryption
+                  try:
+                      test_dec = decrypt_data(encrypted)
+                      if test_dec == profile_tar:
+                          log("Encryption self‑test passed ✅")
+                      else:
+                          log("Encryption self‑test FAILED ❌")
+                  except Exception as e:
+                      log(f"Encryption self‑test error: {e}")
+                  with open("profile_cache.tar.enc","wb") as f:
                       f.write(encrypted)
-                  log("Encrypted session saved.")
+                  log("Encrypted profile saved.")
 
-              # read first email
+              # ====== READ FIRST EMAIL ======
+              if not driver:
+                  driver = webdriver.Chrome(options=opts)
+                  driver.execute_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
+                  wait = WebDriverWait(driver,20)
+                  driver.get("https://mail.google.com/mail/u/0/#inbox")
+                  time.sleep(5)
+                  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"tr.zA")))
               stage("READ FIRST EMAIL")
               log("Reading first email…")
               rows = driver.find_elements(By.CSS_SELECTOR,"tr.zA")
@@ -429,7 +418,8 @@ jobs:
               except: pass
               raise
           finally:
-              driver.quit()
+              if driver:
+                  driver.quit()
               log("Browser closed.")
               try:
                   subprocess.run(["git","stash","--include-untracked"],capture_output=True)
@@ -442,9 +432,9 @@ jobs:
                   echo("Final push failed (non‑critical).")
           PYEOF
 
-      - name: Save session to cache
-        if: always() && hashFiles('session.enc') != ''
+      - name: Save profile to cache
+        if: always() && hashFiles('profile_cache.tar.enc') != ''
         uses: actions/cache/save@v3
         with:
-          path: session.enc
-          key: gmail-session-v3
+          path: profile_cache.tar.enc
+          key: chrome-profile-v1
