@@ -1,4 +1,4 @@
-# version 50.0 – Full verbose logging, fixed cookie domain, encryption self-test
+# version 51.0 – Fixed cookie injection (strip sameSite), forced bestlog cleanup, verbose echoes
 name: Gmail – Cache + Real‑time Code (Verbose & Fixed)
 
 on: workflow_dispatch
@@ -12,7 +12,7 @@ jobs:
       EMAIL: ${{ secrets.EMAIL }}
       PASS: ${{ secrets.PASS }}
       KEY: ${{ secrets.KEY }}
-      PYTHONUNBUFFERED: 1                # force real‑time print
+      PYTHONUNBUFFERED: 1
 
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +51,7 @@ jobs:
         id: cache
         with:
           path: session.enc
-          key: gmail-session-v2
+          key: gmail-session-v3
 
       - name: Full Automation (Cache or Fresh Login)
         timeout-minutes: 30
@@ -66,6 +66,9 @@ jobs:
           from selenium.webdriver.support import expected_conditions as EC
           from selenium.webdriver.chrome.options import Options
           from selenium.common.exceptions import TimeoutException, NoSuchElementException
+
+          # force line‑buffered output
+          sys.stdout.reconfigure(line_buffering=True)
 
           # ── helpers ──
           def echo(msg):
@@ -99,6 +102,14 @@ jobs:
               with open(log_file,"a") as f:
                   f.write(f"{datetime.now().strftime('%H:%M:%S')} - {msg}\n")
               echo(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+
+          # write header
+          now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+          with open(log_file,"w") as f:
+              f.write(f"============================================================\n"
+                      f"  Gmail workflow started at {now_str}\n"
+                      f"  Version: 51.0\n"
+                      f"============================================================\n\n")
 
           # ── cookie encryption ──
           from cryptography.fernet import Fernet
@@ -179,14 +190,19 @@ jobs:
                           log("Encryption self‑test FAILED ❌ – cookies mismatch!")
                           raise Exception("Encryption self‑test failed")
 
+                      # strip sameSite from every cookie (Selenium may reject it)
+                      for c in cookies:
+                          c.pop('sameSite', None)
+
                       # inject cookies on parent domain
                       log("Injecting cookies on google.com…")
                       driver.get("https://www.google.com")
                       for c in cookies:
                           try:
                               driver.add_cookie(c)
+                              log(f"  ✓ injected {c.get('name')}")
                           except Exception as e:
-                              log(f"Skipping cookie {c.get('name')}: {e}")
+                              log(f"  ✗ skipped {c.get('name')}: {e}")
                       log("Cookies injected. Navigating to Gmail…")
                       driver.get("https://mail.google.com/mail/u/0/#inbox")
                       time.sleep(6)
@@ -281,17 +297,21 @@ jobs:
                   log("Code input ready.")
                   ss("07_code_input_ready")
 
-                  # poll bestlog.txt
+                  # poll bestlog.txt  ── FORCE DELETE & ENSURE EMPTY ──
                   stage("WAIT FOR CODE")
-                  log("Creating empty bestlog.txt…")
-                  with open("bestlog.txt","w") as f: pass
+                  log("Deleting any leftover bestlog.txt…")
+                  if os.path.exists("bestlog.txt"):
+                      os.remove("bestlog.txt")
+                  # create a truly empty file
+                  with open("bestlog.txt","w") as f:
+                      f.write("")
                   subprocess.run(["git","stash","--include-untracked"],capture_output=True)
                   subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
                   subprocess.run(["git","stash","pop"],capture_output=True)
                   subprocess.run(["git","add","bestlog.txt"],check=True)
                   subprocess.run(["git","commit","-m","Empty bestlog ready"],check=True)
                   subprocess.run(["git","push"],check=True)
-                  log("bestlog.txt pushed. Encode your code with the C# tool and paste it there.")
+                  log("bestlog.txt pushed and verified empty. Encode your code with the C# tool and paste it there.")
 
                   raw = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
                   decoded = None
@@ -342,19 +362,18 @@ jobs:
                   # save cookies
                   stage("SAVE SESSION")
                   log("Collecting cookies for all Google domains…")
-                  # get accounts.google.com cookies
                   driver.get("https://accounts.google.com")
                   time.sleep(2)
                   all_cookies = driver.get_cookies()
-                  # get mail.google.com cookies
                   driver.get("https://mail.google.com")
                   time.sleep(2)
                   all_cookies += driver.get_cookies()
 
-                  # rewrite domain to .google.com
+                  # rewrite domain & strip sameSite
                   for c in all_cookies:
                       if 'domain' in c and c['domain']:
                           c['domain'] = '.google.com'
+                      c.pop('sameSite', None)
                   # deduplicate by name
                   seen = set()
                   unique = []
@@ -428,4 +447,4 @@ jobs:
         uses: actions/cache/save@v3
         with:
           path: session.enc
-          key: gmail-session-v2
+          key: gmail-session-v3
