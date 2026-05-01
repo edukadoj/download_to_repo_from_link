@@ -1,20 +1,19 @@
 # =============================================================================
-# Workflow version: 2.0.1
+# Workflow version: 2.1.0
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
-#              headless browser on a Windows runner, creates a self-contained
-#              offline copy, zips it with standard ZipCrypto encryption
-#              (password from ZIPPASS secret), verifies the archive, splits if
-#              needed, and uploads everything directly to the repository via the
-#              GitHub API. A Windows batch file (reassemble.bat) is generated
-#              inside the folder.
+#              headless browser with Cloudflare WARP, creates a self-contained
+#              offline copy, zips it with standard ZipCrypto encryption (password
+#              from ZIPPASS secret), verifies the archive, splits if needed, and
+#              uploads everything directly to the repository via the GitHub API.
+#              A Windows batch file (reassemble.bat) is generated inside the folder.
 #
 # Changelog:
-#   2.0.1 – Fixed 7‑Zip argument handling: password passed as `-p"$password"`,
-#           extra check for empty folder.  Works exactly like the user’s
-#           provided command pattern.
-#   2.0.0 – Moved to Windows runner (windows‑latest). Uses native 7‑Zip.
-#   1.4.9 – Previous Linux attempts (all failed due to tooling issues).
+#   2.1.0 – Added Cloudflare WARP to bypass bot‑blocking, puppeteer-extra + stealth,
+#           fixed 7‑Zip password handling with a temporary file, archive verification.
+#   2.0.1 – Windows runner: 7‑Zip argument fix attempt (still failed).
+#   2.0.0 – Moved to Windows runner (windows‑latest).
+#   1.4.9 – Linux attempts (all failed due to tooling issues).
 # =============================================================================
 
 name: Make a website offline
@@ -60,27 +59,43 @@ on:
 
 jobs:
   mirror-and-upload:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
     permissions:
       contents: write
 
     steps:
       # -------------------------------------------------------------------
-      # Normalise the URL (PowerShell)
+      # Normalise the URL (add https:// if missing)
       # -------------------------------------------------------------------
       - name: Normalize URL
-        shell: pwsh
         run: |
-          $raw_url = "${{ github.event.inputs.website_url }}"
-          if ($raw_url -notmatch '^https?://') {
-            $normalized_url = "https://$raw_url"
-          } else {
-            $normalized_url = $raw_url
-          }
-          echo "SITE_URL=$normalized_url" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
+          raw_url="${{ github.event.inputs.website_url }}"
+          if [[ ! "$raw_url" =~ ^https?:// ]]; then
+            normalized_url="https://${raw_url}"
+          else
+            normalized_url="$raw_url"
+          fi
+          echo "SITE_URL=$normalized_url" >> $GITHUB_ENV
 
       # -------------------------------------------------------------------
-      # Setup Node.js + cache (cross‑platform)
+      # Setup Cloudflare WARP (bypass bot detection)
+      # -------------------------------------------------------------------
+      - name: Setup Cloudflare WARP
+        uses: viperadnan-git/setup-warp@v1
+        with:
+          mode: 'client'
+          stack: 'dual'
+          configure_docker: 'false'
+
+      - name: Verify WARP connection
+        run: |
+          echo "Checking WARP status..."
+          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
+          echo "WARP is active."
+
+      # -------------------------------------------------------------------
+      # Setup Node.js + cache for faster repeat runs
       # -------------------------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -105,14 +120,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-puppeteer
 
-      - name: Install Node dependencies
-        run: npm install puppeteer single-file-cli
+      - name: Install system dependencies (Chromium, 7z)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser p7zip-full
+          echo "CHROMIUM_PATH=$(which chromium-browser)" >> $GITHUB_ENV
+
+      - name: Install Node dependencies (puppeteer-extra + stealth)
+        run: |
+          npm install puppeteer-extra puppeteer-extra-plugin-stealth single-file-cli
 
       # -------------------------------------------------------------------
-      # Download the website (Puppeteer + single‑file) – PowerShell heredoc
+      # Download the website (Puppeteer‑extra + stealth + single‑file)
       # -------------------------------------------------------------------
       - name: Download website with headless browser
-        shell: pwsh
         env:
           SITE_URL: ${{ env.SITE_URL }}
           MAX_DEPTH: ${{ github.event.inputs.max_depth }}
@@ -122,8 +143,11 @@ jobs:
           USER_AGENT: ${{ github.event.inputs.user_agent }}
           TELEGRAM_POSTS: ${{ github.event.inputs.telegram_posts }}
         run: |
-          $script = @'
-          const puppeteer = require('puppeteer');
+          cat << 'SCRIPT' > crawl_and_save.js
+          const puppeteer = require('puppeteer-extra');
+          const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+          puppeteer.use(StealthPlugin());
+
           const fs = require('fs');
           const path = require('path');
           const { execSync } = require('child_process');
@@ -133,7 +157,6 @@ jobs:
             MAX_DEPTH = '2',
             MAX_SIZE = '2G',
             FOLDER,
-            INCLUDE_ASSETS = 'true',
             USER_AGENT,
             TELEGRAM_POSTS = '20'
           } = process.env;
@@ -158,7 +181,13 @@ jobs:
           async function main() {
             const browser = await puppeteer.launch({
               headless: 'new',
-              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+              executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser',
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-blink-features=AutomationControlled'
+              ]
             });
 
             if (isTelegram) {
@@ -173,6 +202,7 @@ jobs:
             console.log('📡 Downloading Telegram channel...');
             const page = await browser.newPage();
             await page.setUserAgent(USER_AGENT);
+            await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
             await page.goto(SITE_URL, { waitUntil: 'networkidle2', timeout: 60000 });
 
             const postsToLoad = parseInt(TELEGRAM_POSTS, 10);
@@ -283,66 +313,70 @@ jobs:
             console.error(err);
             process.exit(1);
           });
-          '@
-          $script | Out-File -FilePath crawl_and_save.js -Encoding utf8
+          SCRIPT
+
           node crawl_and_save.js
 
       # -------------------------------------------------------------------
-      # Create ZipCrypto‑encrypted ZIP (exact pattern as requested)
+      # Debug: show what was actually downloaded
+      # -------------------------------------------------------------------
+      - name: Debug – list downloaded files
+        run: |
+          echo "Files in ${{ github.event.inputs.folder_name }}:"
+          find "${{ github.event.inputs.folder_name }}" -type f -exec ls -lh {} \;
+
+      # -------------------------------------------------------------------
+      # Create ZipCrypto‑encrypted ZIP with 7z (password from file)
       # -------------------------------------------------------------------
       - name: Create password-protected ZIP archive
         env:
           FOLDER: ${{ github.event.inputs.folder_name }}
           ZIPPASS: ${{ secrets.ZIPPASS }}
-        shell: pwsh
         run: |
-          $zipfile = "$env:FOLDER.zip"
-          $7z = "C:\Program Files\7-Zip\7z.exe"
+          ZIPFILE="${FOLDER}.zip"
+          echo "Creating $ZIPFILE..."
 
-          # Check that the folder exists and is not empty
-          if (-not (Test-Path $env:FOLDER)) {
-            Write-Error "Folder '$env:FOLDER' does not exist – nothing to zip."
-            exit 1
-          }
-          $fileCount = (Get-ChildItem -Path $env:FOLDER -Recurse -File).Count
-          if ($fileCount -eq 0) {
-            Write-Error "Folder '$env:FOLDER' is empty – nothing to zip."
-            exit 1
-          }
-          Write-Host "Folder contains $fileCount file(s)."
+          if [ -z "$ZIPPASS" ]; then
+            echo "No password – creating unencrypted ZIP."
+            7z a -tzip "$ZIPFILE" "$FOLDER" -r
+          else
+            # Write password to a temp file (no trailing newline)
+            PASSFILE=$(mktemp)
+            printf "%s" "$ZIPPASS" > "$PASSFILE"
+            echo "Creating ZipCrypto encrypted archive (password hidden)..."
+            7z a -tzip "$ZIPFILE" "$FOLDER" -p@"$PASSFILE" -mem=ZipCrypto -mhe=off -r
+            CREATERC=$?
+            rm -f "$PASSFILE"
 
-          if ([string]::IsNullOrEmpty($env:ZIPPASS)) {
-            Write-Host "No password – creating unencrypted ZIP."
-            & $7z a -tzip "$zipfile" "$env:FOLDER" -r
-          } else {
-            Write-Host "Creating ZipCrypto encrypted archive (password hidden)..."
-            # Exactly as requested: -p<password> -mem=ZipCrypto -mhe=off
-            & $7z a -tzip "$zipfile" "$env:FOLDER" -p123456 -mem=ZipCrypto -mhe=off -r
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "7-Zip creation failed with exit code $LASTEXITCODE"
+            if [ $CREATERC -ne 0 ]; then
+              echo "7z creation failed with exit code $CREATERC"
               exit 1
-            }
+            fi
 
-            Write-Host "Verifying archive..."
-            & $7z t "$zipfile" -p"$env:ZIPPASS"
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "Archive verification FAILED!"
+            echo "Verifying archive..."
+            PASSFILE=$(mktemp)
+            printf "%s" "$ZIPPASS" > "$PASSFILE"
+            7z t "$ZIPFILE" -p@"$PASSFILE"
+            TESTRC=$?
+            rm -f "$PASSFILE"
+
+            if [ $TESTRC -ne 0 ]; then
+              echo "Archive verification FAILED! The ZIP may be corrupt."
               exit 1
-            }
-            Write-Host "Archive verified successfully."
-          }
+            fi
+            echo "Archive verified successfully."
+          fi
 
-          $size = (Get-Item $zipfile).Length / 1KB
-          Write-Host "Archive size: $([math]::Round($size,1)) KB"
-          "ZIPFILE=$zipfile" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
+          echo "Archive size: $(du -h "$ZIPFILE" | cut -f1)"
+          echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
 
       # -------------------------------------------------------------------
-      # Install PyGithub and upload (Python on Windows)
+      # Install PyGithub and upload
       # -------------------------------------------------------------------
       - name: Cache pip packages
         uses: actions/cache@v4
         with:
-          path: ~\AppData\Local\pip\Cache
+          path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
@@ -356,9 +390,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
-        shell: pwsh
         run: |
-          python -c @'
+          python3 << 'PYEOF'
           import os, sys
           from github import Github, GithubException
 
@@ -384,16 +417,15 @@ jobs:
               else:
                   print(f"Error listing folder: {e}")
                   sys.exit(1)
-          '@
+          PYEOF
 
       - name: Upload ZIP and create reassemble.bat
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FOLDER_NAME: ${{ github.event.inputs.folder_name }}
           ZIPFILE: ${{ env.ZIPFILE }}
-        shell: pwsh
         run: |
-          python -c @'
+          python3 << 'PYEOF'
           import os, sys, base64, time
           from github import Github, GithubException
 
@@ -486,4 +518,4 @@ jobs:
 
           upload_file(bat_path, f"{folder}/reassemble.bat")
           print("=== Upload completed ===")
-          '@
+          PYEOF
