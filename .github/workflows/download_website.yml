@@ -1,19 +1,18 @@
 # =============================================================================
-# Workflow version: 2.2.0
+# Workflow version: 2.2.1
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser with Cloudflare WARP, creates a self-contained
-#              offline copy, zips it (unencrypted), splits if needed, and
-#              uploads everything directly to the repository via the GitHub API.
-#              A Windows batch file (reassemble.bat) is generated inside the
-#              folder.
+#              offline copy, zips it using Python's built-in zipfile (no extra
+#              packages), splits if needed, and uploads everything directly to
+#              the repository via the GitHub API. A Windows batch file
+#              (reassemble.bat) is generated inside the folder.
 #
 # Changelog:
-#   2.2.0 – Removed all password protection; ZIP is now standard and unencrypted.
+#   2.2.1 – Removed `zip unzip` from system dependencies; ZIP creation now uses
+#           Python's built-in `zipfile` to avoid installation hangs.
+#   2.2.0 – Removed all password protection; ZIP is now unencrypted.
 #   2.1.0 – Added Cloudflare WARP, puppeteer-extra + stealth, fixed 7‑Zip issues.
-#   2.0.1 – Windows runner: 7‑Zip argument fix attempt (still failed).
-#   2.0.0 – Moved to Windows runner (windows‑latest).
-#   1.4.9 – Linux attempts (all failed due to tooling issues).
 # =============================================================================
 
 name: Make a website offline
@@ -95,7 +94,7 @@ jobs:
           echo "WARP is active."
 
       # -------------------------------------------------------------------
-      # Setup Node.js + cache for faster repeat runs
+      # Setup Node.js + cache
       # -------------------------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -120,18 +119,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-puppeteer
 
-      - name: Install system dependencies (Chromium, zip)
+      # Only Chromium is required – no zip/unzip
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y chromium-browser zip unzip
+          sudo apt-get install -y chromium-browser
           echo "CHROMIUM_PATH=$(which chromium-browser)" >> $GITHUB_ENV
 
-      - name: Install Node dependencies (puppeteer-extra + stealth)
+      - name: Install Node dependencies
         run: |
           npm install puppeteer-extra puppeteer-extra-plugin-stealth single-file-cli
 
       # -------------------------------------------------------------------
-      # Download the website (Puppeteer‑extra + stealth + single‑file)
+      # Download the website
       # -------------------------------------------------------------------
       - name: Download website with headless browser
         env:
@@ -318,7 +318,7 @@ jobs:
           node crawl_and_save.js
 
       # -------------------------------------------------------------------
-      # Debug: show what was actually downloaded
+      # Debug: show downloaded files
       # -------------------------------------------------------------------
       - name: Debug – list downloaded files
         run: |
@@ -326,17 +326,32 @@ jobs:
           find "${{ github.event.inputs.folder_name }}" -type f -exec ls -lh {} \;
 
       # -------------------------------------------------------------------
-      # Create a normal, unencrypted ZIP
+      # Create ZIP using Python's built-in zipfile (no extra packages)
       # -------------------------------------------------------------------
       - name: Create ZIP archive
         env:
           FOLDER: ${{ github.event.inputs.folder_name }}
         run: |
-          ZIPFILE="${FOLDER}.zip"
-          echo "Creating $ZIPFILE (unencrypted)..."
-          zip -r "$ZIPFILE" "$FOLDER"
-          echo "Archive size: $(du -h "$ZIPFILE" | cut -f1)"
-          echo "ZIPFILE=$ZIPFILE" >> $GITHUB_ENV
+          python3 << 'PYEOF'
+          import os, zipfile
+
+          folder = os.environ["FOLDER"]
+          zipname = f"{folder}.zip"
+          print(f"Creating {zipname} using Python zipfile...")
+
+          with zipfile.ZipFile(zipname, "w", zipfile.ZIP_DEFLATED) as zf:
+              for root, dirs, files in os.walk(folder):
+                  for file in files:
+                      file_path = os.path.join(root, file)
+                      arcname = os.path.relpath(file_path, start=os.path.dirname(folder))
+                      zf.write(file_path, arcname)
+
+          size = os.path.getsize(zipname)
+          print(f"Archive size: {size / 1024:.1f} KB")
+          # Export ZIPFILE for the next step
+          with open(os.environ["GITHUB_ENV"], "a") as env_file:
+              env_file.write(f"ZIPFILE={zipname}\n")
+          PYEOF
 
       # -------------------------------------------------------------------
       # Install PyGithub and upload
