@@ -1,5 +1,5 @@
-# version 49.0 – Cookie domain fix (.google.com), encryption self-test, verbose echoes
-name: Gmail – Cache + Real‑time Code (Fixed Cookies)
+# version 50.0 – Full verbose logging, fixed cookie domain, encryption self-test
+name: Gmail – Cache + Real‑time Code (Verbose & Fixed)
 
 on: workflow_dispatch
 
@@ -12,6 +12,7 @@ jobs:
       EMAIL: ${{ secrets.EMAIL }}
       PASS: ${{ secrets.PASS }}
       KEY: ${{ secrets.KEY }}
+      PYTHONUNBUFFERED: 1                # force real‑time print
 
     steps:
       - uses: actions/checkout@v4
@@ -338,19 +339,19 @@ jobs:
                           ss("error_cannot_reach_inbox")
                           raise Exception("Could not reach inbox")
 
-                  # save cookies FOR ALL DOMAINS
+                  # save cookies
                   stage("SAVE SESSION")
-                  log("Saving cookies on parent domain .google.com…")
-                  # first, visit accounts.google.com to get its cookies
+                  log("Collecting cookies for all Google domains…")
+                  # get accounts.google.com cookies
                   driver.get("https://accounts.google.com")
                   time.sleep(2)
                   all_cookies = driver.get_cookies()
-                  # also get mail.google.com cookies
+                  # get mail.google.com cookies
                   driver.get("https://mail.google.com")
                   time.sleep(2)
                   all_cookies += driver.get_cookies()
 
-                  # rewrite domain to .google.com so cookies work everywhere
+                  # rewrite domain to .google.com
                   for c in all_cookies:
                       if 'domain' in c and c['domain']:
                           c['domain'] = '.google.com'
@@ -361,7 +362,7 @@ jobs:
                       if c['name'] not in seen:
                           seen.add(c['name'])
                           unique.append(c)
-                  log(f"Saving {len(unique)} unique cookies with .google.com domain.")
+                  log(f"Collected {len(unique)} unique cookies with .google.com domain.")
 
                   # encrypt & self‑test
                   encrypted = encrypt_cookies(unique)
