@@ -280,3 +280,119 @@ Stacktrace:
 00:16:57 - First email: 429 chars
 00:16:58 - email.txt saved
 00:17:00 - Browser closed.
+00:24:14 - Running decoder self‑test…
+00:24:14 - Decoder self‑test passed ✅
+00:24:14 - Starting headless Chrome…
+00:24:15 - Browser ready.
+00:24:15 - Cached session found. Decrypting…
+00:24:16 - Decrypted 26 cookies.
+00:24:16 - Running encryption self‑test…
+00:24:16 - Encryption self‑test passed ✅
+00:24:16 - Injecting cookies on google.com…
+00:24:16 - Skipping cookie __Host-GMAIL_SCH: Message: unable to set cookie
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x555971648b6a <unknown>
+#1 0x55597104a070 <unknown>
+#2 0x555971057fcd <unknown>
+#3 0x5559710f887c <unknown>
+#4 0x5559710e5969 <unknown>
+#5 0x5559710905cf <unknown>
+#6 0x555971091391 <unknown>
+#7 0x55597160e04b <unknown>
+#8 0x55597161100d <unknown>
+#9 0x5559715fa808 <unknown>
+#10 0x555971611ba0 <unknown>
+#11 0x5559715e1280 <unknown>
+#12 0x555971635db8 <unknown>
+#13 0x555971635f88 <unknown>
+#14 0x5559716475de <unknown>
+#15 0x7fd44529caa4 <unknown>
+#16 0x7fd445329c6c <unknown>
+
+00:24:16 - Skipping cookie __Host-GMAIL_SCH_GMS: Message: unable to set cookie
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x555971648b6a <unknown>
+#1 0x55597104a070 <unknown>
+#2 0x555971057fcd <unknown>
+#3 0x5559710f887c <unknown>
+#4 0x5559710e5969 <unknown>
+#5 0x5559710905cf <unknown>
+#6 0x555971091391 <unknown>
+#7 0x55597160e04b <unknown>
+#8 0x55597161100d <unknown>
+#9 0x5559715fa808 <unknown>
+#10 0x555971611ba0 <unknown>
+#11 0x5559715e1280 <unknown>
+#12 0x555971635db8 <unknown>
+#13 0x555971635f88 <unknown>
+#14 0x5559716475de <unknown>
+#15 0x7fd44529caa4 <unknown>
+#16 0x7fd445329c6c <unknown>
+
+00:24:16 - Skipping cookie __Host-GMAIL_SCH_GMN: Message: unable to set cookie
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x555971648b6a <unknown>
+#1 0x55597104a070 <unknown>
+#2 0x555971057fcd <unknown>
+#3 0x5559710f887c <unknown>
+#4 0x5559710e5969 <unknown>
+#5 0x5559710905cf <unknown>
+#6 0x555971091391 <unknown>
+#7 0x55597160e04b <unknown>
+#8 0x55597161100d <unknown>
+#9 0x5559715fa808 <unknown>
+#10 0x555971611ba0 <unknown>
+#11 0x5559715e1280 <unknown>
+#12 0x555971635db8 <unknown>
+#13 0x555971635f88 <unknown>
+#14 0x5559716475de <unknown>
+#15 0x7fd44529caa4 <unknown>
+#16 0x7fd445329c6c <unknown>
+
+00:24:16 - Skipping cookie __Host-GMAIL_SCH_GML: Message: unable to set cookie
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x555971648b6a <unknown>
+#1 0x55597104a070 <unknown>
+#2 0x555971057fcd <unknown>
+#3 0x5559710f887c <unknown>
+#4 0x5559710e5969 <unknown>
+#5 0x5559710905cf <unknown>
+#6 0x555971091391 <unknown>
+#7 0x55597160e04b <unknown>
+#8 0x55597161100d <unknown>
+#9 0x5559715fa808 <unknown>
+#10 0x555971611ba0 <unknown>
+#11 0x5559715e1280 <unknown>
+#12 0x555971635db8 <unknown>
+#13 0x555971635f88 <unknown>
+#14 0x5559716475de <unknown>
+#15 0x7fd44529caa4 <unknown>
+#16 0x7fd445329c6c <unknown>
+
+00:24:16 - Cookies injected. Navigating to Gmail…
+00:24:44 - Cache restoration failed: Message: 
+Stacktrace:
+#0 0x555971648b6a <unknown>
+#1 0x55597104a265 <unknown>
+#2 0x55597109cf76 <unknown>
+#3 0x55597109d1b1 <unknown>
+#4 0x5559710e87d4 <unknown>
+#5 0x5559710e5969 <unknown>
+#6 0x5559710905cf <unknown>
+#7 0x555971091391 <unknown>
+#8 0x55597160e04b <unknown>
+#9 0x55597161100d <unknown>
+#10 0x5559715fa808 <unknown>
+#11 0x555971611ba0 <unknown>
+#12 0x5559715e1280 <unknown>
+#13 0x555971635db8 <unknown>
+#14 0x555971635f88 <unknown>
+#15 0x5559716475de <unknown>
+#16 0x7fd44529caa4 <unknown>
+#17 0x7fd445329c6c <unknown>
+
+00:24:44 - Starting full login…
