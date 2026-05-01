@@ -253,3 +253,9 @@ Stacktrace:
 23:34:02 - No 'Try another way' button.
 23:34:04 - Selected code option: //div[@role='link' and contains(.,'code')]
 23:34:06 - Code input field ready.
+00:10:45 - Running decoder self‑test…
+00:10:45 - Decoder self‑test passed ✅
+00:10:45 - Starting headless Chrome…
+00:10:48 - Browser ready.
+00:10:48 - No cached session file found.
+00:10:48 - Starting full login…
