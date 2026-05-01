@@ -396,3 +396,6 @@ Stacktrace:
 #17 0x7fd445329c6c <unknown>
 
 00:24:44 - Starting full login…
+00:24:51 - No cookie popup.
+00:24:51 - Typing email…
+00:24:51 - Email submitted.
