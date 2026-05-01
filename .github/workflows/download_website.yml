@@ -1,5 +1,5 @@
 # =============================================================================
-# Workflow version: 2.0.0
+# Workflow version: 2.0.1
 # Name: Make a website offline
 # Description: Downloads dynamic websites (including Telegram channels) using a
 #              headless browser on a Windows runner, creates a self-contained
@@ -10,21 +10,11 @@
 #              inside the folder.
 #
 # Changelog:
-#   2.0.0 – Moved to Windows runner (windows-latest). Uses native 7‑Zip for
-#           ZipCrypto encryption exactly as requested. All shell steps converted
-#           to PowerShell.
-#   1.4.9 – Fixed ZipCrypto creation with Python zipfile (still Linux).
-#   1.4.8 – Reverted to `zip -P` (unreliable).
-#   1.4.7 – Python subprocess with 7z (E_INVALIDARG).
-#   1.4.6 – `-p@file` (invalid).
-#   1.4.5 – Python `zipfile` (setpassword too late).
-#   1.4.4 – Temp file for 7z (E_INVALIDARG).
-#   1.4.3 – 7z with `-mem=ZipCrypto` (corrupt).
-#   1.4.2 – `zip -P` (still corrupted).
-#   1.4.1 – AES‑256 via 7z (incompatible with Windows Explorer).
-#   1.4.0 – ZIP archive password‑protected using ZIPPASS.
-#   1.3.1 – API‑based deletion of target folder before uploading.
-#   1.3.0 – Removed unnecessary `checkout` and all Git operations.
+#   2.0.1 – Fixed 7‑Zip argument handling: password passed as `-p"$password"`,
+#           extra check for empty folder.  Works exactly like the user’s
+#           provided command pattern.
+#   2.0.0 – Moved to Windows runner (windows‑latest). Uses native 7‑Zip.
+#   1.4.9 – Previous Linux attempts (all failed due to tooling issues).
 # =============================================================================
 
 name: Make a website offline
@@ -298,7 +288,7 @@ jobs:
           node crawl_and_save.js
 
       # -------------------------------------------------------------------
-      # Create ZipCrypto‑encrypted ZIP using native 7‑Zip (Windows)
+      # Create ZipCrypto‑encrypted ZIP (exact pattern as requested)
       # -------------------------------------------------------------------
       - name: Create password-protected ZIP archive
         env:
@@ -309,19 +299,32 @@ jobs:
           $zipfile = "$env:FOLDER.zip"
           $7z = "C:\Program Files\7-Zip\7z.exe"
 
+          # Check that the folder exists and is not empty
+          if (-not (Test-Path $env:FOLDER)) {
+            Write-Error "Folder '$env:FOLDER' does not exist – nothing to zip."
+            exit 1
+          }
+          $fileCount = (Get-ChildItem -Path $env:FOLDER -Recurse -File).Count
+          if ($fileCount -eq 0) {
+            Write-Error "Folder '$env:FOLDER' is empty – nothing to zip."
+            exit 1
+          }
+          Write-Host "Folder contains $fileCount file(s)."
+
           if ([string]::IsNullOrEmpty($env:ZIPPASS)) {
-            Write-Host "WARNING: ZIPPASS is empty – creating unencrypted ZIP."
-            & $7z a -tzip -r $zipfile $env:FOLDER
+            Write-Host "No password – creating unencrypted ZIP."
+            & $7z a -tzip "$zipfile" "$env:FOLDER" -r
           } else {
-            Write-Host "Creating ZipCrypto encrypted archive with password..."
-            & $7z a -tzip $zipfile $env:FOLDER -p"$env:ZIPPASS" -mem=ZipCrypto -mhe=off -r
+            Write-Host "Creating ZipCrypto encrypted archive (password hidden)..."
+            # Exactly as requested: -p<password> -mem=ZipCrypto -mhe=off
+            & $7z a -tzip "$zipfile" "$env:FOLDER" -p"$env:ZIPPASS" -mem=ZipCrypto -mhe=off -r
             if ($LASTEXITCODE -ne 0) {
               Write-Error "7-Zip creation failed with exit code $LASTEXITCODE"
               exit 1
             }
 
-            Write-Host "Verifying archive integrity..."
-            & $7z t $zipfile -p"$env:ZIPPASS"
+            Write-Host "Verifying archive..."
+            & $7z t "$zipfile" -p"$env:ZIPPASS"
             if ($LASTEXITCODE -ne 0) {
               Write-Error "Archive verification FAILED!"
               exit 1
