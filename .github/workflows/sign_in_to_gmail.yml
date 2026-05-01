@@ -1,4 +1,4 @@
-# version 52.0 – Portable Chrome profile cache, encrypted + self‑test, manual 2FA fallback
+# version 52.1 – Clean first, portable Chrome profile cache, manual 2FA fallback
 name: Gmail – Portable Chrome Profile Cache
 
 on: workflow_dispatch
@@ -17,10 +17,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure git
+      # ---------- FIRST ACTION: delete screenshots & bestlog.txt ----------
+      - name: "1) Clean screenshots & bestlog.txt"
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          rm -rf screenshots email.txt bestlog.txt
+          mkdir -p screenshots
+          git add -A
+          git commit -m "Clean start" || echo "Nothing to commit"
+          git pull --rebase && git push || echo "Push failed, continuing"
 
       - name: Setup Cloudflare WARP
         uses: viperadnan-git/setup-warp@v1
@@ -101,15 +107,10 @@ jobs:
           with open(log_file,"w") as f:
               f.write(f"============================================================\n"
                       f"  Gmail workflow started at {now_str}\n"
-                      f"  Version: 52.0\n"
+                      f"  Version: 52.1\n"
                       f"============================================================\n\n")
 
-          # ── cleanup old screenshots & bestlog.txt ──
-          shutil.rmtree("screenshots", ignore_errors=True)
-          os.makedirs("screenshots", exist_ok=True)
-          if os.path.exists("bestlog.txt"):
-              os.remove("bestlog.txt")
-          log("Cleaned screenshots and bestlog.txt.")
+          # screenshots and bestlog.txt already deleted by the first YAML step
 
           # ── encryption ──
           from cryptography.fernet import Fernet
@@ -193,11 +194,9 @@ jobs:
                       decrypted = decrypt_data(encrypted)
                       untar_profile(decrypted)
                       log("Profile restored. Launching Chrome…")
-                      # Chrome will use the restored profile
                       driver = webdriver.Chrome(options=opts)
                       driver.execute_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
                       wait = WebDriverWait(driver,20)
-                      # test if session is alive
                       driver.get("https://mail.google.com/mail/u/0/#inbox")
                       time.sleep(5)
                       wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"tr.zA")))
@@ -214,13 +213,11 @@ jobs:
               # ====== FRESH LOGIN ======
               if not profile_loaded:
                   stage("FRESH LOGIN")
-                  # clean profile dir for fresh login
                   shutil.rmtree(PROFILE_DIR, ignore_errors=True)
                   driver = webdriver.Chrome(options=opts)
                   driver.execute_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
                   wait = WebDriverWait(driver,20)
 
-                  # open sign‑in
                   driver.get("https://accounts.google.com/signin")
                   time.sleep(4)
                   ss("01_signin_page")
@@ -363,7 +360,7 @@ jobs:
                   log("Packing profile…")
                   profile_tar = tar_profile()
                   encrypted = encrypt_data(profile_tar)
-                  # self‑test decryption
+                  # self‑test
                   try:
                       test_dec = decrypt_data(encrypted)
                       if test_dec == profile_tar:
