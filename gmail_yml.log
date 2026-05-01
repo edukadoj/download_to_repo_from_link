@@ -1,32 +1,143 @@
 ============================================================
-  Gmail workflow started at 2026-05-01 01:24:56 UTC
+  Gmail workflow started at 2026-05-01 01:34:15 UTC
   Version: 51.0
 ============================================================
 
-01:24:56 - Running decoder self‑test…
-01:24:56 - Decoder self‑test passed ✅
-01:24:56 - Starting headless Chrome…
-01:24:58 - Browser ready.
-01:24:58 - No cached session file found.
-01:24:58 - Starting full login…
-01:25:05 - No cookie popup.
-01:25:05 - Typing email…
-01:25:05 - Email submitted.
-01:25:07 - Password submitted.
-01:25:14 - Selecting backup/security code option…
-01:25:16 - Selected: //div[@role='link' and contains(.,'code')]
-01:25:18 - Code input ready.
-01:25:20 - Deleting any leftover bestlog.txt…
-01:25:22 - bestlog.txt pushed and verified empty. Encode your code with the C# tool and paste it there.
-01:30:44 - Encoded digits found: 9588415245
-01:30:44 - Entering decoded security code…
-01:30:44 - Code submitted.
-01:31:04 - ✅ Inbox reached!
-01:31:05 - Collecting cookies for all Google domains…
-01:31:14 - Collected 26 unique cookies with .google.com domain.
-01:31:14 - Encryption self‑test passed ✅
-01:31:14 - Encrypted session saved.
-01:31:14 - Reading first email…
-01:31:19 - First email: 430 chars
-01:31:20 - email.txt saved
-01:31:22 - Browser closed.
+01:34:15 - Running decoder self‑test…
+01:34:15 - Decoder self‑test passed ✅
+01:34:15 - Starting headless Chrome…
+01:34:16 - Browser ready.
+01:34:16 - Cached session found. Decrypting…
+01:34:16 - Decrypted 26 cookies.
+01:34:16 - Running encryption self‑test…
+01:34:16 - Encryption self‑test passed ✅
+01:34:16 - Injecting cookies on google.com…
+01:34:17 -   ✓ injected OSID
+01:34:17 -   ✓ injected SSID
+01:34:17 -   ✓ injected __Secure-STRP
+01:34:17 -   ✓ injected SID
+01:34:17 -   ✓ injected __Secure-3PSID
+01:34:17 -   ✓ injected __Secure-1PSIDCC
+01:34:17 -   ✓ injected SAPISID
+01:34:17 -   ✓ injected HSID
+01:34:17 -   ✓ injected __Secure-3PAPISID
+01:34:17 -   ✓ injected OTZ
+01:34:17 -   ✓ injected __Secure-1PSIDTS
+01:34:17 -   ✓ injected NID
+01:34:17 -   ✓ injected __Secure-OSID
+01:34:17 -   ✓ injected __Secure-BUCKET
+01:34:17 -   ✓ injected __Secure-3PSIDCC
+01:34:17 -   ✓ injected __Secure-1PSID
+01:34:17 -   ✓ injected APISID
+01:34:17 -   ✓ injected SIDCC
+01:34:17 -   ✓ injected __Secure-3PSIDTS
+01:34:17 -   ✓ injected __Secure-1PAPISID
+01:34:17 -   ✗ skipped __Host-GMAIL_SCH_GML: Message: unable to set cookie
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x564dc206fb6a <unknown>
+#1 0x564dc1a71070 <unknown>
+#2 0x564dc1a7efcd <unknown>
+#3 0x564dc1b1f87c <unknown>
+#4 0x564dc1b0c969 <unknown>
+#5 0x564dc1ab75cf <unknown>
+#6 0x564dc1ab8391 <unknown>
+#7 0x564dc203504b <unknown>
+#8 0x564dc203800d <unknown>
+#9 0x564dc2021808 <unknown>
+#10 0x564dc2038ba0 <unknown>
+#11 0x564dc2008280 <unknown>
+#12 0x564dc205cdb8 <unknown>
+#13 0x564dc205cf88 <unknown>
+#14 0x564dc206e5de <unknown>
+#15 0x7fbe02a9caa4 <unknown>
+#16 0x7fbe02b29c6c <unknown>
+
+01:34:17 -   ✓ injected COMPASS
+01:34:17 -   ✓ injected GMAIL_AT
+01:34:17 -   ✗ skipped __Host-GMAIL_SCH_GMN: Message: unable to set cookie
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x564dc206fb6a <unknown>
+#1 0x564dc1a71070 <unknown>
+#2 0x564dc1a7efcd <unknown>
+#3 0x564dc1b1f87c <unknown>
+#4 0x564dc1b0c969 <unknown>
+#5 0x564dc1ab75cf <unknown>
+#6 0x564dc1ab8391 <unknown>
+#7 0x564dc203504b <unknown>
+#8 0x564dc203800d <unknown>
+#9 0x564dc2021808 <unknown>
+#10 0x564dc2038ba0 <unknown>
+#11 0x564dc2008280 <unknown>
+#12 0x564dc205cdb8 <unknown>
+#13 0x564dc205cf88 <unknown>
+#14 0x564dc206e5de <unknown>
+#15 0x7fbe02a9caa4 <unknown>
+#16 0x7fbe02b29c6c <unknown>
+
+01:34:17 -   ✗ skipped __Host-GMAIL_SCH_GMS: Message: unable to set cookie
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x564dc206fb6a <unknown>
+#1 0x564dc1a71070 <unknown>
+#2 0x564dc1a7efcd <unknown>
+#3 0x564dc1b1f87c <unknown>
+#4 0x564dc1b0c969 <unknown>
+#5 0x564dc1ab75cf <unknown>
+#6 0x564dc1ab8391 <unknown>
+#7 0x564dc203504b <unknown>
+#8 0x564dc203800d <unknown>
+#9 0x564dc2021808 <unknown>
+#10 0x564dc2038ba0 <unknown>
+#11 0x564dc2008280 <unknown>
+#12 0x564dc205cdb8 <unknown>
+#13 0x564dc205cf88 <unknown>
+#14 0x564dc206e5de <unknown>
+#15 0x7fbe02a9caa4 <unknown>
+#16 0x7fbe02b29c6c <unknown>
+
+01:34:17 -   ✗ skipped __Host-GMAIL_SCH: Message: unable to set cookie
+  (Session info: chrome=147.0.7727.137)
+Stacktrace:
+#0 0x564dc206fb6a <unknown>
+#1 0x564dc1a71070 <unknown>
+#2 0x564dc1a7efcd <unknown>
+#3 0x564dc1b1f87c <unknown>
+#4 0x564dc1b0c969 <unknown>
+#5 0x564dc1ab75cf <unknown>
+#6 0x564dc1ab8391 <unknown>
+#7 0x564dc203504b <unknown>
+#8 0x564dc203800d <unknown>
+#9 0x564dc2021808 <unknown>
+#10 0x564dc2038ba0 <unknown>
+#11 0x564dc2008280 <unknown>
+#12 0x564dc205cdb8 <unknown>
+#13 0x564dc205cf88 <unknown>
+#14 0x564dc206e5de <unknown>
+#15 0x7fbe02a9caa4 <unknown>
+#16 0x7fbe02b29c6c <unknown>
+
+01:34:17 - Cookies injected. Navigating to Gmail…
+01:34:45 - Cache restoration failed: Message: 
+Stacktrace:
+#0 0x564dc206fb6a <unknown>
+#1 0x564dc1a71265 <unknown>
+#2 0x564dc1ac3f76 <unknown>
+#3 0x564dc1ac41b1 <unknown>
+#4 0x564dc1b0f7d4 <unknown>
+#5 0x564dc1b0c969 <unknown>
+#6 0x564dc1ab75cf <unknown>
+#7 0x564dc1ab8391 <unknown>
+#8 0x564dc203504b <unknown>
+#9 0x564dc203800d <unknown>
+#10 0x564dc2021808 <unknown>
+#11 0x564dc2038ba0 <unknown>
+#12 0x564dc2008280 <unknown>
+#13 0x564dc205cdb8 <unknown>
+#14 0x564dc205cf88 <unknown>
+#15 0x564dc206e5de <unknown>
+#16 0x7fbe02a9caa4 <unknown>
+#17 0x7fbe02b29c6c <unknown>
+
+01:34:45 - Starting full login…
