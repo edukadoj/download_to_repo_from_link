@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.20.4
-#   - FIX: profile cache chunk size lowered to 20 MB (safe for GitHub)
-#   - FIX: profile cache saved via git (chunks pushed to repo)
-#   - FIX: deduplicate command responses (no more double confirmations)
-#   - FIX: load_profile() on startup (was already present, but now save is git‑based)
-#   - Old screenshots purged immediately after every new screenshot push
-#   - Log file pushed when screenshots are pushed AND when it alone changes
-#   - Robust comment fetching with retries and detailed logging
+# command_mouse_keyboard.py – Version 39.20.6
+#   - Profile cache saved via chunker.py (proven method)
+#   - save_profile() returns (success, message) and verifies remote chunks
+#   - 20 MB chunk size (matches chunker.py default)
+#   - Deduplicate command responses
 # ==============================================================================
-import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re
+import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile
 from datetime import datetime, timezone
 from pyvirtualdisplay import Display
 from cryptography.fernet import Fernet, InvalidToken
@@ -84,7 +81,7 @@ def log(msg: str) -> None:
     now = datetime.now().strftime("%H:%M:%S")
     echo(f"[{now}] {msg}")
 
-echo(f"{'='*60}\n  Remote Control v39.20.4 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.20.6 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -140,7 +137,7 @@ def gh_api_safe(*args, max_retries=3, **kwargs):
 # ---------- Profile cache (chunked, git‑based save/load) ----------
 PROFILE_DIR = "/tmp/chrome_profile"
 CACHE_DIR = ".profile_cache"          # inside the repository working directory
-CHUNK_SIZE = 20 * 1024 * 1024          # 20 MB – safe for GitHub, same as chunker.py default
+CHUNK_SIZE_MB = 20                     # 20 MB – safe for GitHub, same as chunker.py default
 ENCRYPTION_KEY = None
 try:
     KEY = os.environ["KEY"]
@@ -173,39 +170,72 @@ def load_profile():
         return False
 
 def save_profile():
-    """Encrypt the Chrome profile, split into 20 MB chunks, and push them to the repository."""
+    """Encrypt the Chrome profile, split using chunker.py, and push to the repository.
+    Returns (success: bool, message: str)."""
     try:
         # 1. Encrypt and compress the profile directory
+        if not os.path.isdir(PROFILE_DIR):
+            return (False, f"Profile directory not found: {PROFILE_DIR}")
+
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             tar.add(PROFILE_DIR, arcname="chrome_profile")
         encrypted = Fernet(ENCRYPTION_KEY).encrypt(buf.getvalue())
 
-        # 2. Remove old chunks and write new ones
+        # 2. Write encrypted blob to a temporary file
+        tmp_fd, tmp_path = tempfile.mkstemp(prefix="profile_enc_", suffix=".dat")
+        os.close(tmp_fd)
+        with open(tmp_path, "wb") as f:
+            f.write(encrypted)
+
+        # 3. Remove old chunks and call chunker.py
         for old in glob.glob(os.path.join(CACHE_DIR, "profile.enc.part*")):
             os.remove(old)
-        for i in range(0, len(encrypted), CHUNK_SIZE):
-            part_name = f"profile.enc.part{i//CHUNK_SIZE:04d}"
-            part_path = os.path.join(CACHE_DIR, part_name)
-            with open(part_path, "wb") as f:
-                f.write(encrypted[i:i+CHUNK_SIZE])
 
-        log(f"Profile cache prepared: {len(glob.glob(os.path.join(CACHE_DIR, 'profile.enc.part*')))} chunk(s).")
+        chunker_script = "python/chunker.py"
+        if not os.path.exists(chunker_script):
+            os.remove(tmp_path)
+            return (False, f"Chunker script not found: {chunker_script}")
 
-        # 3. Git add, commit, push
+        cmd = ["python3", chunker_script, "--file", tmp_path, "--output-dir", CACHE_DIR, "--chunk-size", str(CHUNK_SIZE_MB)]
+        log(f"Running chunker: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        # 4. Clean up temporary file
+        os.remove(tmp_path)
+
+        if result.returncode != 0:
+            return (False, f"chunker.py failed: {result.stderr.strip() or result.stdout.strip()}")
+
+        # 5. Ensure git user config is set (needed for committing)
+        subprocess.run(["git", "config", "user.name", "github-actions[bot]"], capture_output=True)
+        subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], capture_output=True)
+
+        # 6. Git add, commit, push
         with GIT_SEQUENCE_LOCK:
-            git_run(["git","add",CACHE_DIR], check=True, capture_output=True)
-            diff_check = subprocess.run(["git","diff","--cached","--quiet"], capture_output=True)
+            git_run(["git", "add", CACHE_DIR], check=True, capture_output=True)
+            diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
             if diff_check.returncode != 0:
-                git_run(["git","commit","-m","Update profile cache chunks"], check=True, capture_output=True)
-                if git_push_with_retry():
-                    log("🎉 Profile cache saved to repository.")
-                else:
-                    log("❌ Git push failed – profile cache NOT stored.")
+                git_run(["git", "commit", "-m", "Update profile cache chunks"], check=True, capture_output=True)
+                if not git_push_with_retry():
+                    return (False, "Git push failed – profile cache NOT stored.")
             else:
-                log("✅ Profile cache already up‑to‑date in repo.")
+                return (False, "No new cache chunks to commit (chunker may have produced no output).")
+
+        # 7. Verify that the first chunk exists on remote
+        time.sleep(2)
+        remote_part_path = f"{CACHE_DIR}/profile.enc.part0000"
+        sha, size = _get_remote_file_sha_and_size(remote_part_path)
+        local_part_path = os.path.join(CACHE_DIR, "profile.enc.part0000")
+        if not os.path.exists(local_part_path):
+            return (False, "Local chunk missing after chunker run.")
+        local_size = os.path.getsize(local_part_path)
+        if sha is not None and size == local_size:
+            return (True, f"Profile cache saved and verified ({size} bytes first chunk).")
+        else:
+            return (False, f"Remote verification failed: remote size {size}, local {local_size}.")
     except Exception as e:
-        log(f"ERROR saving profile cache: {e}")
+        return (False, f"save_profile exception: {e}")
 
 # ---------- Browser setup ----------
 DOWNLOAD_DIR = "/home/runner/downloads"
@@ -681,7 +711,8 @@ def main():
                 if cmd_type == "exit":
                     response_comment_id = publish_reports(response_comment_id)
                     log("Exit command received – saving profile cache...")
-                    save_profile()
+                    ok, msg = save_profile()
+                    log(f"Profile save: {msg}")
                     time.sleep(1)
                     response_comment_id = publish_reports(response_comment_id)
                     ss("final", push=True)
@@ -711,7 +742,8 @@ if __name__ == "__main__":
         _screenshot_stop.set()
         _url_monitor_stop.set()
         _download_watcher_stop.set()
-        save_profile()
+        ok, msg = save_profile()
+        log(f"Final profile save: {msg}")
         push_logs()
         _log_closed = True
         try: _logfile.close()
