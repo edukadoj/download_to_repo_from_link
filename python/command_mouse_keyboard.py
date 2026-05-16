@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.20.0 (always purge, log push, resilient loop)
+# command_mouse_keyboard.py – Version 39.20.1 (fix response sequence number)
 #   - Old screenshots purged immediately after every new screenshot push
 #   - Log file pushed when screenshots are pushed AND when it alone changes
 #   - Robust comment fetching with retries and detailed logging
+#   - CORRECTED: response now includes the command sequence number from APP-<seq>-...
 # ==============================================================================
 import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re
 from datetime import datetime, timezone
@@ -80,7 +81,7 @@ def log(msg: str) -> None:
     now = datetime.now().strftime("%H:%M:%S")
     echo(f"[{now}] {msg}")
 
-echo(f"{'='*60}\n  Remote Control v39.20.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.20.1 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -677,8 +678,8 @@ def main():
 
             for cid, ctext in new_cmds:
                 if cid in executed_cache:
-                    ts, _, cached_result = executed_cache[cid]
-                    unsent_reports.append((ts, 0, cached_result))
+                    ts, seq_stored, cached_result = executed_cache[cid]
+                    unsent_reports.append((ts, seq_stored, cached_result))
                 else:
                     cmd_type, arg = parse_single_command(ctext)
                     result = execute_one_command(
@@ -715,8 +716,18 @@ def main():
                         comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
                     )
                     ts = int(time.time())
-                    executed_cache[cid] = (ts, 0, result)
-                    unsent_reports.append((ts, 0, result))
+                    # ----- FIX: extract sequence number from cid -----
+                    seq_num = 0
+                    if cid.startswith("APP-"):
+                        parts_cid = cid.split('-')
+                        if len(parts_cid) >= 2:
+                            try:
+                                seq_num = int(parts_cid[1])
+                            except ValueError:
+                                pass
+                    # --------------------------------------------------
+                    executed_cache[cid] = (ts, seq_num, result)
+                    unsent_reports.append((ts, seq_num, result))
                     last_command_time = time.time()
                     log(f"Executed: {cid} → {result}")
                     if cmd_type == "exit":
