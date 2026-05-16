@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 1.0.10
+# agent_state.py – Version 1.0.10 (unchanged – compatible with v39.20.10)
 #   - Improved drag‑and‑drop: prefer send_keys to file input, fallback to JS events
 #   - Added screenshot retry queue (handled in command_mouse_keyboard.py)
 # ==============================================================================
