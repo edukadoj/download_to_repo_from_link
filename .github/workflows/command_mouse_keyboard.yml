@@ -1,5 +1,7 @@
 # ==============================================================================
-# command_mouse_keyboard.yml – version 36.6 (WARP dependency fix – refresh apt)
+# command_mouse_keyboard.yml – version 36.7
+#   - Fixed duplicate log lines by removing `tee` from the Agent step
+#   - All other functionality unchanged
 # ==============================================================================
 name: Remote Mouse & Keyboard (Full Command Set + File I/O)
 
@@ -120,6 +122,7 @@ jobs:
             git pull --rebase && git push || echo "Push failed"
           fi
 
+      # ──────────────── AGENT STEP (log duplication fixed) ────────────────
       - name: "Agent"
         timeout-minutes: 360
         env:
@@ -127,7 +130,7 @@ jobs:
           START_URL: ${{ github.event.inputs.start_url }}
           PYTHONPATH: python
         run: |
-          python3 python/command_mouse_keyboard.py 2>&1 | tee -a logs/command_mouse_keyboard.log
+          python3 python/command_mouse_keyboard.py 2>&1
 
       - name: "Push final logs"
         if: always()
