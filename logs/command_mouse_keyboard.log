@@ -1,0 +1,24 @@
+============================================================
+  Remote Control v39.20.2 started at 2026-05-16 13:36:14 UTC
+============================================================
+============================================================
+  Remote Control v39.20.2 started at 2026-05-16 13:36:14 UTC
+============================================================
+[13:36:14] ⚠️ No profile cache chunks found – starting with fresh browser profile.
+[13:36:14] ⚠️ No profile cache chunks found – starting with fresh browser profile.
+[13:36:17] Virtual display started.
+[13:36:17] Virtual display started.
+[13:36:20] Stealth JS injected.
+[13:36:20] Stealth JS injected.
+[13:36:20] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[13:36:20] Browser launched.
+[13:36:20] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[13:36:20] Browser launched.
+[13:36:20] Screenshot worker started.
+[13:36:20] Screenshot worker started.
+[13:36:20] Loading start URL...
+[13:36:20] Loading start URL...
+[13:36:20] Start URL loaded – sleeping 5s
+[13:36:20] Start URL loaded – sleeping 5s
+[13:36:22] Taking screenshot: screenshots/001_133622_auto.png
+[13:36:22] Taking screenshot: screenshots/001_133622_auto.png
