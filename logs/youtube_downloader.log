@@ -2,12 +2,12 @@
 Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
 Hit:6 https://packages.microsoft.com/repos/azure-cli noble InRelease
 Hit:7 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease
-Hit:8 https://dl.google.com/linux/chrome-stable/deb stable InRelease
+Hit:8 https://pkg.cloudflareclient.com noble InRelease
 Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
 Hit:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease
-Hit:9 https://pkg.cloudflareclient.com noble InRelease
 Hit:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease
 Hit:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease
+Hit:9 https://dl.google.com/linux/chrome-stable/deb stable InRelease
 Reading package lists...
 Reading package lists...
 Building dependency tree...
@@ -136,7 +136,7 @@ Get:80 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 i965-
 Get:81 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 va-driver-all amd64 2.20.0-2ubuntu0.1 [4946 B]
 Get:82 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 vdpau-driver-all amd64 1.5-2build1 [4414 B]
 Get:83 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 pocketsphinx-en-us all 0.8.0+real5prealpha+1-15ubuntu5 [27.4 MB]
-Fetched 91.0 MB in 8s (10.9 MB/s)
+Fetched 91.0 MB in 6s (14.6 MB/s)
 Selecting previously unselected package libva2:amd64.
 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 203625 files and directories currently installed.)
 Preparing to unpack .../00-libva2_2.20.0-2ubuntu0.1_amd64.deb ...
@@ -514,7 +514,7 @@ Collecting pycparser (from cffi>=1.12.0->curl-cffi!=0.6.*,!=0.7.*,!=0.8.*,!=0.9.
 Using cached yt_dlp-2026.3.17-py3-none-any.whl (3.3 MB)
 Using cached yt_dlp_ejs-0.8.0-py3-none-any.whl (53 kB)
 Downloading requests-2.34.2-py3-none-any.whl (73 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.1/73.1 kB 5.4 MB/s eta 0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.1/73.1 kB 6.1 MB/s eta 0:00:00
 Using cached charset_normalizer-3.4.7-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (216 kB)
 Using cached curl_cffi-0.14.0-cp39-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (8.7 MB)
 Using cached certifi-2026.4.22-py3-none-any.whl (135 kB)
@@ -528,85 +528,119 @@ Installing collected packages: brotli, yt-dlp-ejs, yt-dlp, websockets, pycryptod
 Successfully installed brotli-1.2.0 certifi-2026.4.22 cffi-2.0.0 charset_normalizer-3.4.7 curl-cffi-0.14.0 mutagen-1.47.0 pycparser-3.0 pycryptodomex-3.23.0 requests-2.34.2 websockets-16.0 yt-dlp-2026.3.17 yt-dlp-ejs-0.8.0
 Defaulting to user installation because normal site-packages is not writeable
 Requirement already satisfied: cryptography in /usr/lib/python3/dist-packages (41.0.7)
-🚀 Processing 1 URL(s) through Cloudflare WARP
+🚀 Processing 4 URL(s) through Cloudflare WARP
    Quality: 720p
    Subtitles: en (English)
-   Burn subtitles: False
+   Burn subtitles: True
    Compress video (CRF 26): False
 
 ╔══════════════════════════════════════════════════════════╗
 ║               DOWNLOAD  STAGE  —  #1               ║
 ╚══════════════════════════════════════════════════════════╝
-📥 URL: https://www.youtube.com/watch?v=hzXPsWGhxSY
+📥 URL: https://www.youtube.com/watch?v=9Z_xPuUe4qI
    🔍 Fetching video metadata ...
-   📝 Title: انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین
+   📝 Title: ۲۴ با فرداد فرحزاد ترامپ توقف ۲۰ ساله غنی‌سازی ایران قابل بررسی است
    📅 Upload date: 2026-05-15
    🌐 Trying WARP with Android client (no cookies)
    ▶️ Starting WARP_Android download...
-   🔧 Command: yt-dlp --no-playlist --format bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720] --merge-output-format mp4 --output 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=hzXPsWGhxSY
-   ✅ WARP_Android download finished successfully
-   📦 Video file: 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4 (115.2 MB)
-   📝 Attempting subtitle download for 'en' ...
-   ▶️ Starting Sub (en) download...
-   🔧 Command: yt-dlp --no-playlist --skip-download --write-auto-subs --sub-lang en --convert-subs srt --output 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=hzXPsWGhxSY
-   ❌ Sub (en) download FAILED (exit code 1). Last output lines:
-[youtube] Extracting URL: https://www.youtube.com/watch?v=hzXPsWGhxSY
-[youtube] hzXPsWGhxSY: Downloading webpage
+   🔧 Command: yt-dlp --no-playlist --format bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720] --merge-output-format mp4 --output 2026-05-15 ۲۴ با فرداد فرحزاد ترامپ توقف ۲۰ ساله غنی‌سازی ایران قابل بررسی است [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=9Z_xPuUe4qI
+   ❌ WARP_Android download FAILED (exit code 1). Last output lines:
+[youtube] Extracting URL: https://www.youtube.com/watch?v=9Z_xPuUe4qI
+[youtube] 9Z_xPuUe4qI: Downloading webpage
 [youtube] Sleeping 1.0 seconds ...
-[youtube] hzXPsWGhxSY: Downloading android player API JSON
-WARNING: [youtube] hzXPsWGhxSY: android client https formats require a GVS PO Token which was not provided. They will be skipped as they may yield HTTP Error 403. You can manually pass a GVS PO Token for this client with --extractor-args "youtube:po_token=android.gvs+XXX". For more information, refer to  https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide
-[info] hzXPsWGhxSY: Downloading subtitles: en
-[info] hzXPsWGhxSY: Downloading 1 format(s): 18
-[info] Writing video subtitles to: 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].en.vtt
-ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests
-   ⚠️ Subtitle for 'en' not available.
-   📝 Attempting fallback subtitle language 'fa' ...
-   ▶️ Starting Sub (fa) download...
-   🔧 Command: yt-dlp --no-playlist --skip-download --write-auto-subs --sub-lang fa --convert-subs srt --output 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=hzXPsWGhxSY
-   ✅ Sub (fa) download finished successfully
-   ✅ Fallback subtitle downloaded: 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].fa.srt
-
-   ℹ️ Skipping conversion/compression
+[youtube] 9Z_xPuUe4qI: Downloading android player API JSON
+WARNING: [youtube] No title found in player responses; falling back to title from initial data. Other metadata may also be missing
+ERROR: [youtube] 9Z_xPuUe4qI: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
+   ❌ WARP+Android download failed. Skipping.
 
 ╔══════════════════════════════════════════════════════════╗
-║               UPLOAD  STAGE  —  #1                ║
+║               DOWNLOAD  STAGE  —  #2               ║
+╚══════════════════════════════════════════════════════════╝
+📥 URL: https://www.youtube.com/watch?v=YPfJ-QTFsuc
+   🔍 Fetching video metadata ...
+   📝 Title: رسانه‌ها می‌گویند حمله نزدیک است
+   📅 Upload date: 2026-05-16
+   🌐 Trying WARP with Android client (no cookies)
+   ▶️ Starting WARP_Android download...
+   🔧 Command: yt-dlp --no-playlist --format bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720] --merge-output-format mp4 --output 2026-05-16 رسانه‌ها می‌گویند حمله نزدیک است [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=YPfJ-QTFsuc
+   ❌ WARP_Android download FAILED (exit code 1). Last output lines:
+[youtube] Extracting URL: https://www.youtube.com/watch?v=YPfJ-QTFsuc
+[youtube] YPfJ-QTFsuc: Downloading webpage
+[youtube] Sleeping 1.0 seconds ...
+[youtube] YPfJ-QTFsuc: Downloading android player API JSON
+WARNING: [youtube] No title found in player responses; falling back to title from initial data. Other metadata may also be missing
+ERROR: [youtube] YPfJ-QTFsuc: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
+   ❌ WARP+Android download failed. Skipping.
+
+╔══════════════════════════════════════════════════════════╗
+║               DOWNLOAD  STAGE  —  #3               ║
+╚══════════════════════════════════════════════════════════╝
+📥 URL: https://www.youtube.com/watch?v=mb8zF3Z_Lq0&pp=ugUEEgJmYdIHCQkECwGHKiGM7w%3D%3D
+   🔍 Fetching video metadata ...
+   ⚠️ Could not fetch title, will use default naming.
+   ℹ️ Upload date not available.
+   🌐 Trying WARP with Android client (no cookies)
+   ▶️ Starting WARP_Android download...
+   🔧 Command: yt-dlp --no-playlist --format bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720] --merge-output-format mp4 --output %(title).150B [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=mb8zF3Z_Lq0&pp=ugUEEgJmYdIHCQkECwGHKiGM7w%3D%3D
+   ❌ WARP_Android download FAILED (exit code 1). Last output lines:
+[youtube] Extracting URL: https://www.youtube.com/watch?v=mb8zF3Z_Lq0&pp=ugUEEgJmYdIHCQkECwGHKiGM7w%3D%3D
+[youtube] mb8zF3Z_Lq0: Downloading webpage
+[youtube] Sleeping 1.0 seconds ...
+[youtube] mb8zF3Z_Lq0: Downloading android player API JSON
+WARNING: [youtube] No title found in player responses; falling back to title from initial data. Other metadata may also be missing
+ERROR: [youtube] mb8zF3Z_Lq0: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
+   ❌ WARP+Android download failed. Skipping.
+
+╔══════════════════════════════════════════════════════════╗
+║               DOWNLOAD  STAGE  —  #4               ║
+╚══════════════════════════════════════════════════════════╝
+📥 URL: https://www.youtube.com/watch?v=P2HZelQm7Lw
+   🔍 Fetching video metadata ...
+   📝 Title: A Simple yet Powerful Math Trick
+   📅 Upload date: 2025-10-22
+   🌐 Trying WARP with Android client (no cookies)
+   ▶️ Starting WARP_Android download...
+   🔧 Command: yt-dlp --no-playlist --format bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720] --merge-output-format mp4 --output 2025-10-22 A Simple yet Powerful Math Trick [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=P2HZelQm7Lw
+   ✅ WARP_Android download finished successfully
+   📦 Video file: 2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].mp4 (23.1 MB)
+   📝 Attempting subtitle download for 'en' ...
+   ▶️ Starting Sub (en) download...
+   🔧 Command: yt-dlp --no-playlist --skip-download --write-auto-subs --sub-lang en --convert-subs srt --output 2025-10-22 A Simple yet Powerful Math Trick [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=P2HZelQm7Lw
+   ✅ Sub (en) download finished successfully
+   ✅ Subtitle downloaded: 2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].en.srt
+
+╔══════════════════════════════════════════════════════════╗
+║              CONVERSION  STAGE  —  #4              ║
+╚══════════════════════════════════════════════════════════╝
+   🔥 Burning subtitles into video...
+   🔧 Running: ffmpeg -y -i 2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].mp4 -vf subtitles='/home/runner/work/download_to_repo_from_link/download_to_repo_from_link/2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].en.srt':force_style='FontName=Arial,FontSize=18,BackColour=&H66000000&,BorderStyle=4,Outline=1,Shadow=1' -c:v copy -c:a copy normalized_2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].mp4
+   ⚠️ Conversion failed (video kept unchanged): ltering and streamcopy cannot be used together.
+Error opening output file normalized_2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].mp4.
+Error opening output files: Function not implemented
+
+╔══════════════════════════════════════════════════════════╗
+║               UPLOAD  STAGE  —  #4                ║
 ╚══════════════════════════════════════════════════════════╝
    📦 File larger than 20 MB, will be chunked later.
    ⬆️  Uploading subtitle file ...
-   ⬆️  Uploading 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].fa.srt ...
+   ⬆️  Uploading 2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].en.srt ...
       [attempt 1] File does not exist yet (HTTP 404) – will create.
    ✅ Upload successful (HTTP 201)
 
 📦 Splitting large files into 20 MB chunks using chunker.py ...
-🔧 Running: python3 python/chunker.py --files 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4 --output-dir YouTube Download --chunk-size 20
-Splitting 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4 (120801565 bytes) into 6 chunk(s)
-  Created 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0000 (20971520 bytes)
-  Created 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0001 (20971520 bytes)
-  Created 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0002 (20971520 bytes)
-  Created 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0003 (20971520 bytes)
-  Created 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0004 (20971520 bytes)
-  Created 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0005 (15943965 bytes)
+🔧 Running: python3 python/chunker.py --files 2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].mp4 --output-dir YouTube Download --chunk-size 20
+Splitting 2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].mp4 (24260697 bytes) into 2 chunk(s)
+  Created 2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].mp4.part0000 (20971520 bytes)
+  Created 2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].mp4.part0001 (3289177 bytes)
 Generated reassembly script: YouTube Download/reassemble.bat
 Done.
 
 
 ⬆️  Uploading chunks and reassembly batch script ...
-   ⬆️  Uploading 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0003 ...
+   ⬆️  Uploading 2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].mp4.part0001 ...
       [attempt 1] File does not exist yet (HTTP 404) – will create.
    ✅ Upload successful (HTTP 201)
-   ⬆️  Uploading 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0004 ...
-      [attempt 1] File does not exist yet (HTTP 404) – will create.
-   ✅ Upload successful (HTTP 201)
-   ⬆️  Uploading 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0005 ...
-      [attempt 1] File does not exist yet (HTTP 404) – will create.
-   ✅ Upload successful (HTTP 201)
-   ⬆️  Uploading 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0000 ...
-      [attempt 1] File does not exist yet (HTTP 404) – will create.
-   ✅ Upload successful (HTTP 201)
-   ⬆️  Uploading 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0002 ...
-      [attempt 1] File does not exist yet (HTTP 404) – will create.
-   ✅ Upload successful (HTTP 201)
-   ⬆️  Uploading 2026-05-15 انتخاب‌های سه‌گانه  رویاروی ترامپانتظار برای تصمیم‌گیری ترامپ بعد از بازگشت از چین [hzXPsWGhxSY].mp4.part0001 ...
+   ⬆️  Uploading 2025-10-22 A Simple yet Powerful Math Trick [P2HZelQm7Lw].mp4.part0000 ...
       [attempt 1] File does not exist yet (HTTP 404) – will create.
    ✅ Upload successful (HTTP 201)
    ⬆️  Uploading reassemble.bat ...
@@ -614,7 +648,7 @@ Done.
    ✅ Upload successful (HTTP 201)
 
 📊 Summary
-   Total URLs: 1
-   Successfully uploaded items: 7
+   Total URLs: 4
+   Successfully uploaded items: 3
 
-✅ Uploaded 7 item(s).
+✅ Uploaded 3 item(s).
