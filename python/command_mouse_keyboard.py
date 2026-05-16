@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.20.1 (fix response sequence number)
-#   - Old screenshots purged immediately after every new screenshot push
-#   - Log file pushed when screenshots are pushed AND when it alone changes
-#   - Robust comment fetching with retries and detailed logging
-#   - CORRECTED: response now includes the command sequence number from APP-<seq>-...
+# command_mouse_keyboard.py – Version 39.20.2 (load profile cache on startup)
+#   - Now calls load_profile() before creating Chrome, restoring session state
+#   - Includes the sequence number fix (v39.20.1) for proper command acknowledgement
 # ==============================================================================
 import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re
 from datetime import datetime, timezone
@@ -81,7 +79,7 @@ def log(msg: str) -> None:
     now = datetime.now().strftime("%H:%M:%S")
     echo(f"[{now}] {msg}")
 
-echo(f"{'='*60}\n  Remote Control v39.20.1 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.20.2 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -262,6 +260,10 @@ def _create_remote_file(remote_path, content_b64):
 # ---------- Browser setup ----------
 DOWNLOAD_DIR = "/home/runner/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+# ★ NEW: restore cached profile before launching Chrome ★
+load_profile()
+
 try:
     display = Display(visible=False, size=(1920,1080))
     display.start()
@@ -716,7 +718,7 @@ def main():
                         comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
                     )
                     ts = int(time.time())
-                    # ----- FIX: extract sequence number from cid -----
+                    # extract sequence number from cid
                     seq_num = 0
                     if cid.startswith("APP-"):
                         parts_cid = cid.split('-')
@@ -725,7 +727,6 @@ def main():
                                 seq_num = int(parts_cid[1])
                             except ValueError:
                                 pass
-                    # --------------------------------------------------
                     executed_cache[cid] = (ts, seq_num, result)
                     unsent_reports.append((ts, seq_num, result))
                     last_command_time = time.time()
