@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.20.7
-#   - Fixed profile cache loading: chunks now named profile.enc.partNNNN
-#   - Uses same chunking approach as the upload command (proven logic)
-#   - Deduplicate command responses (already present)
-#   - 20 MB chunk size via chunker.py
+# command_mouse_keyboard.py – Version 39.20.9
+#   - Cache loading uses uploader.reassemble_flat (generic .part reassembly)
+#   - Git lock always released (try/finally around GIT_SEQUENCE_LOCK)
+#   - Agent reports new response comment ID via autonomous report when it changes
+#   - Saved cache verified by git push success only (no remote SHA check)
+#   - Deduplication of command responses preserved
+#   - All other fixes from previous versions retained
 # ==============================================================================
 import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile
-from datetime import datetime, timezone
+from datetime import datetime
 from pyvirtualdisplay import Display
 from cryptography.fernet import Fernet
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.actions.action_builder import ActionBuilder
-from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.chrome.options import Options
 from PIL import Image, ImageDraw
 
@@ -24,7 +21,7 @@ from comments import (
     get_all_comments, find_marker_comment, issue_comment,
     delete_comment, edit_comment, comment_exists, gh_api as gh
 )
-from uploader import reassemble as upload_reassemble
+from uploader import reassemble_flat
 from execution_queue import ExecutionQueue
 from command_handlers import execute_one_command
 
@@ -81,7 +78,7 @@ def log(msg: str) -> None:
     now = datetime.now().strftime("%H:%M:%S")
     echo(f"[{now}] {msg}")
 
-echo(f"{'='*60}\n  Remote Control v39.20.7 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.20.9 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -136,8 +133,8 @@ def gh_api_safe(*args, max_retries=3, **kwargs):
 
 # ---------- Profile cache (chunked, git‑based save/load) ----------
 PROFILE_DIR = "/tmp/chrome_profile"
-CACHE_DIR = ".profile_cache"          # inside the repository working directory
-CHUNK_SIZE_MB = 20                     # 20 MB – safe for GitHub, same as chunker.py default
+CACHE_DIR = ".profile_cache"
+CHUNK_SIZE_MB = 20
 ENCRYPTION_KEY = None
 try:
     KEY = os.environ["KEY"]
@@ -149,18 +146,35 @@ except Exception as e:
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 def load_profile():
-    """Decrypt and restore the Chrome profile from .profile_cache/ chunks (if any)."""
-    chunks = sorted(glob.glob(os.path.join(CACHE_DIR, "profile.enc.part*")))
-    if not chunks:
+    """
+    Restore the Chrome profile from .profile_cache/ chunks.
+    Uses uploader.reassemble_flat to reassemble ANY .part files present.
+    """
+    if not glob.glob(os.path.join(CACHE_DIR, "*.part*")):
         log("⚠️ No profile cache chunks found – starting with fresh browser profile.")
         return False
-    log(f"Found {len(chunks)} cache chunk(s). Decrypting…")
+
+    log("♻️  Reassembling profile cache chunks …")
+    tmp_reassemble = tempfile.mkdtemp(prefix="profile_reassemble_")
     try:
-        buf = io.BytesIO()
-        for path in chunks:
-            with open(path, "rb") as f:
-                buf.write(f.read())
-        decrypted = Fernet(ENCRYPTION_KEY).decrypt(buf.getvalue())
+        count = reassemble_flat(CACHE_DIR, tmp_reassemble)
+        if count == 0:
+            log("⚠️ Reassembly produced no file – starting fresh.")
+            return False
+
+        # find the reassembled file (only one should exist)
+        files = [f for f in os.listdir(tmp_reassemble) if os.path.isfile(os.path.join(tmp_reassemble, f))]
+        if not files:
+            log("⚠️ No reassembled file found.")
+            return False
+
+        reassembled_path = os.path.join(tmp_reassemble, files[0])
+        log(f"   Reassembled: {files[0]} ({os.path.getsize(reassembled_path)} bytes)")
+
+        with open(reassembled_path, "rb") as f:
+            encrypted = f.read()
+
+        decrypted = Fernet(ENCRYPTION_KEY).decrypt(encrypted)
         shutil.rmtree(PROFILE_DIR, ignore_errors=True)
         tarfile.open(fileobj=io.BytesIO(decrypted), mode='r:gz').extractall('/tmp')
         log("Profile cache loaded successfully.")
@@ -168,58 +182,54 @@ def load_profile():
     except Exception as e:
         log(f"ERROR loading profile cache: {type(e).__name__}: {e}")
         return False
+    finally:
+        shutil.rmtree(tmp_reassemble, ignore_errors=True)
 
 def save_profile():
-    """Encrypt the Chrome profile, split using chunker.py, and push to the repository.
-    Returns (success: bool, message: str)."""
+    """Encrypt profile, split with chunker.py, push to repo."""
     try:
-        # 1. Check if profile directory exists
         if not os.path.isdir(PROFILE_DIR):
             return (False, f"Profile directory not found: {PROFILE_DIR}")
 
-        # 2. Encrypt and compress the profile directory
+        # 1. Encrypt and compress
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             tar.add(PROFILE_DIR, arcname="chrome_profile")
         encrypted = Fernet(ENCRYPTION_KEY).encrypt(buf.getvalue())
 
-        # 3. Write the encrypted blob to a file named "profile.enc" in the current directory
-        #    This ensures chunker.py produces parts like profile.enc.part0000, which load_profile() expects.
-        enc_path = "profile.enc"
-        with open(enc_path, "wb") as f:
+        # 2. Write to a temporary file (any name)
+        tmp_fd, tmp_path = tempfile.mkstemp(prefix="profile_", suffix=".dat")
+        os.close(tmp_fd)
+        with open(tmp_path, "wb") as f:
             f.write(encrypted)
 
-        # 4. Remove old chunks and call chunker.py with --base-name to be explicit (optional but safe)
-        for old in glob.glob(os.path.join(CACHE_DIR, "profile.enc.part*")):
+        # 3. Remove old chunks
+        for old in glob.glob(os.path.join(CACHE_DIR, "*.part*")):
             os.remove(old)
 
+        # 4. Run chunker.py
         chunker_script = "python/chunker.py"
         if not os.path.exists(chunker_script):
-            os.remove(enc_path)
+            os.remove(tmp_path)
             return (False, f"Chunker script not found: {chunker_script}")
 
-        cmd = [
-            "python3", chunker_script,
-            "--file", enc_path,
-            "--output-dir", CACHE_DIR,
-            "--chunk-size", str(CHUNK_SIZE_MB),
-            "--base-name", "profile.enc"   # <-- force the base name
-        ]
+        cmd = ["python3", chunker_script, "--file", tmp_path, "--output-dir", CACHE_DIR, "--chunk-size", str(CHUNK_SIZE_MB)]
         log(f"Running chunker: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
-
-        # 5. Clean up temporary encrypted file
-        os.remove(enc_path)
+        os.remove(tmp_path)
 
         if result.returncode != 0:
             return (False, f"chunker.py failed: {result.stderr.strip() or result.stdout.strip()}")
 
-        # 6. Ensure git user config is set (needed for committing)
+        # 5. Set git config
         subprocess.run(["git", "config", "user.name", "github-actions[bot]"], capture_output=True)
         subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], capture_output=True)
 
-        # 7. Git add, commit, push
-        with GIT_SEQUENCE_LOCK:
+        # 6. Git add, commit, push WITH LOCK PROTECTION
+        acquired = GIT_SEQUENCE_LOCK.acquire(timeout=10)
+        if not acquired:
+            return (False, "Could not acquire git lock – cache not saved.")
+        try:
             git_run(["git", "add", CACHE_DIR], check=True, capture_output=True)
             diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
             if diff_check.returncode != 0:
@@ -227,7 +237,9 @@ def save_profile():
                 if not git_push_with_retry():
                     return (False, "Git push failed – profile cache NOT stored.")
             else:
-                return (False, "No new cache chunks to commit (chunker may have produced no output).")
+                return (False, "No new cache chunks to commit.")
+        finally:
+            GIT_SEQUENCE_LOCK.release()
 
         return (True, "Profile cache saved successfully.")
     except Exception as e:
@@ -237,7 +249,6 @@ def save_profile():
 DOWNLOAD_DIR = "/home/runner/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Restore cached profile if available
 load_profile()
 
 try:
@@ -284,7 +295,6 @@ except Exception as e:
     log(f"BROWSER ERROR: {e}\n{traceback.format_exc()}")
     raise
 
-# Sync globals to agent_state
 agent_state = sys.modules.get("agent_state")
 if agent_state:
     agent_state.driver = driver
@@ -297,7 +307,6 @@ if agent_state:
     agent_state.pyperclip = pyperclip
     agent_state.log = log
 
-# ---------- Download watcher ----------
 _download_watcher_stop = threading.Event()
 _known_downloads = {}
 
@@ -336,7 +345,6 @@ def download_watcher():
 
 threading.Thread(target=download_watcher, daemon=True).start()
 
-# ---------- Screenshot (with log push & immediate purge) ----------
 counter = [0]
 
 def ss(desc="screenshot", push=True, response_suffix=""):
@@ -344,7 +352,6 @@ def ss(desc="screenshot", push=True, response_suffix=""):
     now = datetime.now().strftime("%H%M%S")
     fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
     log(f"Taking screenshot: {fname}")
-
     ensure_active_tab()
     driver.save_screenshot(fname)
     try:
@@ -361,51 +368,52 @@ def ss(desc="screenshot", push=True, response_suffix=""):
     with _retry_queue_lock:
         _screenshot_retry_queue.append(fname)
 
-    with GIT_SEQUENCE_LOCK:
-        try:
-            git_run(["git","stash","--include-untracked"], capture_output=True)
-            try: git_run(["git","pull","--rebase"], check=True, capture_output=True)
-            except Exception: pass
-            git_run(["git","stash","pop"], capture_output=True)
+    # ---------- LOCK PROTECTION ----------
+    acquired = GIT_SEQUENCE_LOCK.acquire(timeout=10)
+    if not acquired:
+        log("WARNING: Could not acquire git lock for screenshot push – skipping this push.")
+        return fname
+    try:
+        git_run(["git","stash","--include-untracked"], capture_output=True)
+        try: git_run(["git","pull","--rebase"], check=True, capture_output=True)
+        except Exception: pass
+        git_run(["git","stash","pop"], capture_output=True)
 
-            files_to_push = []
-            with _retry_queue_lock:
-                files_to_push = list(_screenshot_retry_queue)
-                _screenshot_retry_queue.clear()
+        files_to_push = []
+        with _retry_queue_lock:
+            files_to_push = list(_screenshot_retry_queue)
+            _screenshot_retry_queue.clear()
 
-            pushed_any = False
+        for f in files_to_push:
+            if os.path.exists(f):
+                git_run(["git","add",f], check=True, capture_output=True)
+
+        if os.path.exists(LOG_FILENAME):
+            git_run(["git","add",LOG_FILENAME], check=True, capture_output=True)
+
+        diff_check = subprocess.run(["git","diff","--cached","--quiet"], capture_output=True)
+        if diff_check.returncode != 0:
+            git_run(["git","commit","-m","Screenshots & log"], check=True, capture_output=True)
+            if git_push_with_retry():
+                log(f"Pushed {len(files_to_push)} screenshot(s) + log")
+                purge_old_screenshots(fname)
+            else:
+                log("ERROR: Failed to push screenshots – will retry")
+                with _retry_queue_lock:
+                    for f in files_to_push:
+                        if os.path.exists(f) and f not in _screenshot_retry_queue:
+                            _screenshot_retry_queue.append(f)
+    except Exception as e:
+        log(f"Screenshot git error: {e}")
+        with _retry_queue_lock:
             for f in files_to_push:
-                if os.path.exists(f):
-                    git_run(["git","add",f], check=True, capture_output=True)
-                    pushed_any = True
-
-            # Always add log file
-            if os.path.exists(LOG_FILENAME):
-                git_run(["git","add",LOG_FILENAME], check=True, capture_output=True)
-
-            # Check if there's anything to commit (either screenshots or log changes)
-            diff_check = subprocess.run(["git","diff","--cached","--quiet"], capture_output=True)
-            if diff_check.returncode != 0:
-                git_run(["git","commit","-m","Screenshots & log"], check=True, capture_output=True)
-                if git_push_with_retry():
-                    log(f"Pushed {len(files_to_push)} screenshot(s) + log")
-                    purge_old_screenshots(fname)
-                else:
-                    log("ERROR: Failed to push screenshots – will retry")
-                    with _retry_queue_lock:
-                        for f in files_to_push:
-                            if os.path.exists(f) and f not in _screenshot_retry_queue:
-                                _screenshot_retry_queue.append(f)
-        except Exception as e:
-            log(f"Screenshot git error: {e}")
-            with _retry_queue_lock:
-                for f in files_to_push:
-                    if os.path.exists(f) and f not in _screenshot_retry_queue:
-                        _screenshot_retry_queue.append(f)
+                if os.path.exists(f) and f not in _screenshot_retry_queue:
+                    _screenshot_retry_queue.append(f)
+    finally:
+        GIT_SEQUENCE_LOCK.release()
     return fname
 
 def purge_old_screenshots(keep_path):
-    """Delete all .png files in screenshots/ except the newest one (keep_path)."""
     try:
         raw = gh_api_safe(f"repos/{REPO}/contents/screenshots", "--jq", ".[].path")
         if not raw: return
@@ -424,11 +432,8 @@ def purge_old_screenshots(keep_path):
 
 _screenshot_stop = threading.Event()
 _screenshot_thread = None
-_screenshot_worker_running = False
 
 def screenshot_worker():
-    global _screenshot_worker_running
-    _screenshot_worker_running = True
     while not _screenshot_stop.is_set():
         try:
             time.sleep(2)
@@ -445,7 +450,6 @@ def screenshot_worker():
         except Exception as outer_e:
             log(f"Screenshot worker crashed: {outer_e}. Restarting in 5s...")
             _screenshot_stop.wait(5)
-    _screenshot_worker_running = False
 
 def start_screenshot_worker():
     global _screenshot_thread
@@ -465,20 +469,22 @@ def monitor_screenshot_worker():
 start_screenshot_worker()
 threading.Thread(target=monitor_screenshot_worker, daemon=True).start()
 
-# ---------- GitHub basics ----------
 ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER","4").strip()
 START_URL = os.environ.get("START_URL") or "https://studio.youtube.com"
 REPO = os.environ['GITHUB_REPOSITORY']
 
 def push_logs():
-    with GIT_SEQUENCE_LOCK:
-        try:
-            git_run(["git","add",LOG_FILENAME], check=True, capture_output=True)
-            try: git_run(["git","diff","--cached","--quiet"], check=True, capture_output=True)
-            except subprocess.CalledProcessError:
-                git_run(["git","commit","-m","Log update"], check=True, capture_output=True)
-                git_push_with_retry()
-        except Exception as e: echo(f"Could not push logs: {e}")
+    acquired = GIT_SEQUENCE_LOCK.acquire(timeout=5)
+    if not acquired: return
+    try:
+        git_run(["git","add",LOG_FILENAME], check=True, capture_output=True)
+        try: git_run(["git","diff","--cached","--quiet"], check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            git_run(["git","commit","-m","Log update"], check=True, capture_output=True)
+            git_push_with_retry()
+    except Exception: pass
+    finally:
+        GIT_SEQUENCE_LOCK.release()
 
 KEY_SECRET = os.environ["KEY"]
 
@@ -495,7 +501,6 @@ def smart_edit_comment(comment_id, new_body):
                 log("Edit failed after retry.")
     return False
 
-# ---------- Main loop ----------
 def main():
     global slow_mode, last_command_time
 
@@ -521,7 +526,6 @@ def main():
     RESPONSE_MARKER = "## Remote Agent Responses"
     APP_COMMAND_MARKER = "## App Commands"
 
-    # Fetch comments with retry and logging
     log("Fetching comments to locate markers...")
     all_comments = None
     for attempt in range(5):
@@ -556,6 +560,8 @@ def main():
         new_id = gh_api_safe(f"repos/{REPO}/issues/{ISSUE_NUMBER}/comments",
                               "--method", "POST", "-f", f"body={RESPONSE_MARKER}\n", "--jq", ".id")
         response_comment_id = new_id.strip() if new_id else None
+        if response_comment_id:
+            add_autonomous_report("responsecommentid", f"responsecommentid:{response_comment_id}")
 
     app_cmd = find_marker_comment(parsed, APP_COMMAND_MARKER)
     app_cmd_id = app_cmd["id"] if app_cmd else None
@@ -567,7 +573,6 @@ def main():
 
     executed_cache = {}
     unsent_reports = []
-    exec_queue = ExecutionQueue()
 
     def publish_reports(comment_id):
         nonlocal response_comment_id
@@ -584,6 +589,8 @@ def main():
                 try:
                     new_id = issue_comment(REPO, ISSUE_NUMBER, body)
                     log(f"Created new response comment: {new_id}")
+                    response_comment_id = new_id
+                    add_autonomous_report("responsecommentid", f"responsecommentid:{new_id}")
                     unsent_reports.clear()
                     push_logs()
                     return new_id
@@ -679,7 +686,7 @@ def main():
                     get_upload_paths=get_upload_paths, save_profile=save_profile,
                     _file_registry=_file_registry, _upload_file_paths=_upload_file_paths,
                     pyperclip=pyperclip if HAS_PYPERCLIP else None,
-                    upload_reassemble=upload_reassemble,
+                    upload_reassemble=None,
                     HAS_PYPERCLIP_local=HAS_PYPERCLIP,
                     encrypt_string=encrypt_string, gh=gh,
                     get_all_comments=get_all_comments,
