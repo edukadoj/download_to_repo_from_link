@@ -1,0 +1,14 @@
+============================================================
+  Remote Control v39.20.10 started at 2026-05-16 22:59:40 UTC
+============================================================
+[22:59:40] ♻️  Reassembling profile cache chunks …
+[22:59:40]    Reassembled: profile_q1i5vcja.dat (128456268 bytes)
+[22:59:42] Profile cache loaded successfully.
+[22:59:42] Virtual display started.
+[22:59:49] Stealth JS injected.
+[22:59:49] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[22:59:49] Browser launched.
+[22:59:49] Screenshot worker started.
+[22:59:49] Loading start URL...
+[22:59:51] Start URL loaded – sleeping 5s
+[22:59:51] Taking screenshot: screenshots/001_225951_auto.png
