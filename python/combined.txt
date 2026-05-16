@@ -1,0 +1,2832 @@
+agent_state.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# agent_state.py – Version 1.0.10
+#   - Improved drag‑and‑drop: prefer send_keys to file input, fallback to JS events
+#   - Added screenshot retry queue (handled in command_mouse_keyboard.py)
+# ==============================================================================
+import os, time, re, glob, threading, traceback, random, base64
+from datetime import datetime
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.common.actions.pointer_input import PointerInput
+
+# ---------- Log helper (will be overridden by main) ----------
+def log(msg: str) -> None:
+    pass
+
+# ---------- Global driver & viewport ----------
+driver = None
+W, H = 1920, 1080
+cursor_x, cursor_y = 0, 0
+
+# ---------- Optional modules ----------
+HAS_GEMINI = False
+HAS_PYPERCLIP = False
+pyperclip = None
+
+# ---------- Allowed secrets ----------
+allowed_secrets = []
+
+# ---------- Active tab tracking (1‑based index) ----------
+ACTIVE_TAB_INDEX = 1
+
+def ensure_active_tab():
+    global ACTIVE_TAB_INDEX
+    if driver is None:
+        return
+    try:
+        handles = driver.window_handles
+        if not handles:
+            return
+        idx = ACTIVE_TAB_INDEX - 1
+        if idx < 0 or idx >= len(handles):
+            current = driver.current_window_handle
+            if current in handles:
+                ACTIVE_TAB_INDEX = handles.index(current) + 1
+            else:
+                ACTIVE_TAB_INDEX = 1
+                idx = 0
+        else:
+            if driver.current_window_handle != handles[idx]:
+                driver.switch_to.window(handles[idx])
+                try:
+                    driver.set_window_size(W, H)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+# ---------- Improved drag‑and‑drop file injection ----------
+def drag_file_to_target(driver, file_path, x, y):
+    """
+    Simulate dropping a file onto the element at (x, y).
+    Strategy:
+    1. Look for a file input at the cursor position; send_keys directly (most reliable).
+    2. Walk up the DOM from the cursor to find any file input; send_keys if found.
+    3. Fallback: JavaScript drag‑and‑drop event simulation (less reliable).
+    """
+    # ── Strategy 1 & 2: find a file input and use send_keys ──────────
+    try:
+        # Get all elements under the cursor
+        elements = driver.execute_script(
+            "return document.elementsFromPoint(arguments[0], arguments[1]);",
+            x, y
+        )
+        if elements:
+            # Check each element for a file input
+            for el in elements:
+                tag = driver.execute_script("return arguments[0].tagName.toLowerCase();", el)
+                type_attr = driver.execute_script("return arguments[0].type;", el)
+                if tag == "input" and type_attr == "file":
+                    el.send_keys(file_path)
+                    return True
+
+            # Walk up from the topmost element to find a file input in ancestors
+            parent_el = elements[0]
+            for _ in range(10):
+                if parent_el is None:
+                    break
+                # Check if this parent contains a file input
+                file_inputs = driver.execute_script(
+                    "return arguments[0].querySelectorAll('input[type=file]');",
+                    parent_el
+                )
+                if file_inputs and len(file_inputs) > 0:
+                    file_inputs[0].send_keys(file_path)
+                    return True
+                parent_el = driver.execute_script("return arguments[0].parentElement;", parent_el)
+    except Exception as e:
+        log(f"drag_file_to_target: file input search failed: {e}")
+
+    # ── Strategy 3: JavaScript drag‑and‑drop simulation ──────────────
+    script = """
+    var x = arguments[0], y = arguments[1], filePath = arguments[2];
+    var elements = document.elementsFromPoint(x, y);
+    if (!elements || elements.length === 0) return false;
+    var target = null;
+
+    // Try to find a file input among the elements
+    for (var i = 0; i < elements.length; i++) {
+        var el = elements[i];
+        if (el.tagName === 'INPUT' && el.type === 'file') {
+            target = el;
+            break;
+        }
+    }
+    if (!target) {
+        // Fallback to the first element
+        target = elements[0];
+    }
+
+    // If we found a file input, we can set its files directly via the DT
+    if (target.tagName === 'INPUT' && target.type === 'file') {
+        // This case was already handled in Python; we shouldn't get here,
+        // but if we do, try to create a DT and assign to input
+        var dt = new DataTransfer();
+        // We cannot set dt.files directly, but we can try to use the input's click
+        // and hope that the file chooser opens (won't work in headless).
+        // Fallback: return false to indicate failure.
+        return false;
+    }
+
+    // For other elements, simulate a drop with a hidden file input
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.style.display = 'none';
+    fileInput.multiple = false;
+    fileInput.onchange = function() {
+        if (!fileInput.files.length) return;
+        var file = fileInput.files[0];
+        var dt = new DataTransfer();
+        dt.items.add(file);
+
+        var dragEnter = new DragEvent('dragenter', {bubbles: true, cancelable: true, dataTransfer: dt});
+        var dragOver = new DragEvent('dragover', {bubbles: true, cancelable: true, dataTransfer: dt});
+        var drop = new DragEvent('drop', {bubbles: true, cancelable: true, dataTransfer: dt});
+
+        target.dispatchEvent(dragEnter);
+        target.dispatchEvent(dragOver);
+        target.dispatchEvent(drop);
+
+        setTimeout(function() {
+            document.body.removeChild(fileInput);
+        }, 500);
+    };
+    document.body.appendChild(fileInput);
+
+    // We need to set the file on the hidden input. This cannot be done purely from JS;
+    // the caller in Python must call fileInput.send_keys(filePath).
+    return fileInput;
+    """
+    try:
+        result = driver.execute_script(script, x, y, file_path)
+        if result and isinstance(result, bool) == False:
+            # result is the file input element returned by JS
+            result.send_keys(file_path)
+            return True
+        return False
+    except Exception:
+        return False
+
+# ---------- Existing utility functions (unchanged) ----------
+def _try_gemini_click(prompt: str) -> bool:
+    if not HAS_GEMINI: return False
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    if not api_key: return False
+    try:
+        from google import genai
+        from google.genai.types import Tool, GenerateContentConfig
+        client = genai.Client(api_key=api_key)
+        computer_tool = Tool(computer_use={})
+        config = GenerateContentConfig(tools=[computer_tool])
+        tmp = "/tmp/gemini_click.png"
+        driver.save_screenshot(tmp)
+        with open(tmp, "rb") as f:
+            img_data = base64.b64encode(f.read()).decode()
+        resp = client.models.generate_content(
+            model="gemini-2.5-computer-use-preview-10-2025",
+            contents=[{"role":"user","parts":[{"text":prompt},{"inline_data":{"mime_type":"image/png","data":img_data}}]}],
+            config=config)
+        if not resp.candidates: return False
+        fc = resp.candidates[0].content.parts[0].function_call
+        if fc.name == "click_at":
+            ax = int(fc.args["x"]/1000*W); ay = int(fc.args["y"]/1000*H)
+            _perform_human_click_at(ax, ay)
+            return True
+        return False
+    except Exception: return False
+
+def move_cursor_absolute(x: int, y: int) -> None:
+    ensure_active_tab()
+    global cursor_x, cursor_y
+    x = max(0, min(W-1, x)); y = max(0, min(H-1, y))
+    action = ActionBuilder(driver)
+    action.pointer_action.move_to_location(x, y)
+    action.perform()
+    cursor_x, cursor_y = x, y
+
+def move_cursor_relative(dx: int, dy: int) -> None:
+    ensure_active_tab()
+    global cursor_x, cursor_y
+    new_x = max(0, min(W-1, cursor_x + dx))
+    new_y = max(0, min(H-1, cursor_y + dy))
+    action = ActionBuilder(driver)
+    action.pointer_action.move_to_location(new_x, new_y)
+    action.perform()
+    cursor_x, cursor_y = new_x, new_y
+
+def left_click() -> None:
+    ensure_active_tab()
+    ActionChains(driver).click().perform()
+
+def left_button_down() -> None:
+    ensure_active_tab()
+    action = ActionBuilder(driver); action.pointer_action.click_and_hold(); action.perform()
+
+def left_button_up() -> None:
+    ensure_active_tab()
+    action = ActionBuilder(driver); action.pointer_action.release(); action.perform()
+
+def right_button_down() -> None:
+    ensure_active_tab()
+    action = ActionBuilder(driver); action.pointer_action.pointer_down(PointerInput.Button.RIGHT); action.perform()
+
+def right_button_up() -> None:
+    ensure_active_tab()
+    action = ActionBuilder(driver); action.pointer_action.pointer_up(PointerInput.Button.RIGHT); action.perform()
+
+def middle_button_down() -> None:
+    ensure_active_tab()
+    action = ActionBuilder(driver); action.pointer_action.pointer_down(PointerInput.Button.MIDDLE); action.perform()
+
+def middle_button_up() -> None:
+    ensure_active_tab()
+    action = ActionBuilder(driver); action.pointer_action.pointer_up(PointerInput.Button.MIDDLE); action.perform()
+
+def double_click() -> None:
+    ensure_active_tab()
+    ActionChains(driver).double_click().perform()
+
+def right_click() -> None:
+    ensure_active_tab()
+    ActionChains(driver).context_click().perform()
+
+def middle_click() -> None:
+    ensure_active_tab()
+    action = ActionBuilder(driver)
+    action.pointer_action.pointer_down(PointerInput.Button.MIDDLE)
+    action.pointer_action.pointer_up(PointerInput.Button.MIDDLE)
+    action.perform()
+
+def scroll_by(amount: int) -> None:
+    ensure_active_tab()
+    try:
+        scrollable = driver.execute_script("""
+            var elem = document.elementFromPoint(arguments[0], arguments[1]);
+            while (elem) {
+                var overflowY = window.getComputedStyle(elem).overflowY;
+                if (overflowY === 'auto' || overflowY === 'scroll') {
+                    if (elem.scrollHeight > elem.clientHeight) {
+                        return elem;
+                    }
+                }
+                elem = elem.parentElement;
+            }
+            return null;
+        """, cursor_x, cursor_y)
+        if scrollable:
+            driver.execute_script("arguments[0].scrollBy(0, arguments[1]);", scrollable, amount)
+        else:
+            driver.execute_script(f"window.scrollBy(0, {amount});")
+    except Exception:
+        driver.execute_script(f"window.scrollBy(0, {amount});")
+
+def drag_from_to(x1,y1,x2,y2) -> None:
+    ensure_active_tab()
+    move_cursor_absolute(x1,y1); left_button_down(); time.sleep(0.1)
+    move_cursor_absolute(x2,y2); time.sleep(0.1); left_button_up()
+
+def _perform_human_click_at(x: int, y: int) -> None:
+    ensure_active_tab()
+    move_cursor_absolute(x, y); time.sleep(0.1)
+    for _ in range(random.randint(1,3)):
+        dx=random.randint(-2,2); dy=random.randint(-2,2)
+        move_cursor_relative(dx, dy); time.sleep(random.uniform(0.015,0.040))
+    left_button_down(); time.sleep(random.uniform(0.030,0.080))
+    dx=random.randint(1,3)*(1 if random.random()>0.5 else -1)
+    dy=random.randint(1,3)*(1 if random.random()>0.5 else -1)
+    move_cursor_relative(dx, dy); time.sleep(random.uniform(0.010,0.040)); left_button_up()
+
+def human_click(prompt: str = "Click the verify button") -> str:
+    ensure_active_tab()
+    if _try_gemini_click(prompt): return f"Gemini click successful (prompt: {prompt})"
+    _perform_human_click_at(cursor_x, cursor_y)
+    return "Fallback human click at current cursor."
+
+def human_click_at(x: int, y: int) -> str:
+    ensure_active_tab()
+    move_cursor_absolute(x, y); time.sleep(0.1)
+    if _try_gemini_click("Click the button at this position"): return f"Gemini click at ({x},{y})"
+    _perform_human_click_at(x, y)
+    return f"Human click at ({x},{y})"
+
+KEY_MAP = {
+    "enter":Keys.ENTER,"tab":Keys.TAB,"escape":Keys.ESCAPE,"esc":Keys.ESCAPE,
+    "backspace":Keys.BACKSPACE,"delete":Keys.DELETE,"del":Keys.DELETE,
+    "home":Keys.HOME,"end":Keys.END,"pageup":Keys.PAGE_UP,"pagedown":Keys.PAGE_DOWN,
+    "arrowup":Keys.ARROW_UP,"arrowdown":Keys.ARROW_DOWN,"arrowleft":Keys.ARROW_LEFT,"arrowright":Keys.ARROW_RIGHT,
+    "space":Keys.SPACE,"insert":Keys.INSERT,"f1":Keys.F1,"f2":Keys.F2,"f3":Keys.F3,"f4":Keys.F4,"f5":Keys.F5,"f6":Keys.F6,
+    "f7":Keys.F7,"f8":Keys.F8,"f9":Keys.F9,"f10":Keys.F10,"f11":Keys.F11,"f12":Keys.F12,
+    "ctrl":Keys.CONTROL,"shift":Keys.SHIFT,"alt":Keys.ALT,"meta":Keys.META,"command":Keys.META
+}
+def press_key(key_name: str) -> None:
+    ensure_active_tab()
+    kn = key_name.strip().lower()
+    if kn in KEY_MAP: ActionChains(driver).send_keys(KEY_MAP[kn]).perform()
+    elif len(kn)==1: ActionChains(driver).send_keys(kn).perform()
+    else: ActionChains(driver).send_keys(key_name).perform()
+
+def press_combo(combo_str: str) -> None:
+    ensure_active_tab()
+    parts = [p.strip() for p in combo_str.split('+')]
+    if len(parts) < 2: press_key(combo_str); return
+    mods = parts[:-1]; main = parts[-1]
+    actions = ActionChains(driver)
+    for m in mods:
+        mk = m.lower()
+        if mk in KEY_MAP: actions = actions.key_down(KEY_MAP[mk])
+        else: actions = actions.key_down(m)
+    mk_main = main.lower()
+    if mk_main in KEY_MAP: actions = actions.send_keys(KEY_MAP[mk_main])
+    else: actions = actions.send_keys(main)
+    for m in reversed(mods):
+        mk = m.lower()
+        if mk in KEY_MAP: actions = actions.key_up(KEY_MAP[mk])
+        else: actions = actions.key_up(m)
+    actions.perform()
+
+def type_secret(name: str) -> bool:
+    ensure_active_tab()
+    if name not in allowed_secrets: return False
+    val = os.environ.get(name, "")
+    if not val: return False
+    ActionChains(driver).send_keys(val).perform()
+    return True
+
+# ---------- COMMAND PARSER ----------
+def parse_single_command(raw: str):
+    raw = raw.strip(); lo = raw.lower()
+    if lo == "exit": return ("exit", None)
+    if lo == "uploadtoyoutube": return ("uploadtoyoutube", None)
+    if lo == "screenshot": return ("screenshot", None)
+    if lo == "shoot": return ("shoot", None)
+    if lo == "humanclick": return ("humanclick", None)
+    if lo == "refresh": return ("refresh", None)
+    if lo == "paste": return ("paste", None)
+    if lo == "doubleshoot": return ("doubleshoot", None)
+    if lo == "rightshoot": return ("rightshoot", None)
+    if lo == "middleshoot": return ("middleshoot", None)
+    if lo in ("leftdown","leftmousedown"): return ("leftdown", None)
+    if lo in ("leftup","leftmouseup"): return ("leftup", None)
+    if lo in ("rightdown","rightmousedown"): return ("rightdown", None)
+    if lo in ("rightup","rightmouseup"): return ("rightup", None)
+    if lo in ("middledown","middle mousedown"): return ("middledown", None)
+    if lo in ("middleup","middle mouseup"): return ("middleup", None)
+    if lo == "save": return ("save", None)
+    if lo == "filedrop": return ("filedrop", None)
+    if lo == "downselected": return ("downselected", None)
+    if lo == "deleteselected": return ("deleteselected", None)
+    m = re.match(r'^moveby\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m: return ("moveby", (int(float(m.group(1))), int(float(m.group(2)))))
+    m = re.match(r'^\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', raw)
+    if m: return ("move", (int(float(m.group(1))), int(float(m.group(2)))))
+    m = re.match(r'^click\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m: return ("click_at", (int(float(m.group(1))), int(float(m.group(2)))))
+    m = re.match(r'^humanclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m: return ("humanclick_at", (int(float(m.group(1))), int(float(m.group(2)))))
+    m = re.match(r'^doubleclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m: return ("doubleclick_at", (int(float(m.group(1))), int(float(m.group(2)))))
+    m = re.match(r'^rightclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m: return ("rightclick_at", (int(float(m.group(1))), int(float(m.group(2)))))
+    m = re.match(r'^scroll:\s*(-?\d+(?:\.\d+)?)\s*$', lo)
+    if m: return ("scroll", int(float(m.group(1))))
+    m = re.match(r'^wait:\s*(\d+(?:\.\d+)?)\s*$', lo)
+    if m: return ("wait", float(m.group(1)))
+    m = re.match(r'^key:\s*(.+)\s*$', lo)
+    if m: return ("key", m.group(1).strip())
+    m = re.match(r'^combo:\s*(.+)\s*$', lo)
+    if m: return ("combo", m.group(1).strip())
+    if lo.startswith('secret:'): return ("secret", raw.split(':',1)[1].strip())
+    if lo.startswith('decode:'): return ("decode", raw.split(':',1)[1].strip())
+    if lo.startswith('humantype:'): return ("humantype", raw.split(':',1)[1].strip())
+    m = re.match(r'^navigate:\s*(.+)\s*$', lo)
+    if m: return ("navigate", m.group(1).strip())
+    m = re.match(r'^drag\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m:
+        x1=int(float(m.group(1))); y1=int(float(m.group(2))); x2=int(float(m.group(3))); y2=int(float(m.group(4)))
+        return ("drag", (x1,y1,x2,y2))
+    if lo in ("download","download:"): return ("download", None)
+    if lo in ("upload","upload:"): return ("upload", None)
+    if lo == "dir": return ("dir", None)
+    if lo == "tabs": return ("tabs", None)
+    if lo.startswith("tabnumber:"): return ("tabnumber", raw.split(":",1)[1].strip())
+    if lo.startswith("closetab:"): return ("closetab", raw.split(":",1)[1].strip())
+    if lo == "lastdownload": return ("lastdownload", None)
+    if lo.startswith("uploadnumber:"): return ("uploadnumber", raw.split(":",1)[1].strip())
+    if lo == "savestate": return ("savestate", None)
+    if lo.startswith("setinterval:"):
+        try:
+            val = float(lo.split(":",1)[1].strip())
+            return ("setinterval", val)
+        except: return ("key", raw)
+    return ("key", raw)
+
+# ---------- FILE REGISTRY & UPLOAD PATHS ----------
+_file_registry = {}
+_previous_file_set = set()
+_upload_file_paths = []
+_last_reported_files_str = None
+
+DOWNLOAD_DIR = ""   # set by main
+
+def refresh_file_registry():
+    global _file_registry, _previous_file_set, _last_reported_files_str
+    try:
+        files = sorted([f for f in os.listdir(DOWNLOAD_DIR) if not f.endswith(".crdownload")])
+        new_set = set(files)
+        new_files = new_set - _previous_file_set
+        for nf in new_files:
+            add_autonomous_report("filedownloaded", f"New file: {nf}")
+        _previous_file_set = new_set
+
+        _file_registry.clear()
+        for i, fname in enumerate(files, start=1):
+            _file_registry[i] = fname
+
+        if _file_registry:
+            lines = [f"{fid}: {fname}" for fid, fname in sorted(_file_registry.items())]
+            current_str = "Files: " + " | ".join(lines)
+        else:
+            current_str = "Files: (empty)"
+
+        if current_str != _last_reported_files_str:
+            _last_reported_files_str = current_str
+            add_autonomous_report("files", current_str)
+
+    except Exception as e:
+        try: log(f"ERROR refreshing file registry: {e}")
+        except: pass
+
+def get_upload_paths():
+    paths = []
+    for fname in _upload_file_paths:
+        paths.append(os.path.join(DOWNLOAD_DIR, fname))
+    if paths: return [paths[0]]
+    return []
+
+# ---------- TAB HANDLE TRACKING ----------
+_known_handles = set()
+
+def refresh_known_handles():
+    global _known_handles
+    try:
+        handles = set(driver.window_handles)
+        new_handles = handles - _known_handles
+        for h in new_handles:
+            add_autonomous_report("tabopened", f"New tab/window handle: {h}")
+        _known_handles = handles
+    except Exception:
+        pass
+
+# ---------- URL MONITOR ----------
+_last_known_url = ""
+_url_monitor_stop = threading.Event()
+
+def url_monitor_worker():
+    global _last_known_url
+    time.sleep(3)
+    while not _url_monitor_stop.is_set():
+        try:
+            cur = driver.current_url
+            if cur and cur != _last_known_url:
+                _last_known_url = cur
+                add_autonomous_report("navigate", f"navigate({cur})")
+        except Exception:
+            pass
+        _url_monitor_stop.wait(2)
+
+# ---------- AUTONOMOUS REPORTS ----------
+autonomous_counter = 1
+pending_autonomous_reports = []
+AUTONOMOUS_TIMEOUT = 60
+
+def add_autonomous_report(report_type, text):
+    global autonomous_counter
+    now = int(time.time())
+    aut_id = f"AUT-{autonomous_counter}-{now}"
+    autonomous_counter += 1
+    pending_autonomous_reports.append({"id":aut_id, "text":text, "timestamp":time.time()})
+    try: log(f"New autonomous report: {aut_id} -> {text}")
+    except: pass
+
+def cull_expired_autonomous_reports():
+    now = time.time()
+    before = len(pending_autonomous_reports)
+    pending_autonomous_reports[:] = [r for r in pending_autonomous_reports if now - r["timestamp"] < AUTONOMOUS_TIMEOUT]
+    if before > len(pending_autonomous_reports):
+        try: log(f"Culled {before - len(pending_autonomous_reports)} expired autonomous reports.")
+        except: pass
+
+browser_agent.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# browser_agent.py – Version 1.3.0 (Enhanced tabs, files, profile, stealth & speed)
+# ==============================================================================
+
+import os, time, subprocess, hashlib, sys, base64, shutil, tarfile, io, glob, re, json, math, random, threading, traceback
+from datetime import datetime, timezone
+from typing import List, Dict, Optional, Set, Tuple
+
+from pyvirtualdisplay import Display
+from cryptography.fernet import Fernet
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.common.actions.pointer_input import PointerInput
+from selenium.webdriver.chrome.options import Options
+from PIL import Image, ImageDraw
+
+from crypto_utils import encrypt_string, decode_string
+from comments import get_all_comments, issue_comment
+from uploader import reassemble as upload_reassemble
+
+try:
+    from google import genai
+    from google.genai.types import Tool, GenerateContentConfig
+    HAS_GEMINI = True
+except ImportError:
+    HAS_GEMINI = False
+
+try:
+    import pyperclip
+    HAS_PYPERCLIP = True
+except ImportError:
+    HAS_PYPERCLIP = False
+
+
+# ═══════════════ BROWSER SETUP (Improved Stealth) ═══════════════
+def create_browser(profile_dir: str, download_dir: str) -> tuple:
+    os.makedirs(download_dir, exist_ok=True)
+    display = Display(visible=False, size=(1920, 1080))
+    display.start()
+
+    opts = Options()
+    opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-gpu")
+    opts.add_argument("--disable-blink-features=AutomationControlled")
+    opts.add_argument("--disable-dev-shm-usage")
+    opts.add_argument("--disable-extensions")
+    opts.add_argument("--window-size=1920,1080")
+    opts.add_argument(f"--user-data-dir={profile_dir}")
+    opts.add_argument("--profile-directory=Default")
+
+    # Stronger stealth for Google
+    opts.add_experimental_option("prefs", {
+        "download.default_directory": download_dir,
+        "profile.password_manager_leak_detection": False,
+        "credentials_enable_service": False,
+    })
+    opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+    opts.add_experimental_option('useAutomationExtension', False)
+
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=opts)
+
+    # Extra anti-detection
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});")
+
+    return driver, display, 1920, 1080
+
+
+# ═══════════════ GLOBALS ═══════════════
+W, H = 1920, 1080
+cursor_x, cursor_y = W // 2, H // 2
+driver = None
+REPO = None
+ISSUE_NUMBER = None
+KEY_SECRET = None
+DOWNLOAD_DIR = None
+PROFILE_DIR = None
+ENCRYPTION_KEY = None
+
+
+# ═══════════════ MOUSE & KEYBOARD ═══════════════
+def move_cursor_absolute(x: int, y: int) -> None:
+    global cursor_x, cursor_y
+    x = max(0, min(W - 1, x))
+    y = max(0, min(H - 1, y))
+    action = ActionBuilder(driver)
+    action.pointer_action.move_to_location(x, y)
+    action.perform()
+    cursor_x, cursor_y = x, y
+
+def left_click(): ActionChains(driver).click().perform()
+def double_click(): ActionChains(driver).double_click().perform()
+def right_click(): ActionChains(driver).context_click().perform()
+
+def _perform_human_click_at(x: int, y: int) -> None:
+    move_cursor_absolute(x, y)
+    time.sleep(0.1)
+    for _ in range(random.randint(1, 3)):
+        move_cursor_relative(random.randint(-3,3), random.randint(-3,3))
+        time.sleep(random.uniform(0.015, 0.04))
+    left_button_down()
+    time.sleep(random.uniform(0.04, 0.09))
+    move_cursor_relative(random.randint(-2,2), random.randint(-2,2))
+    time.sleep(random.uniform(0.02, 0.05))
+    left_button_up()
+
+def human_click_at(x: int, y: int) -> str:
+    _perform_human_click_at(x, y)
+    return f"Human click at ({x},{y})"
+
+def move_cursor_relative(dx: int, dy: int) -> None:
+    global cursor_x, cursor_y
+    new_x = max(0, min(W-1, cursor_x + dx))
+    new_y = max(0, min(H-1, cursor_y + dy))
+    action = ActionBuilder(driver)
+    action.pointer_action.move_to_location(new_x, new_y)
+    action.perform()
+    cursor_x, cursor_y = new_x, new_y
+
+def left_button_down():
+    action = ActionBuilder(driver)
+    action.pointer_action.click_and_hold()
+    action.perform()
+
+def left_button_up():
+    action = ActionBuilder(driver)
+    action.pointer_action.release()
+    action.perform()
+
+def scroll_by(amount: int):
+    driver.execute_script(f"window.scrollBy(0, {amount});")
+
+
+# ═══════════════ SCREENSHOT ═══════════════
+counter = [0]
+def ss(desc="screenshot", response_suffix=""):
+    counter[0] += 1
+    now = datetime.now().strftime("%H%M%S")
+    safe = re.sub(r'[^a-zA-Z0-9 _\-.(),]', '', response_suffix)[:60]
+    fname = f"screenshots/{counter[0]:03d}_{now}_{desc}_{safe}.png" if safe else f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
+    
+    driver.save_screenshot(fname)
+    try:
+        img = Image.open(fname)
+        draw = ImageDraw.Draw(img)
+        x, y = cursor_x, cursor_y
+        r = 12
+        draw.ellipse([(x-r,y-r),(x+r,y+r)], outline='red', width=3)
+        draw.line([(x-15,y),(x+15,y)], fill='red', width=3)
+        draw.line([(x,y-15),(x,y+15)], fill='red', width=3)
+        img.save(fname)
+    except: pass
+
+    # Git push
+    subprocess.run(["git", "add", fname], capture_output=True)
+    try:
+        subprocess.run(["git", "commit", "-m", f"Screenshot {fname}"], capture_output=True)
+        subprocess.run(["git", "push"], capture_output=True)
+    except: pass
+    return fname
+
+
+# ═══════════════ FILE & TAB HELPERS ═══════════════
+def refresh_file_registry() -> str:
+    try:
+        files = sorted([f for f in os.listdir(DOWNLOAD_DIR) if not f.endswith(".crdownload")])
+        lines = [f"{i+1}: {fname}" for i, fname in enumerate(files)]
+        return "Files:\n" + "\n".join(lines) if lines else "No files in download folder."
+    except:
+        return "Error reading download directory."
+
+def get_tabs_info() -> str:
+    try:
+        handles = driver.window_handles
+        lines = []
+        for i, h in enumerate(handles):
+            driver.switch_to.window(h)
+            title = (driver.title or "Untitled")[:70]
+            url = driver.current_url[:100]
+            lines.append(f"{i+1}: {title} | {url}")
+        driver.switch_to.window(handles[0])
+        return "Tabs:\n" + "\n".join(lines)
+    except:
+        return "Tabs: Error retrieving tabs."
+
+
+# ═══════════════ COMMAND EXECUTION ═══════════════
+def execute_one_command(cmd: str, arg=None):
+    try:
+        if cmd == "screenshot":
+            ss("manual")
+            return "OK screenshot"
+        elif cmd == "move":
+            x, y = arg
+            move_cursor_absolute(x, y)
+            return f"OK move({x},{y})"
+        elif cmd in ("click_at", "shoot"):
+            x, y = arg if isinstance(arg, tuple) else (cursor_x, cursor_y)
+            move_cursor_absolute(x, y)
+            left_click()
+            return f"OK click({x},{y})"
+        elif cmd == "humanclick_at":
+            x, y = arg
+            return human_click_at(x, y)
+        elif cmd == "doubleclick_at":
+            x, y = arg
+            move_cursor_absolute(x, y)
+            double_click()
+            return f"OK doubleclick({x},{y})"
+        elif cmd == "rightclick_at":
+            x, y = arg
+            move_cursor_absolute(x, y)
+            right_click()
+            return f"OK rightclick({x},{y})"
+        elif cmd == "scroll":
+            scroll_by(int(arg))
+            return f"OK scroll({arg})"
+        elif cmd == "text":
+            ActionChains(driver).send_keys(str(arg)).perform()
+            return f"OK text({str(arg)[:30]})"
+        elif cmd == "navigate":
+            driver.get(str(arg))
+            time.sleep(4)
+            return f"OK navigate({driver.current_url})"
+        elif cmd == "tabs":
+            return get_tabs_info()
+        elif cmd == "dir":
+            return refresh_file_registry()
+        elif cmd == "refresh":
+            driver.refresh()
+            time.sleep(3)
+            return "OK refresh"
+        elif cmd == "wait":
+            time.sleep(float(arg)/1000)
+            return f"OK wait({arg}ms)"
+        # Add more commands as needed
+
+        return "OK"
+    except Exception as e:
+        return f"ERR {str(e)}"
+
+
+# ═══════════════ PROFILE MANAGEMENT ═══════════════
+def save_profile():
+    try:
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            tar.add(PROFILE_DIR, arcname="chrome_profile")
+        encrypted = Fernet(ENCRYPTION_KEY).encrypt(buf.getvalue())
+        with open("profile_cache.tar.enc", "wb") as f:
+            f.write(encrypted)
+        print("Profile saved successfully.")
+    except Exception as e:
+        print(f"Profile save failed: {e}")
+
+
+print("=== Browser Agent 1.3.0 started ===")
+
+browser_setup.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# browser_setup.py – Version 1.0.0 (stealth, CDP, and profile restore)
+# ==============================================================================
+import base64, io, os, shutil, tarfile, time, traceback
+from hashlib import sha256
+from pyvirtualdisplay import Display
+from cryptography.fernet import Fernet
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+
+def create_browser(profile_dir, download_dir, encryption_key, start_url):
+    """Return (driver, display, W, H) with stealth, CDP, and page load timeout."""
+    os.makedirs(download_dir, exist_ok=True)
+    display = Display(visible=False, size=(1920, 1080))
+    display.start()
+
+    # ── restore profile if available ──
+    if not os.path.exists("profile_cache.tar.enc"):
+        try:
+            import subprocess
+            subprocess.run(["git", "pull", "--rebase", "--autostash"], check=True, capture_output=True)
+        except Exception:
+            pass
+
+    if os.path.exists("profile_cache.tar.enc"):
+        try:
+            key = sha256(encryption_key.encode()).digest()
+            f = Fernet(base64.urlsafe_b64encode(key))
+            with open("profile_cache.tar.enc", "rb") as fp:
+                encrypted = fp.read()
+            decrypted = f.decrypt(encrypted)
+            shutil.rmtree(profile_dir, ignore_errors=True)
+            buf = io.BytesIO(decrypted)
+            with tarfile.open(fileobj=buf, mode='r:gz') as tar:
+                tar.extractall('/tmp')
+        except Exception:
+            pass
+
+    opts = Options()
+    opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-gpu")
+    opts.add_argument("--disable-blink-features=AutomationControlled")
+    opts.add_argument("--window-size=1920,1080")
+    opts.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36")
+    opts.add_argument(f"--user-data-dir={profile_dir}")
+    opts.add_argument("--profile-directory=Default")
+    opts.add_experimental_option("prefs", {"download.default_directory": download_dir})
+    opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+    opts.add_experimental_option('useAutomationExtension', False)
+
+    driver = webdriver.Chrome(options=opts)
+    driver.set_page_load_timeout(30)
+
+    # ── stealth ──
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]})")
+    driver.execute_script("Object.defineProperty(navigator, 'languages', {get: () => ['en-US','en']})")
+    driver.execute_script("window.chrome = { runtime: {} };")
+    driver.execute_script("Object.defineProperty(navigator, 'permissions', {get: () => ({ query: () => Promise.resolve({ state: 'granted' }) })})")
+    driver.execute_script("Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4})")
+
+    # ── CDP file chooser ──
+    try:
+        driver.execute_cdp_cmd("Page.setInterceptFileChooserDialog", {"enabled": True})
+
+        def _on_file_chooser_opened(event):
+            # This function will be defined later by the main module; we just attach the listener here.
+            # We'll pass the driver back and let the main module assign the listener after import.
+            pass
+
+        driver.add_cdp_listener("Page.fileChooserOpened", _on_file_chooser_opened)
+    except Exception:
+        print("CDP not available")
+
+    return driver, display, 1920, 1080
+
+chunker.py:
+#!/usr/bin/env python3
+# Version: 3.2 – Generates a batch file that reassembles ALL chunked files
+"""
+chunker.py - Split files into chunks and generate a reassemble.bat that works for multiple files.
+
+Usage:
+    python chunker.py --file <input_file> --output-dir <dir> [--chunk-size MB]
+    python chunker.py --files file1 file2 ... --output-dir <dir> [--chunk-size MB]
+
+Outputs:
+    - Chunk files: <original_name>.part####
+    - reassemble.bat – loops over all .part0000 files and reassembles each original file.
+"""
+
+import os
+import sys
+import argparse
+import math
+from pathlib import Path
+
+DEFAULT_CHUNK_MB = 20
+
+def split_file(input_path: Path, output_dir: Path, chunk_size: int, base_name: str = None):
+    """Split a single file into chunks using the original filename (preserves Unicode)."""
+    if base_name is None:
+        base_name = input_path.stem
+    ext = input_path.suffix
+    full_base = f"{base_name}{ext}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    file_size = input_path.stat().st_size
+    num_chunks = math.ceil(file_size / chunk_size)
+    print(f"Splitting {input_path} ({file_size} bytes) into {num_chunks} chunk(s)")
+
+    chunk_paths = []
+    with open(input_path, 'rb') as f:
+        for i in range(num_chunks):
+            chunk_data = f.read(chunk_size)
+            chunk_name = f"{full_base}.part{i:04d}"
+            chunk_path = output_dir / chunk_name
+            with open(chunk_path, 'wb') as cf:
+                cf.write(chunk_data)
+            chunk_paths.append(chunk_path)
+            print(f"  Created {chunk_name} ({len(chunk_data)} bytes)")
+    return chunk_paths, full_base
+
+def generate_reassemble_bat(output_dir: Path):
+    """
+    Generate a batch file that reassembles ALL chunked files.
+    It finds every unique base name by scanning .part0000 files and processes each.
+    """
+    bat_content = '''@echo off
+chcp 65001 >nul
+setlocal enabledelayedexpansion
+
+echo ========================================
+echo  Reassembling all files from chunks...
+echo ========================================
+
+:: Process each distinct base name (from .part0000 files)
+for %%f in ("*.part0000") do (
+    set "full=%%f"
+    set "base=!full:.part0000=!"
+
+    :: Skip if this base name was already processed
+    if not defined _processed_!base! (
+        set "_processed_!base!=1"
+
+        echo.
+        echo --- Rebuilding "!base!" ---
+        if exist "!base!.part*" (
+            copy /b "!base!.part*" "!base!" >nul
+            if !errorlevel! equ 0 (
+                echo Successfully created "!base!"
+                del "!base!.part*" 2>nul
+                echo Deleted temporary parts.
+            ) else (
+                echo ERROR: Failed to reassemble "!base!".
+            )
+        ) else (
+            echo WARNING: No parts found for "!base!".
+        )
+    )
+)
+
+echo.
+echo ========================================
+echo All done! Press any key to exit.
+pause >nul
+'''
+    bat_path = output_dir / "reassemble.bat"
+    with open(bat_path, 'w', encoding='utf-8') as f:
+        f.write(bat_content)
+    print(f"Generated reassembly script: {bat_path}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Split files into chunks and generate reassembly batch file (supports multiple files)")
+    parser.add_argument('--file', help='Single file to split')
+    parser.add_argument('--files', nargs='+', help='Multiple files to split')
+    parser.add_argument('--output-dir', required=True, help='Directory to store chunks and reassemble script')
+    parser.add_argument('--chunk-size', type=int, default=DEFAULT_CHUNK_MB, help=f'Chunk size in MB (default {DEFAULT_CHUNK_MB})')
+    parser.add_argument('--base-name', help='Base name for chunks (only for single file, overrides original name)')
+    args = parser.parse_args()
+
+    if not args.file and not args.files:
+        print("Error: Either --file or --files must be provided", file=sys.stderr)
+        sys.exit(1)
+
+    input_paths = []
+    if args.file:
+        input_paths.append(Path(args.file))
+    else:
+        input_paths = [Path(f) for f in args.files]
+
+    output_dir = Path(args.output_dir)
+    chunk_size = args.chunk_size * 1024 * 1024
+
+    for input_path in input_paths:
+        if not input_path.exists():
+            print(f"Error: File not found: {input_path}", file=sys.stderr)
+            sys.exit(1)
+        base_name = args.base_name if args.file and len(input_paths) == 1 else None
+        split_file(input_path, output_dir, chunk_size, base_name)
+
+    generate_reassemble_bat(output_dir)
+    print("Done.")
+
+if __name__ == '__main__':
+    main()
+
+command_handlers.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# command_handlers.py – Version 1.14.1
+#   - Fixed import: uses `import agent_state` so module reference works
+#   - Purge no longer retries on 404 (already deleted)
+# ==============================================================================
+import os, time, subprocess, glob, shutil, re, tempfile, random
+from uploader import reassemble
+from upload_handler import perform_upload
+from upload_injector import upload_to_youtube
+import agent_state          # <-- now we can use agent_state.ensure_active_tab etc.
+
+def _ensure_selection(_file_registry, _upload_file_paths):
+    if not _upload_file_paths and _file_registry:
+        first_id = min(_file_registry.keys())
+        _upload_file_paths.append(_file_registry[first_id])
+
+def _scroll_element_or_window(driver, amount, cursor_x, cursor_y):
+    agent_state.ensure_active_tab()
+    scroll_amount = -amount
+    direction = "down" if scroll_amount >= 0 else "up"
+    try:
+        scrollable = driver.execute_script("""
+            var elem = document.elementFromPoint(arguments[0], arguments[1]);
+            while (elem) {
+                var overflowY = window.getComputedStyle(elem).overflowY;
+                if (overflowY === 'auto' || overflowY === 'scroll') {
+                    if (elem.scrollHeight > elem.clientHeight) {
+                        return elem;
+                    }
+                }
+                elem = elem.parentElement;
+            }
+            return null;
+        """, cursor_x, cursor_y)
+        if scrollable:
+            driver.execute_script("arguments[0].scrollBy(0, arguments[1]);", scrollable, scroll_amount)
+            return f"OK scroll({direction},{abs(scroll_amount)}) [element]"
+        else:
+            driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
+            return f"OK scroll({direction},{abs(scroll_amount)}) [window]"
+    except Exception:
+        driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
+        return f"OK scroll({direction},{abs(scroll_amount)}) [window]"
+
+def execute_one_command(
+    cmd, arg,
+    driver, cursor_x, cursor_y, W, H,
+    DOWNLOAD_DIR, LOG_FILENAME,
+    KEY_SECRET, REPO, ISSUE_NUMBER,
+    HAS_GEMINI, HAS_PYPERCLIP, allowed_secrets, ENCRYPTION_KEY,
+    human_click_callable, human_click_at_callable, _try_gemini_click,
+    move_cursor_absolute, move_cursor_relative,
+    left_click, left_button_down, left_button_up,
+    right_button_down, right_button_up,
+    middle_button_down, middle_button_up,
+    double_click, right_click, middle_click,
+    scroll_by, drag_from_to,
+    press_key, press_combo, type_secret,
+    decode_string, ss,
+    refresh_file_registry, add_autonomous_report, refresh_known_handles,
+    get_upload_paths, save_profile,
+    _file_registry, _upload_file_paths,
+    pyperclip, upload_reassemble,
+    HAS_PYPERCLIP_local, encrypt_string, gh,
+    get_all_comments, delete_comment, issue_comment,
+    smart_edit_comment, git_push_with_retry,
+    comm_interval=5.0,
+    inject_file=None
+):
+    # Enforce the user‑selected tab before any action that touches the page
+    if cmd not in ("exit", "screenshot", "tabs", "dir", "download", "upload", "injectfile",
+                   "uploadtoyoutube", "paste", "tabnumber", "closetab", "lastdownload",
+                   "uploadnumber", "savestate", "save", "setinterval", "filedrop",
+                   "downselected", "deleteselected"):
+        agent_state.ensure_active_tab()
+
+    result = ""
+
+    if cmd == "exit": 
+        result = "OK exit"
+    elif cmd == "screenshot":
+        if callable(ss):
+            result = f"OK screenshot at ({cursor_x},{cursor_y})"
+            ss("manual_screenshot", push=True, response_suffix=result)
+        else: result = "ERR screenshot not available"
+    elif cmd == "move":
+        agent_state.ensure_active_tab()
+        x, y = arg; move_cursor_absolute(x, y)
+        result = f"OK move({cursor_x},{cursor_y})"
+    elif cmd == "moveby":
+        agent_state.ensure_active_tab()
+        dx, dy = arg; move_cursor_relative(dx, dy)
+        result = f"OK moveby({dx},{dy})->({cursor_x},{cursor_y})"
+    elif cmd == "click_at":
+        agent_state.ensure_active_tab()
+        x, y = arg; move_cursor_absolute(x, y); left_click()
+        result = f"OK click({cursor_x},{cursor_y})"
+    elif cmd == "humanclick":
+        agent_state.ensure_active_tab()
+        result = human_click_callable()
+    elif cmd == "humanclick_at":
+        agent_state.ensure_active_tab()
+        x, y = arg; result = human_click_at_callable(x, y)
+    elif cmd == "leftdown":
+        agent_state.ensure_active_tab()
+        left_button_down(); result = "OK leftdown"
+    elif cmd == "leftup":
+        agent_state.ensure_active_tab()
+        left_button_up();   result = "OK leftup"
+    elif cmd == "rightdown":
+        agent_state.ensure_active_tab()
+        right_button_down(); result = "OK rightdown"
+    elif cmd == "rightup":
+        agent_state.ensure_active_tab()
+        right_button_up();  result = "OK rightup"
+    elif cmd == "middledown":
+        agent_state.ensure_active_tab()
+        middle_button_down(); result = "OK middledown"
+    elif cmd == "middleup":
+        agent_state.ensure_active_tab()
+        middle_button_up();  result = "OK middleup"
+    elif cmd == "refresh":
+        agent_state.ensure_active_tab()
+        driver.refresh(); time.sleep(3); result = "OK refresh"
+    elif cmd == "shoot":
+        agent_state.ensure_active_tab()
+        left_click(); result = f"OK click({cursor_x},{cursor_y})"
+    elif cmd == "doubleshoot":
+        agent_state.ensure_active_tab()
+        double_click(); result = "OK doubleclick"
+    elif cmd == "rightshoot":
+        agent_state.ensure_active_tab()
+        right_click();  result = "OK rightclick"
+    elif cmd == "middleshoot":
+        agent_state.ensure_active_tab()
+        middle_click(); result = "OK middleclick"
+    elif cmd == "scroll":
+        result = _scroll_element_or_window(driver, int(arg), cursor_x, cursor_y)
+    elif cmd == "wait":
+        time.sleep(arg / 1000.0); result = f"OK wait({arg}ms)"
+    elif cmd == "key":
+        agent_state.ensure_active_tab()
+        press_key(arg); result = f"OK key({arg})"
+    elif cmd == "combo":
+        agent_state.ensure_active_tab()
+        press_combo(arg); result = f"OK combo({arg})"
+    elif cmd == "secret":
+        agent_state.ensure_active_tab()
+        ok = type_secret(arg)
+        result = f"OK secret({arg})" if ok else f"ERR secret({arg})"
+    elif cmd == "decode":
+        agent_state.ensure_active_tab()
+        plain = decode_string(arg, KEY_SECRET)
+        if plain is None: result = "ERR decode"
+        else:
+            try:
+                elem = driver.switch_to.active_element
+                elem.send_keys(plain)
+                result = "OK decode"
+            except Exception as e:
+                result = f"ERR decode: {e}"
+    elif cmd == "humantype":
+        agent_state.ensure_active_tab()
+        plain = decode_string(arg, KEY_SECRET)
+        if plain is None: result = "ERR humantype"
+        else:
+            try:
+                elem = driver.switch_to.active_element
+                for ch in plain:
+                    elem.send_keys(ch)
+                    time.sleep(random.uniform(0.03, 0.12))
+                result = "OK humantype"
+            except Exception as e:
+                result = f"ERR humantype: {e}"
+    elif cmd == "navigate":
+        agent_state.ensure_active_tab()
+        driver.execute_script("window.location.href = arguments[0];", arg)
+        time.sleep(1.5)
+        current_url = driver.current_url
+        result = f"OK navigate({current_url})"
+        add_autonomous_report("navigate", f"navigate({current_url})")
+        refresh_known_handles()
+    elif cmd == "drag":
+        agent_state.ensure_active_tab()
+        x1, y1, x2, y2 = arg
+        drag_from_to(x1, y1, x2, y2)
+        result = f"OK drag({x1},{y1})->({x2},{y2})"
+    elif cmd == "filedrop":
+        agent_state.ensure_active_tab()
+        paths = get_upload_paths()
+        if not paths:
+            result = "ERR filedrop: no file selected"
+        else:
+            file_path = paths[0]
+            if agent_state.drag_file_to_target(driver, file_path, cursor_x, cursor_y):
+                result = f"OK filedrop ({os.path.basename(file_path)})"
+            else:
+                result = "ERR filedrop: injection failed"
+    elif cmd == "downselected":
+        selected = [os.path.join(DOWNLOAD_DIR, f) for f in _upload_file_paths if os.path.isfile(os.path.join(DOWNLOAD_DIR, f))]
+        if not selected:
+            result = "ERR downselected: no selected files"
+        else:
+            count = 0
+            for fpath in selected:
+                fname = os.path.basename(fpath)
+                out_dir = os.path.join("downloaded_chunks", fname)
+                os.makedirs(out_dir, exist_ok=True)
+                subprocess.run(["python3", "chunker.py", "--file", fpath, "--output-dir", out_dir, "--chunk-size", "20"], check=True)
+                count += 1
+            subprocess.run(["git", "add", "downloaded_chunks/", LOG_FILENAME], check=True)
+            try: subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
+            except subprocess.CalledProcessError:
+                subprocess.run(["git", "commit", "-m", "Downloaded selected files chunked"], check=True)
+                git_push_with_retry()
+            result = f"OK downselected({count} files chunked)"
+        refresh_file_registry()
+    elif cmd == "deleteselected":
+        selected = [os.path.join(DOWNLOAD_DIR, f) for f in _upload_file_paths if os.path.isfile(os.path.join(DOWNLOAD_DIR, f))]
+        if not selected:
+            result = "ERR deleteselected: no selected files"
+        else:
+            count = 0
+            for fpath in selected:
+                os.remove(fpath)
+                count += 1
+            _upload_file_paths.clear()
+            refresh_file_registry()
+            result = f"OK deleteselected({count} files deleted)"
+    elif cmd == "download":
+        downloaded = glob.glob(os.path.join(DOWNLOAD_DIR, "*"))
+        if not downloaded: result = "ERR download: no files in download folder"
+        else:
+            count = 0
+            for fpath in downloaded:
+                if os.path.isfile(fpath):
+                    fname = os.path.basename(fpath)
+                    out_dir = os.path.join("downloaded_chunks", fname)
+                    os.makedirs(out_dir, exist_ok=True)
+                    subprocess.run(["python3", "chunker.py", "--file", fpath, "--output-dir", out_dir, "--chunk-size", "20"], check=True)
+                    count += 1
+            subprocess.run(["git", "add", "downloaded_chunks/", LOG_FILENAME], check=True)
+            try: subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
+            except subprocess.CalledProcessError:
+                subprocess.run(["git", "commit", "-m", "Downloaded files chunked"], check=True)
+                git_push_with_retry()
+            result = f"OK download({count} files chunked)"
+        refresh_file_registry()
+        _ensure_selection(_file_registry, _upload_file_paths)
+    elif cmd == "upload":
+        log_func = None
+        try: log_func = __import__("sys").modules["__main__"].log
+        except Exception: pass
+        result = perform_upload(
+            DOWNLOAD_DIR, LOG_FILENAME,
+            refresh_file_registry, add_autonomous_report,
+            _file_registry, _upload_file_paths,
+            git_push_with_retry, inject_file, log_func=log_func
+        )
+        _ensure_selection(_file_registry, _upload_file_paths)
+    elif cmd == "injectfile":
+        if not callable(inject_file): result = "ERR injectfile not available"
+        else:
+            if inject_file(): result = "OK injectfile (file injected)"
+            else: result = "ERR injectfile failed – no file selected or no dialog open"
+    elif cmd == "uploadtoyoutube":
+        refresh_file_registry()
+        _ensure_selection(_file_registry, _upload_file_paths)
+        paths = get_upload_paths()
+        if not paths: result = "ERR uploadtoyoutube: no file selected"
+        else:
+            log_func = None
+            try: log_func = __import__("sys").modules["__main__"].log
+            except Exception: pass
+            if upload_to_youtube(driver, paths[0], log_func): result = "OK uploadtoyoutube (injected)"
+            else: result = "ERR uploadtoyoutube: injection failed"
+    elif cmd == "paste":
+        if not HAS_PYPERCLIP_local: result = "ERR paste: pyperclip not installed"
+        else:
+            try:
+                clip_text = pyperclip.paste()
+                if not clip_text: result = "OK paste (empty clipboard)"
+                else:
+                    encoded = encrypt_string(clip_text, KEY_SECRET)
+                    paste_body = "## Paste Data\n" + encoded
+                    allc = get_all_comments(REPO, ISSUE_NUMBER)
+                    for c in allc:
+                        if c.get("body", "").startswith("## Paste Data"): delete_comment(REPO, c["id"])
+                    issue_comment(REPO, ISSUE_NUMBER, paste_body)
+                    result = f"OK paste ({len(clip_text)} chars)"
+            except Exception as e: result = f"ERR paste: {e}"
+    elif cmd == "tabs":
+        for _ in range(20):
+            if driver.window_handles: break
+            time.sleep(0.5)
+        handles = driver.window_handles
+        lines = []
+        for i, h in enumerate(handles):
+            try:
+                driver.switch_to.window(h)
+                title = (driver.title or "Untitled")[:60]
+            except: title = "(error)"
+            lines.append(f"{i+1}: {title}")
+        idx = agent_state.ACTIVE_TAB_INDEX - 1
+        if 0 <= idx < len(handles):
+            driver.switch_to.window(handles[idx])
+            try: driver.set_window_size(W, H)
+            except Exception: pass
+        else:
+            driver.switch_to.window(handles[0])
+        result = "Tabs: " + " | ".join(lines)
+        refresh_known_handles()
+    elif cmd == "dir":
+        refresh_file_registry()
+        _ensure_selection(_file_registry, _upload_file_paths)
+        if not _file_registry: result = "Files: (empty)"
+        else:
+            lines = [f"{fid}: {fname}" for fid, fname in sorted(_file_registry.items())]
+            result = "Files: " + " | ".join(lines)
+    elif cmd == "tabnumber":
+        try:
+            idx = int(arg) - 1
+            handles = driver.window_handles
+            if not handles: result = "ERR tabnumber: no window handles"
+            elif 0 <= idx < len(handles):
+                driver.switch_to.window(handles[idx])
+                try: driver.set_window_size(W, H)
+                except Exception: pass
+                agent_state.ACTIVE_TAB_INDEX = idx + 1
+                result = f"Switched to tab {idx+1}: {driver.title[:40]}"
+            else:
+                time.sleep(0.5); handles = driver.window_handles
+                if 0 <= idx < len(handles):
+                    driver.switch_to.window(handles[idx])
+                    try: driver.set_window_size(W, H)
+                    except Exception: pass
+                    agent_state.ACTIVE_TAB_INDEX = idx + 1
+                    result = f"Switched to tab {idx+1}: {driver.title[:40]}"
+                else: result = "ERR: invalid tab number"
+        except Exception as e: result = f"ERR tabnumber: {e}"
+    elif cmd == "closetab":
+        try:
+            idx = int(arg) - 1; handles = driver.window_handles
+            if 0 <= idx < len(handles) and len(handles) > 1:
+                driver.switch_to.window(handles[idx]); driver.close()
+                handles = driver.window_handles; driver.switch_to.window(handles[0])
+                agent_state.ACTIVE_TAB_INDEX = 1
+                result = f"Closed tab {idx+1}"
+            else: result = "ERR: cannot close last tab"
+        except: result = "ERR: invalid tab number"
+    elif cmd == "lastdownload": result = "Last download: (not implemented)"
+    elif cmd == "uploadnumber":
+        try:
+            ids = [int(x.strip()) for x in arg.split(",") if x.strip().isdigit()]
+            refresh_file_registry()
+            new_paths = [_file_registry[fid] for fid in ids if fid in _file_registry]
+            if new_paths:
+                _upload_file_paths.clear()
+                _upload_file_paths.extend(new_paths)
+                result = f"Upload file(s) set to: {list(_upload_file_paths)}"
+            else:
+                _ensure_selection(_file_registry, _upload_file_paths)
+                result = f"Upload file(s) unchanged (no valid IDs in {arg})"
+        except Exception: result = "ERR invalid upload numbers"
+    elif cmd == "savestate":
+        save_profile(); result = "OK savestate"
+    elif cmd == "save":
+        save_profile(); result = "OK save"
+    elif cmd == "setinterval":
+        import sys
+        main_mod = sys.modules.get("__main__")
+        if main_mod: main_mod.COMM_INTERVAL = float(arg); result = f"OK interval set to {main_mod.COMM_INTERVAL}s"
+        else: result = "ERR setinterval"
+    else: result = f"ERR unknown cmd:{cmd}"
+
+    refresh_known_handles()
+    return result
+
+command_mouse_keyboard.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# command_mouse_keyboard.py – Version 39.20.0 (always purge, log push, resilient loop)
+#   - Old screenshots purged immediately after every new screenshot push
+#   - Log file pushed when screenshots are pushed AND when it alone changes
+#   - Robust comment fetching with retries and detailed logging
+# ==============================================================================
+import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re
+from datetime import datetime, timezone
+from pyvirtualdisplay import Display
+from cryptography.fernet import Fernet, InvalidToken
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.common.actions.pointer_input import PointerInput
+from selenium.webdriver.chrome.options import Options
+from PIL import Image, ImageDraw
+
+from crypto_utils import encrypt_string, decode_string
+from comments import (
+    get_all_comments, find_marker_comment, issue_comment,
+    delete_comment, edit_comment, comment_exists, gh_api as gh
+)
+from uploader import reassemble as upload_reassemble
+from execution_queue import ExecutionQueue
+from command_handlers import execute_one_command
+
+from agent_state import (
+    log as default_log,
+    driver as state_driver, W as state_W, H as state_H,
+    cursor_x as state_cx, cursor_y as state_cy,
+    HAS_GEMINI, HAS_PYPERCLIP, pyperclip, allowed_secrets,
+    move_cursor_absolute, move_cursor_relative,
+    left_click, left_button_down, left_button_up,
+    right_button_down, right_button_up,
+    middle_button_down, middle_button_up,
+    double_click, right_click, middle_click,
+    scroll_by, drag_from_to,
+    press_key, press_combo, type_secret,
+    parse_single_command,
+    refresh_file_registry, get_upload_paths,
+    refresh_known_handles,
+    url_monitor_worker,
+    add_autonomous_report, cull_expired_autonomous_reports,
+    pending_autonomous_reports,
+    _file_registry, _upload_file_paths,
+    _known_handles, _last_known_url, _url_monitor_stop,
+    autonomous_counter,
+    KEY_MAP, human_click, human_click_at,
+    _perform_human_click_at, _try_gemini_click,
+    ensure_active_tab, ACTIVE_TAB_INDEX
+)
+
+# ---------- Logging ----------
+LOG_FILENAME = "logs/command_mouse_keyboard.log"
+os.makedirs("logs", exist_ok=True)
+
+_logfile = open(LOG_FILENAME, "a", encoding="utf-8")
+_log_lock = threading.Lock()
+_log_closed = False
+
+def safe_log_write(message: str) -> None:
+    global _log_closed
+    if _log_closed:
+        return
+    try:
+        with _log_lock:
+            _logfile.write(message + "\n")
+            _logfile.flush()
+    except Exception:
+        pass
+
+def echo(msg: str) -> None:
+    print(msg, flush=True)
+    safe_log_write(msg)
+
+def log(msg: str) -> None:
+    now = datetime.now().strftime("%H:%M:%S")
+    echo(f"[{now}] {msg}")
+
+echo(f"{'='*60}\n  Remote Control v39.20.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+os.makedirs("screenshots", exist_ok=True)
+
+COMM_INTERVAL = 5.0
+slow_mode = 1
+last_command_time = time.time()
+
+# ---------- SINGLE global lock for all git sequences ----------
+GIT_SEQUENCE_LOCK = threading.Lock()
+
+# Screenshot retry queue
+_screenshot_retry_queue = []
+_retry_queue_lock = threading.Lock()
+
+def git_cleanup():
+    lock_file = ".git/index.lock"
+    if os.path.exists(lock_file):
+        try: os.remove(lock_file)
+        except Exception: pass
+
+def git_run(cmd, **kwargs):
+    git_cleanup()
+    return subprocess.run(cmd, **kwargs)
+
+def git_push_with_retry() -> bool:
+    for attempt in range(3):
+        try:
+            git_run(["git","push"], check=True, capture_output=True, text=True)
+            return True
+        except subprocess.CalledProcessError as e:
+            log(f"Git push attempt {attempt+1} failed: {e.stderr.strip() if e.stderr else 'unknown'}")
+            if attempt < 2:
+                time.sleep(2 + random.random()*3)
+                try: git_run(["git","pull","--rebase"], check=True, capture_output=True)
+                except Exception: pass
+    return False
+
+# ---------- GitHub API helpers ----------
+def gh_api_safe(*args, max_retries=3, **kwargs):
+    for attempt in range(max_retries):
+        try:
+            return gh(*args, **kwargs)
+        except subprocess.CalledProcessError as e:
+            err_msg = e.stderr.strip() if e.stderr else "(no stderr)"
+            log(f"GitHub API error: {err_msg}")
+            if attempt < max_retries - 1:
+                delay = 2 ** attempt + random.uniform(0, 1)
+                log(f"Retrying in {delay:.1f}s...")
+                time.sleep(delay)
+            else:
+                return None
+    return None
+
+# ---------- Profile cache (chunked, manual save only) ----------
+PROFILE_DIR = "/tmp/chrome_profile"
+CACHE_DIR = ".profile_cache"
+CHUNK_SIZE = 45 * 1024 * 1024
+ENCRYPTION_KEY = None
+try:
+    KEY = os.environ["KEY"]
+    ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(KEY.encode()).digest())
+except Exception as e:
+    log(f"PROFILE KEY ERROR: {e}")
+    raise
+
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+def load_profile():
+    chunks = sorted(glob.glob(os.path.join(CACHE_DIR, "profile.enc.part*")))
+    if not chunks:
+        log("⚠️ No profile cache chunks found – starting with fresh browser profile.")
+        return False
+    log(f"Found {len(chunks)} cache chunk(s). Decrypting…")
+    try:
+        buf = io.BytesIO()
+        for path in chunks:
+            with open(path, "rb") as f:
+                buf.write(f.read())
+        decrypted = Fernet(ENCRYPTION_KEY).decrypt(buf.getvalue())
+        shutil.rmtree(PROFILE_DIR, ignore_errors=True)
+        tarfile.open(fileobj=io.BytesIO(decrypted), mode='r:gz').extractall('/tmp')
+        log("Profile cache loaded successfully.")
+        return True
+    except Exception as e:
+        log(f"ERROR loading profile cache: {type(e).__name__}: {e}")
+        return False
+
+def save_profile():
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    try:
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            tar.add(PROFILE_DIR, arcname="chrome_profile")
+        encrypted = Fernet(ENCRYPTION_KEY).encrypt(buf.getvalue())
+        for old in glob.glob(os.path.join(CACHE_DIR, "profile.enc.part*")):
+            os.remove(old)
+        chunk_paths = []
+        for i in range(0, len(encrypted), CHUNK_SIZE):
+            part_name = f"profile.enc.part{i//CHUNK_SIZE:04d}"
+            part_path = os.path.join(CACHE_DIR, part_name)
+            with open(part_path, "wb") as f:
+                f.write(encrypted[i:i+CHUNK_SIZE])
+            chunk_paths.append(part_path)
+        log(f"Profile cache prepared: {len(chunk_paths)} chunk(s) locally.")
+
+        upload_ok = True
+        for part_path in chunk_paths:
+            part_name = os.path.basename(part_path)
+            remote_path = f"{CACHE_DIR}/{part_name}"
+            local_size = os.path.getsize(part_path)
+            with open(part_path, "rb") as f:
+                content_b64 = base64.b64encode(f.read()).decode()
+            success = _upload_chunk_with_retry(remote_path, content_b64, local_size)
+            if not success:
+                log(f"❌ Failed to upload {part_name} after all retries.")
+                upload_ok = False
+            else:
+                log(f"✅ Chunk {part_name} uploaded and verified.")
+        if upload_ok:
+            log("🎉 Profile cache fully saved to repo.")
+        else:
+            log("⚠️ Some profile chunks were NOT uploaded. Try 'save' again.")
+    except Exception as e:
+        log(f"ERROR saving profile cache: {e}")
+
+def _upload_chunk_with_retry(remote_path, content_b64, local_size, max_retries=3):
+    for attempt in range(1, max_retries + 1):
+        sha, remote_size = _get_remote_file_sha_and_size(remote_path)
+        if remote_size == local_size:
+            return True
+        if sha is not None:
+            log(f"  {os.path.basename(remote_path)}: remote size mismatch ({remote_size} vs {local_size}) – deleting old file.")
+            _delete_remote_file(remote_path, sha)
+        log(f"  Uploading {os.path.basename(remote_path)} (attempt {attempt}/{max_retries})…")
+        if _create_remote_file(remote_path, content_b64):
+            _, new_remote_size = _get_remote_file_sha_and_size(remote_path)
+            if new_remote_size == local_size:
+                return True
+            else:
+                log(f"  Verification failed: local {local_size}, remote {new_remote_size}. Retrying…")
+        else:
+            log(f"  Upload attempt {attempt} failed.")
+        time.sleep(1)
+    return False
+
+def _get_remote_file_sha_and_size(remote_path):
+    try:
+        out = gh_api_safe(
+            f"repos/{REPO}/contents/{remote_path}",
+            "--jq", ".sha + '\n' + (.size | tostring)"
+        )
+        if out:
+            sha, size_str = out.strip().split('\n', 1)
+            return sha.strip(), int(size_str)
+    except Exception:
+        pass
+    return None, None
+
+def _delete_remote_file(remote_path, sha):
+    payload = json.dumps({"message": "purge old chunk", "sha": sha, "branch": "main"})
+    try:
+        gh("--method", "DELETE", f"repos/{REPO}/contents/{remote_path}", input_data=payload)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+def _create_remote_file(remote_path, content_b64):
+    payload = json.dumps({
+        "message": f"Upload profile chunk: {os.path.basename(remote_path)}",
+        "content": content_b64,
+        "branch": "main"
+    })
+    try:
+        gh("--method", "PUT", f"repos/{REPO}/contents/{remote_path}", input_data=payload)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+# ---------- Browser setup ----------
+DOWNLOAD_DIR = "/home/runner/downloads"
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+try:
+    display = Display(visible=False, size=(1920,1080))
+    display.start()
+    log("Virtual display started.")
+    opts = Options()
+    opts.add_argument("--no-sandbox"); opts.add_argument("--disable-gpu")
+    opts.add_argument("--disable-blink-features=AutomationControlled")
+    opts.add_argument("--window-size=1920,1080")
+    opts.add_argument(f"--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/148.0.0.0 Safari/537.36")
+    opts.add_argument(f"--user-data-dir={PROFILE_DIR}")
+    opts.add_argument("--profile-directory=Default")
+    prefs = {
+        "download.default_directory": DOWNLOAD_DIR,
+        "download.prompt_for_download": False,
+        "download.directory_upgrade": True,
+        "safebrowsing.enabled": True,
+        "profile.default_content_setting_values.automatic_downloads": 1,
+    }
+    opts.add_experimental_option("prefs", prefs)
+    opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+    opts.add_experimental_option('useAutomationExtension', False)
+
+    driver = webdriver.Chrome(options=opts)
+    driver.set_page_load_timeout(30)
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]})")
+    driver.execute_script("Object.defineProperty(navigator, 'languages', {get: () => ['en-US','en']})")
+    driver.execute_script("window.chrome = { runtime: {} };")
+    driver.execute_script("Object.defineProperty(navigator, 'permissions', {get: () => ({ query: () => Promise.resolve({ state: 'granted' }) })})")
+    driver.execute_script("Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4})")
+    log("Stealth JS injected.")
+
+    try:
+        from upload_injector import _init_cdp
+        if _init_cdp(driver, log):
+            log("CDP interception active.")
+    except Exception as e_cdp:
+        log(f"CDP not available ({e_cdp}) – using send_keys fallback.")
+
+    log("Browser launched.")
+except Exception as e:
+    log(f"BROWSER ERROR: {e}\n{traceback.format_exc()}")
+    raise
+
+# Sync globals to agent_state
+agent_state = sys.modules.get("agent_state")
+if agent_state:
+    agent_state.driver = driver
+    agent_state.W = 1920; agent_state.H = 1080
+    agent_state.cursor_x = 960; agent_state.cursor_y = 540
+    agent_state.DOWNLOAD_DIR = DOWNLOAD_DIR
+    agent_state.allowed_secrets = allowed_secrets
+    agent_state.HAS_GEMINI = HAS_GEMINI
+    agent_state.HAS_PYPERCLIP = HAS_PYPERCLIP
+    agent_state.pyperclip = pyperclip
+    agent_state.log = log
+
+# ---------- Download watcher ----------
+_download_watcher_stop = threading.Event()
+_known_downloads = {}
+
+def download_watcher():
+    global _known_downloads
+    while not _download_watcher_stop.is_set():
+        try:
+            time.sleep(2)
+            current_files = set(os.listdir(DOWNLOAD_DIR))
+            for fname in current_files:
+                fpath = os.path.join(DOWNLOAD_DIR, fname)
+                if fname.endswith(".crdownload"):
+                    if fname not in _known_downloads:
+                        _known_downloads[fname] = 0
+                        add_autonomous_report("downloadstarted", f"Download started: {fname}")
+                else:
+                    if fname not in _known_downloads:
+                        add_autonomous_report("downloadstarted", f"Download started: {fname}")
+                        add_autonomous_report("downloadcompleted", f"Download completed: {fname}")
+                        _known_downloads[fname] = os.path.getsize(fpath) if os.path.isfile(fpath) else 0
+                        refresh_file_registry()
+                    else:
+                        crdownload_name = fname + ".crdownload"
+                        if crdownload_name in _known_downloads:
+                            del _known_downloads[crdownload_name]
+                            add_autonomous_report("downloadcompleted", f"Download completed: {fname}")
+                            _known_downloads[fname] = os.path.getsize(fpath) if os.path.isfile(fpath) else 0
+                            refresh_file_registry()
+            for fname in list(_known_downloads.keys()):
+                if fname not in current_files:
+                    if fname.endswith(".crdownload"):
+                        add_autonomous_report("downloadfailed", f"Download failed: {fname}")
+                    del _known_downloads[fname]
+        except Exception as e:
+            log(f"Download watcher error: {e}")
+
+threading.Thread(target=download_watcher, daemon=True).start()
+
+# ---------- Screenshot (with log push & immediate purge) ----------
+counter = [0]
+
+def ss(desc="screenshot", push=True, response_suffix=""):
+    counter[0] += 1
+    now = datetime.now().strftime("%H%M%S")
+    fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
+    log(f"Taking screenshot: {fname}")
+
+    ensure_active_tab()
+    driver.save_screenshot(fname)
+    try:
+        img = Image.open(fname); draw = ImageDraw.Draw(img)
+        x, y = agent_state.cursor_x if agent_state else 960, agent_state.cursor_y if agent_state else 540
+        r = 12
+        draw.ellipse([(x-r,y-r),(x+r,y+r)], outline='red', width=3)
+        draw.line([(x-15,y),(x+15,y)], fill='red', width=3)
+        draw.line([(x,y-15),(x,y+15)], fill='red', width=3)
+        img.save(fname)
+    except Exception: pass
+    if not push: return fname
+
+    with _retry_queue_lock:
+        _screenshot_retry_queue.append(fname)
+
+    with GIT_SEQUENCE_LOCK:
+        try:
+            git_run(["git","stash","--include-untracked"], capture_output=True)
+            try: git_run(["git","pull","--rebase"], check=True, capture_output=True)
+            except Exception: pass
+            git_run(["git","stash","pop"], capture_output=True)
+
+            files_to_push = []
+            with _retry_queue_lock:
+                files_to_push = list(_screenshot_retry_queue)
+                _screenshot_retry_queue.clear()
+
+            pushed_any = False
+            for f in files_to_push:
+                if os.path.exists(f):
+                    git_run(["git","add",f], check=True, capture_output=True)
+                    pushed_any = True
+
+            # Always add log file
+            if os.path.exists(LOG_FILENAME):
+                git_run(["git","add",LOG_FILENAME], check=True, capture_output=True)
+
+            # Check if there's anything to commit (either screenshots or log changes)
+            diff_check = subprocess.run(["git","diff","--cached","--quiet"], capture_output=True)
+            if diff_check.returncode != 0:
+                git_run(["git","commit","-m","Screenshots & log"], check=True, capture_output=True)
+                if git_push_with_retry():
+                    log(f"Pushed {len(files_to_push)} screenshot(s) + log")
+                    # Immediately purge all old screenshots (only keep latest of each? keep only the newest)
+                    # Actually purge all except the ones we just pushed? We'll just purge all older .png files.
+                    purge_old_screenshots(fname)
+                else:
+                    log("ERROR: Failed to push screenshots – will retry")
+                    with _retry_queue_lock:
+                        for f in files_to_push:
+                            if os.path.exists(f) and f not in _screenshot_retry_queue:
+                                _screenshot_retry_queue.append(f)
+            else:
+                # No changes? That can happen if the same screenshot was already pushed.
+                pass
+        except Exception as e:
+            log(f"Screenshot git error: {e}")
+            with _retry_queue_lock:
+                for f in files_to_push:
+                    if os.path.exists(f) and f not in _screenshot_retry_queue:
+                        _screenshot_retry_queue.append(f)
+    return fname
+
+def purge_old_screenshots(keep_path):
+    """Delete all .png files in screenshots/ except the newest one (keep_path)."""
+    try:
+        raw = gh_api_safe(f"repos/{REPO}/contents/screenshots", "--jq", ".[].path")
+        if not raw: return
+        for path in raw.strip().splitlines():
+            path = path.strip().strip('"')
+            if not path.endswith(".png"): continue
+            if path == keep_path: continue
+            sha_raw = gh_api_safe(f"repos/{REPO}/contents/{path}", "--jq", ".sha")
+            if not sha_raw: continue
+            sha = sha_raw.strip().strip('"')
+            gh_api_safe("--method","DELETE",f"repos/{REPO}/contents/{path}",
+                         "-f","message=purge old screenshot","-f",f"sha={sha}","-f","branch=main")
+            log(f"Purged old screenshot: {path}")
+    except Exception as e:
+        log(f"Error purging old screenshots: {e}")
+
+_screenshot_stop = threading.Event()
+_screenshot_thread = None
+_screenshot_worker_running = False
+
+def screenshot_worker():
+    global _screenshot_worker_running
+    _screenshot_worker_running = True
+    while not _screenshot_stop.is_set():
+        try:
+            time.sleep(2)
+            while not _screenshot_stop.is_set():
+                start = time.time()
+                try:
+                    ss("auto", push=True)
+                except Exception as e:
+                    log(f"Screenshot worker error: {e}")
+                    time.sleep(5)
+                    continue
+                elapsed = time.time() - start
+                _screenshot_stop.wait(max(0, COMM_INTERVAL * slow_mode - elapsed))
+        except Exception as outer_e:
+            log(f"Screenshot worker crashed: {outer_e}. Restarting in 5s...")
+            _screenshot_stop.wait(5)
+    _screenshot_worker_running = False
+
+def start_screenshot_worker():
+    global _screenshot_thread
+    if _screenshot_thread and _screenshot_thread.is_alive(): return
+    _screenshot_stop.clear()
+    _screenshot_thread = threading.Thread(target=screenshot_worker, daemon=True)
+    _screenshot_thread.start()
+    log("Screenshot worker started.")
+
+def monitor_screenshot_worker():
+    while not _screenshot_stop.is_set():
+        time.sleep(10)
+        if not _screenshot_thread or not _screenshot_thread.is_alive():
+            log("Screenshot worker is dead! Restarting...")
+            start_screenshot_worker()
+
+start_screenshot_worker()
+threading.Thread(target=monitor_screenshot_worker, daemon=True).start()
+
+# ---------- GitHub basics ----------
+ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER","4").strip()
+START_URL = os.environ.get("START_URL") or "https://studio.youtube.com"
+REPO = os.environ['GITHUB_REPOSITORY']
+
+def push_logs():
+    with GIT_SEQUENCE_LOCK:
+        try:
+            git_run(["git","add",LOG_FILENAME], check=True, capture_output=True)
+            try: git_run(["git","diff","--cached","--quiet"], check=True, capture_output=True)
+            except subprocess.CalledProcessError:
+                git_run(["git","commit","-m","Log update"], check=True, capture_output=True)
+                git_push_with_retry()
+        except Exception as e: echo(f"Could not push logs: {e}")
+
+KEY_SECRET = os.environ["KEY"]
+
+def smart_edit_comment(comment_id, new_body):
+    for attempt in range(2):
+        try:
+            edit_comment(REPO, comment_id, new_body)
+            return True
+        except subprocess.CalledProcessError:
+            if attempt == 0:
+                log("Edit rate‑limited, retrying in 2s...")
+                time.sleep(2)
+            else:
+                log("Edit failed after retry.")
+    return False
+
+# ---------- Main loop ----------
+def main():
+    global slow_mode, last_command_time
+
+    try:
+        log("Loading start URL...")
+        driver.get(START_URL)
+        log("Start URL loaded – sleeping 5s")
+        time.sleep(5)
+        log("Scrolling to top")
+        driver.execute_script("window.scrollTo(0,0);")
+        log("Taking first screenshot")
+        ss("01_start_page", push=True)
+        log("First screenshot saved")
+        refresh_known_handles()
+        agent_state._last_known_url = driver.current_url
+        threading.Thread(target=url_monitor_worker, daemon=True).start()
+        log("URL monitor started")
+    except Exception as e:
+        log(f"FATAL STARTUP: {e}\n{traceback.format_exc()}")
+        push_logs()
+        raise
+
+    RESPONSE_MARKER = "## Remote Agent Responses"
+    APP_COMMAND_MARKER = "## App Commands"
+
+    # Fetch comments with retry and logging
+    log("Fetching comments to locate markers...")
+    all_comments = None
+    for attempt in range(5):
+        all_comments = gh_api_safe(f"repos/{REPO}/issues/{ISSUE_NUMBER}/comments",
+                                    "--jq", ".[] | {id: .id, body: .body, user_type: .user.type}", "--paginate")
+        if all_comments is not None:
+            break
+        log(f"Comment fetch attempt {attempt+1} failed, retrying...")
+        time.sleep(2)
+    if all_comments is None:
+        log("CRITICAL: Could not fetch issue comments. Exiting.")
+        return
+
+    all_comments_raw = all_comments
+    parsed = []
+    try:
+        decoder = json.JSONDecoder()
+        idx = 0
+        while idx < len(all_comments_raw):
+            while idx < len(all_comments_raw) and all_comments_raw[idx].isspace(): idx += 1
+            if idx >= len(all_comments_raw): break
+            obj, end = decoder.raw_decode(all_comments_raw, idx)
+            parsed.append({"id": str(obj.get("id","")), "body": obj.get("body",""), "user_type": obj.get("user_type","")})
+            idx = end
+    except Exception as e:
+        log(f"Error parsing comments JSON: {e}")
+
+    resp_comment = find_marker_comment(parsed, RESPONSE_MARKER)
+    if resp_comment: response_comment_id = resp_comment["id"]
+    else:
+        log("No response comment found, creating one...")
+        new_id = gh_api_safe(f"repos/{REPO}/issues/{ISSUE_NUMBER}/comments",
+                              "--method", "POST", "-f", f"body={RESPONSE_MARKER}\n", "--jq", ".id")
+        response_comment_id = new_id.strip() if new_id else None
+
+    app_cmd = find_marker_comment(parsed, APP_COMMAND_MARKER)
+    app_cmd_id = app_cmd["id"] if app_cmd else None
+    log(f"App command comment: {app_cmd_id}")
+
+    if app_cmd_id:
+        try: edit_comment(REPO, app_cmd_id, "## App Commands\n")
+        except Exception as e: log(f"Could not blank: {e}")
+
+    executed_cache = {}
+    unsent_reports = []
+    exec_queue = ExecutionQueue()
+
+    def publish_reports(comment_id):
+        nonlocal response_comment_id
+        cull_expired_autonomous_reports()
+        lines = ["## Remote Agent Responses"]
+        for ts, seq, result in unsent_reports:
+            lines.append(f"[{ts}]: response to command number [{seq}]: {result}")
+        for r in pending_autonomous_reports:
+            lines.append(f"{r['id']}; {r['text']}")
+        body = "\n".join(lines)
+        pending_autonomous_reports.clear()
+        if not comment_exists(REPO, comment_id):
+            for _ in range(3):
+                try:
+                    new_id = issue_comment(REPO, ISSUE_NUMBER, body)
+                    log(f"Created new response comment: {new_id}")
+                    unsent_reports.clear()
+                    push_logs()
+                    return new_id
+                except Exception: time.sleep(2)
+            return comment_id
+        if smart_edit_comment(comment_id, body):
+            unsent_reports.clear()
+            push_logs()
+            return comment_id
+        return comment_id
+
+    log("Entering main command loop...")
+    while True:
+        if time.time() - last_command_time > 120: slow_mode = 15
+        else: slow_mode = 1
+
+        try:
+            if app_cmd_id:
+                test = gh_api_safe(f"repos/{REPO}/issues/comments/{app_cmd_id}", "--jq", ".id")
+                if test is None:
+                    log(f"App command comment {app_cmd_id} vanished – resetting.")
+                    app_cmd_id = None
+
+            if not app_cmd_id:
+                time.sleep(COMM_INTERVAL * slow_mode)
+                allc = gh_api_safe(f"repos/{REPO}/issues/{ISSUE_NUMBER}/comments",
+                                    "--jq", ".[] | {id: .id, body: .body, user_type: .user.type}", "--paginate")
+                if allc is None:
+                    time.sleep(COMM_INTERVAL * slow_mode)
+                    continue
+                parsed_all = []
+                try:
+                    decoder = json.JSONDecoder()
+                    idx = 0
+                    while idx < len(allc):
+                        while idx < len(allc) and allc[idx].isspace(): idx += 1
+                        if idx >= len(allc): break
+                        obj, end = decoder.raw_decode(allc, idx)
+                        parsed_all.append({"id": str(obj.get("id","")), "body": obj.get("body",""), "user_type": obj.get("user_type","")})
+                        idx = end
+                except Exception: pass
+                app_c = find_marker_comment(parsed_all, APP_COMMAND_MARKER)
+                if app_c:
+                    app_cmd_id = app_c["id"]
+                    log(f"Re‑found app cmd: {app_cmd_id}")
+                continue
+
+            app_body = gh_api_safe(f"repos/{REPO}/issues/comments/{app_cmd_id}", "--jq", ".body")
+            if app_body is None: time.sleep(COMM_INTERVAL * slow_mode); continue
+            if not app_body: time.sleep(COMM_INTERVAL * slow_mode); continue
+            lines = app_body.strip().splitlines()
+            if not lines: time.sleep(COMM_INTERVAL * slow_mode); continue
+
+            capture = False
+            new_cmds = []
+            for line in lines:
+                m = re.match(r'^\[(\d+)\]: app commands:', line)
+                if m: capture = True; continue
+                if capture:
+                    if re.match(r'^\[', line): break
+                    parts = line.split(';', 1)
+                    if len(parts) == 2:
+                        cid = parts[0].strip(); ctext = parts[1].strip()
+                        if ctext: new_cmds.append((cid, ctext))
+
+            for cid, ctext in new_cmds:
+                if cid in executed_cache:
+                    ts, _, cached_result = executed_cache[cid]
+                    unsent_reports.append((ts, 0, cached_result))
+                else:
+                    cmd_type, arg = parse_single_command(ctext)
+                    result = execute_one_command(
+                        cmd_type, arg,
+                        driver=driver, cursor_x=agent_state.cursor_x, cursor_y=agent_state.cursor_y,
+                        W=agent_state.W, H=agent_state.H, DOWNLOAD_DIR=DOWNLOAD_DIR, LOG_FILENAME=LOG_FILENAME,
+                        KEY_SECRET=KEY_SECRET, REPO=REPO, ISSUE_NUMBER=ISSUE_NUMBER,
+                        HAS_GEMINI=HAS_GEMINI, HAS_PYPERCLIP=HAS_PYPERCLIP,
+                        allowed_secrets=allowed_secrets, ENCRYPTION_KEY=ENCRYPTION_KEY,
+                        human_click_callable=human_click, human_click_at_callable=human_click_at,
+                        _try_gemini_click=_try_gemini_click,
+                        move_cursor_absolute=move_cursor_absolute,
+                        move_cursor_relative=move_cursor_relative,
+                        left_click=left_click, left_button_down=left_button_down,
+                        left_button_up=left_button_up, right_button_down=right_button_down,
+                        right_button_up=right_button_up, middle_button_down=middle_button_down,
+                        middle_button_up=middle_button_up, double_click=double_click,
+                        right_click=right_click, middle_click=middle_click,
+                        scroll_by=scroll_by, drag_from_to=drag_from_to,
+                        press_key=press_key, press_combo=press_combo,
+                        type_secret=type_secret, decode_string=decode_string,
+                        ss=ss, refresh_file_registry=refresh_file_registry,
+                        add_autonomous_report=add_autonomous_report,
+                        refresh_known_handles=refresh_known_handles,
+                        get_upload_paths=get_upload_paths, save_profile=save_profile,
+                        _file_registry=_file_registry, _upload_file_paths=_upload_file_paths,
+                        pyperclip=pyperclip if HAS_PYPERCLIP else None,
+                        upload_reassemble=upload_reassemble,
+                        HAS_PYPERCLIP_local=HAS_PYPERCLIP,
+                        encrypt_string=encrypt_string, gh=gh,
+                        get_all_comments=get_all_comments,
+                        delete_comment=delete_comment, issue_comment=issue_comment,
+                        smart_edit_comment=smart_edit_comment, git_push_with_retry=git_push_with_retry,
+                        comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
+                    )
+                    ts = int(time.time())
+                    executed_cache[cid] = (ts, 0, result)
+                    unsent_reports.append((ts, 0, result))
+                    last_command_time = time.time()
+                    log(f"Executed: {cid} → {result}")
+                    if cmd_type == "exit":
+                        response_comment_id = publish_reports(response_comment_id)
+                        log("Exit command received – saving profile cache...")
+                        save_profile()
+                        time.sleep(1)
+                        response_comment_id = publish_reports(response_comment_id)
+                        ss("final", push=True)
+                        _screenshot_stop.set()
+                        _url_monitor_stop.set()
+                        _download_watcher_stop.set()
+                        driver.quit(); display.stop()
+                        push_logs()
+                        echo("\n🎉 Remote session ended.")
+                        sys.exit(0)
+
+            response_comment_id = publish_reports(response_comment_id)
+        except Exception as e:
+            log(f"Polling error: {traceback.format_exc()}")
+            push_logs()
+            time.sleep(COMM_INTERVAL * slow_mode)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except SystemExit:
+        pass
+    except Exception as ex:
+        log(f"FATAL: {ex}\n{traceback.format_exc()}")
+        push_logs()
+    finally:
+        _screenshot_stop.set()
+        _url_monitor_stop.set()
+        _download_watcher_stop.set()
+        save_profile()
+        push_logs()
+        _log_closed = True
+        try: _logfile.close()
+        except Exception: pass
+comments.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# comments.py – Version 1.2.0
+#   - Always prefers the PAT secret for API calls
+#   - If PAT is set, it temporarily replaces GITHUB_TOKEN for gh api
+# ==============================================================================
+import json
+import os
+import subprocess
+from typing import Any, Dict, List, Optional
+
+
+def gh_api(*args: str, input_data: Optional[str] = None, **kwargs: Any) -> str:
+    """
+    Run `gh api` with the given arguments.
+    If the environment variable `PAT` is set, it is used as the token
+    for this call (by overriding GITHUB_TOKEN).  Otherwise the default
+    Actions token is used.
+    """
+    env = os.environ.copy()
+    pat = env.get("PAT")
+    if pat:
+        # Override GITHUB_TOKEN so `gh` picks up the PAT
+        env["GITHUB_TOKEN"] = pat
+
+    cmd = ["gh", "api"] + list(args)
+    res = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=True,
+        input=input_data,
+        env=env,
+        **kwargs,
+    )
+    return res.stdout.strip()
+
+
+def issue_comment(repo: str, issue_number: int, markdown_body: str) -> str:
+    """Post a new comment and return its ID."""
+    return gh_api(
+        f"repos/{repo}/issues/{issue_number}/comments",
+        "--method", "POST",
+        "-f", f"body={markdown_body}",
+        "--jq", ".id",
+    )
+
+
+def get_all_comments(repo: str, issue_number: int) -> List[Dict[str, str]]:
+    """
+    Fetch every comment of the given issue (paginated) and return a list of dicts
+    with keys 'id', 'body', 'user_type'.
+    """
+    raw = gh_api(
+        f"repos/{repo}/issues/{issue_number}/comments",
+        "--jq", ".[] | {id: .id, body: .body, user_type: .user.type}",
+        "--paginate",
+    )
+    if not raw.strip():
+        return []
+
+    comments: List[Dict[str, str]] = []
+    decoder = json.JSONDecoder()
+    idx = 0
+    raw_len = len(raw)
+    while idx < raw_len:
+        while idx < raw_len and raw[idx].isspace():
+            idx += 1
+        if idx >= raw_len:
+            break
+        try:
+            obj, end = decoder.raw_decode(raw, idx)
+            comments.append(
+                {
+                    "id": str(obj.get("id", "")),
+                    "body": obj.get("body", ""),
+                    "user_type": obj.get("user_type", ""),
+                }
+            )
+            idx = end
+        except json.JSONDecodeError:
+            idx += 1
+    return comments
+
+
+def find_marker_comment(comments: List[Dict[str, str]], marker: str) -> Optional[Dict[str, str]]:
+    """Return the first comment whose body starts with `marker`, or None."""
+    for c in comments:
+        if c.get("body", "").startswith(marker):
+            return c
+    return None
+
+
+def delete_comment(repo: str, comment_id: str) -> bool:
+    """Delete a single comment. Returns True on success, False otherwise."""
+    try:
+        gh_api(f"repos/{repo}/issues/comments/{comment_id}", "--method", "DELETE")
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def edit_comment(repo: str, comment_id: str, new_body: str) -> None:
+    """Update the body of an existing comment (uses JSON input)."""
+    gh_api(
+        f"repos/{repo}/issues/comments/{comment_id}",
+        "--method", "PATCH",
+        "--input", "-",
+        input_data=json.dumps({"body": new_body}),
+    )
+
+
+def comment_exists(repo: str, comment_id: str) -> bool:
+    """Return True if the comment exists (HTTP 200)."""
+    try:
+        gh_api(f"repos/{repo}/issues/comments/{comment_id}", "--jq", ".id")
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+crypto_utils.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# crypto_utils.py – Version 1.0.0
+# ==============================================================================
+# General‑purpose encryption/decryption helpers.
+#
+# Uses the same XOR‑with‑SHA256‑keystream algorithm employed by the remote
+# control system.  Every function accepts an optional `encryption_key` argument;
+# if omitted, the key is taken from the environment variable `KEY`.
+#
+# Functions:
+#   encrypt_string(plain_text, encryption_key=None) -> str
+#   decode_string(encoded_str, encryption_key=None) -> str or None
+#
+# These functions are completely independent of the rest of the project and
+# can be reused in any workflow that needs symmetric, key‑based text encoding.
+# ==============================================================================
+
+import base64
+import hashlib
+import os
+from typing import Optional
+
+
+def _xor_with_keystream(key_bytes: bytes, data_bytes: bytes) -> bytes:
+    """XOR every byte of data_bytes with a hash‑derived keystream."""
+    result = bytearray()
+    for i, b in enumerate(data_bytes):
+        h = hashlib.sha256(key_bytes + str(i).encode()).digest()
+        result.append(b ^ h[0])
+    return bytes(result)
+
+
+def encrypt_string(plain_text: str, encryption_key: Optional[str] = None) -> str:
+    """
+    Encrypt a plain‑text string and return a Base64‑encoded representation.
+    If no `encryption_key` is supplied, the environment variable `KEY` is used.
+    """
+    if encryption_key is None:
+        encryption_key = os.environ.get("KEY", "")
+    key_bytes = encryption_key.encode("utf-8")
+    plain_bytes = plain_text.encode("utf-8")
+    cipher = _xor_with_keystream(key_bytes, plain_bytes)
+    return base64.b64encode(cipher).decode()
+
+
+def decode_string(encoded_str: str, encryption_key: Optional[str] = None) -> Optional[str]:
+    """
+    Decode a Base64‑encoded ciphertext back to the original plain text.
+    Returns `None` if decoding fails.
+
+    If no `encryption_key` is supplied, the environment variable `KEY` is used.
+    """
+    try:
+        raw = base64.b64decode(encoded_str)
+    except Exception:
+        return None
+
+    if encryption_key is None:
+        encryption_key = os.environ.get("KEY", "")
+    key_bytes = encryption_key.encode("utf-8")
+    try:
+        decoded = _xor_with_keystream(key_bytes, raw)
+        return decoded.decode("utf-8")
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Self‑test (run only when executed directly)
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    test = "Hello, world!"
+    enc = encrypt_string(test, "secret")
+    dec = decode_string(enc, "secret")
+    assert dec == test, "Round‑trip failed"
+    print("crypto_utils self‑test passed.")
+
+execution_queue.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# execution_queue.py – Version 1.1.2 (only one exit at a time)
+# ==============================================================================
+import threading
+from typing import Optional, List, Dict
+
+class ExecutionQueue:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._queue: List[Dict] = []
+
+    def add_command(self, cmd_id: str, cmd_text: str) -> None:
+        with self._lock:
+            if cmd_text.strip().lower() == "screenshot":
+                self._queue = [item for item in self._queue if item["text"].strip().lower() != "screenshot"]
+            if cmd_text.strip().lower() == "exit":
+                # Keep only the newest exit – remove any older ones
+                self._queue = [item for item in self._queue if item["text"].strip().lower() != "exit"]
+            self._queue.append({"id": cmd_id, "text": cmd_text})
+
+    def pop_next(self) -> Optional[Dict]:
+        with self._lock:
+            return self._queue.pop(0) if self._queue else None
+
+    def clear(self):
+        with self._lock:
+            self._queue.clear()
+
+    def pending_count(self) -> int:
+        with self._lock:
+            return len(self._queue)
+
+queue_manager.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# queue_manager.py – Version 1.0.0
+# ==============================================================================
+# Generic queue manager for the reliable command‑report protocol.
+#
+# Used by both the agent (to manage reports) and the WPF app (to manage
+# commands).  Each queue item has:
+#   - id: unique string, e.g. "AGT-17-1735000130"
+#   - body: the payload (command text or report text)
+#   - created_at: datetime for timeout calculation
+#
+# The queue is stored as a list of dicts.  Helper functions:
+#   - parse_comment(body) -> list of (id, text)
+#   - build_comment(header, items) -> full comment body
+#   - remove_ids(queue, ids) -> new list
+#   - cull_expired(queue, max_age_seconds) -> new list
+#   - cull_excess(queue, max_items) -> new list
+#   - is_duplicate(seen_set, item_id) -> bool
+# ==============================================================================
+
+import time
+from datetime import datetime, timezone
+from typing import List, Tuple, Dict, Set
+
+# ── Parsing ────────────────────────────────────────────────────────────────
+def parse_comment(body: str) -> List[Tuple[str, str]]:
+    """
+    Parse a comment body into a list of (id, text) pairs.
+    Expected format:
+        ## Header line (ignored)
+        id; payload
+    """
+    items = []
+    for line in body.splitlines():
+        line = line.strip()
+        if line.startswith("#") or not line:
+            continue
+        # Split on the first semicolon
+        if ";" in line:
+            item_id, payload = line.split(";", 1)
+            items.append((item_id.strip(), payload.strip()))
+    return items
+
+# ── Building ────────────────────────────────────────────────────────────────
+def build_comment(header: str, items: List[Tuple[str, str]]) -> str:
+    """
+    Build a comment body from a header and a list of (id, text) items.
+    """
+    lines = [header]
+    for item_id, text in items:
+        lines.append(f"{item_id}; {text}")
+    return "\n".join(lines)
+
+# ── Removal ─────────────────────────────────────────────────────────────────
+def remove_ids(items: List[Tuple[str, str]], ids_to_remove: Set[str]) -> List[Tuple[str, str]]:
+    """Return a new list without items whose id is in ids_to_remove."""
+    return [(iid, text) for (iid, text) in items if iid not in ids_to_remove]
+
+# ── Timeout culling ─────────────────────────────────────────────────────────
+def cull_expired(queue: List[Dict], max_age_seconds: int) -> List[Dict]:
+    """Remove items older than max_age_seconds (based on 'created_at' UTC)."""
+    now = datetime.now(timezone.utc)
+    return [
+        item for item in queue
+        if (now - item["created_at"]).total_seconds() < max_age_seconds
+    ]
+
+# ── Size culling ────────────────────────────────────────────────────────────
+def cull_excess(items: List[Tuple[str, str]], max_items: int) -> List[Tuple[str, str]]:
+    """If the list has more than max_items, drop oldest (front)."""
+    if len(items) > max_items:
+        return items[-max_items:]
+    return items
+
+# ── Deduplication helper ────────────────────────────────────────────────────
+def is_duplicate(seen_set: Set[str], item_id: str) -> bool:
+    """Check if item_id was already processed."""
+    return item_id in seen_set
+
+# ── Generate unique IDs ─────────────────────────────────────────────────────
+def generate_id(prefix: str, seq: int) -> str:
+    """Create a unique ID: prefix-seq-unix_timestamp."""
+    ts = int(time.time())
+    return f"{prefix}-{seq}-{ts}"
+
+uploader.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# uploader.py – Version 1.1.0 (flat chunk support)
+# ==============================================================================
+import os, sys, re
+
+def reassemble(chunks_root: str, target_dir: str) -> int:
+    """Scan chunks_root for sub‑directories, each with .part* files."""
+    if not os.path.isdir(chunks_root): return 0
+    os.makedirs(target_dir, exist_ok=True)
+    reassembled = 0
+    for item in sorted(os.listdir(chunks_root)):
+        folder = os.path.join(chunks_root, item)
+        if not os.path.isdir(folder): continue
+        parts = sorted(f for f in os.listdir(folder) if ".part" in f)
+        if not parts: continue
+        out_path = os.path.join(target_dir, item)
+        with open(out_path, "wb") as out:
+            for part_name in parts:
+                part_path = os.path.join(folder, part_name)
+                with open(part_path, "rb") as pf:
+                    out.write(pf.read())
+        reassembled += 1
+    return reassembled
+
+
+def reassemble_flat(chunks_dir: str, target_dir: str) -> int:
+    """Flat .part files – group by base name (everything before .partNNNN)."""
+    if not os.path.isdir(chunks_dir): return 0
+    os.makedirs(target_dir, exist_ok=True)
+    groups = {}
+    for f in sorted(os.listdir(chunks_dir)):
+        if ".part" not in f: continue
+        base = re.sub(r'\.part\d+$', '', f)
+        groups.setdefault(base, []).append(f)
+    reassembled = 0
+    for base, parts in groups.items():
+        parts.sort()
+        out_path = os.path.join(target_dir, base)
+        with open(out_path, "wb") as out:
+            for part_name in parts:
+                part_path = os.path.join(chunks_dir, part_name)
+                with open(part_path, "rb") as pf:
+                    out.write(pf.read())
+        reassembled += 1
+    return reassembled
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Reassemble chunked files.")
+    parser.add_argument("--chunks-dir", default="downloaded_chunks")
+    parser.add_argument("--output-dir", default="/home/runner/downloads")
+    parser.add_argument("--flat", action="store_true")
+    args = parser.parse_args()
+    count = reassemble_flat(args.chunks_dir, args.output_dir) if args.flat else reassemble(args.chunks_dir, args.output_dir)
+    print(f"Done – reassembled {count} file(s).")
+
+upload_handler.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# upload_handler.py – Version 2.0.7 (no file renaming, keep original names)
+# ==============================================================================
+import os, re, shutil, tempfile, time, json, threading, subprocess
+from urllib.request import urlopen, Request
+from uploader import reassemble_flat
+
+
+def _cdp_send(driver, method, params=None, timeout=5):
+    """Send a raw CDP command via the debugger URL (no Selenium DevTools)."""
+    try:
+        debugger_url = driver.command_executor._url
+        base = debugger_url.rsplit("/", 1)[0]
+        session_id = driver.session_id
+        cdp_url = f"{base}/session/{session_id}/chromium/send_command_and_get_result"
+        payload = json.dumps({"cmd": method, "params": params or {}}).encode("utf-8")
+        req = Request(cdp_url, data=payload,
+                      headers={"Content-Type": "application/json"})
+        resp = urlopen(req, timeout=timeout)
+        return json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return None
+
+
+def inject_selected_file(driver, get_upload_paths, log_func=None):
+    """
+    Keep trying to accept a pending file‑chooser dialog for up to 12 seconds.
+    """
+    paths = get_upload_paths()
+    if not paths:
+        if log_func:
+            log_func("⚠️ No file selected for upload.")
+        return False
+    file_path = paths[0]
+
+    _cdp_send(driver, "Page.setInterceptFileChooserDialog", {"enabled": True})
+
+    if log_func:
+        log_func("🔍 Waiting for file‑chooser dialog…")
+    deadline = time.time() + 12
+    while time.time() < deadline:
+        result = _cdp_send(driver, "Page.handleFileChooser",
+                           {"action": "accept", "files": [file_path]})
+        if result and "error" not in result:
+            if log_func:
+                log_func(f"✅ File injected via raw CDP: {file_path}")
+            return True
+        time.sleep(0.5)
+
+    if log_func:
+        log_func("❌ No file‑chooser dialog appeared within 12 seconds.")
+    return False
+
+
+def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
+                   refresh_file_registry, add_autonomous_report,
+                   _file_registry, _upload_file_paths,
+                   git_push_with_retry,
+                   inject_file_fn,
+                   log_func=None):
+    """Pull latest chunks, flat‑reassemble (like batch file), keep original names."""
+    chunks_source = "chunks"
+
+    # ── Pull latest repo to get newly pushed chunks ──
+    try:
+        git_pull = subprocess.run(["git", "pull", "--rebase", "--autostash"],
+                                  capture_output=True, text=True)
+        if git_pull.returncode != 0:
+            if log_func:
+                log_func(f"⚠️ Git pull warning: {git_pull.stderr.strip()}")
+        else:
+            if log_func:
+                log_func("✅ Git pull succeeded – chunks folder is up to date.")
+    except Exception as e:
+        if log_func:
+            log_func(f"❌ Git pull error (continuing anyway): {e}")
+
+    if not os.path.isdir(chunks_source):
+        return f"ERR upload: {chunks_source} directory not found"
+
+    chunk_files = [f for f in os.listdir(chunks_source) if ".part" in f]
+    if not chunk_files:
+        return "ERR upload: no .part files in chunks/"
+
+    # Group by base name (everything before .partNNNN)
+    groups = {}
+    for f in chunk_files:
+        m = re.match(r"(.+)\.part\d+$", f)
+        if m:
+            base = m.group(1)
+            groups.setdefault(base, []).append(f)
+
+    if not groups:
+        return "ERR upload: could not parse part filenames"
+
+    flat_temp = tempfile.mkdtemp(prefix="chunks_flat_")
+    try:
+        # ── Copy all parts into a single flat folder, preserving original filenames ──
+        for parts in groups.values():
+            for p in parts:
+                src = os.path.join(chunks_source, p)
+                if os.path.isfile(src):
+                    shutil.copy2(src, os.path.join(flat_temp, p))
+                    if log_func:
+                        log_func(f"  Copied {p} ({os.path.getsize(src)} bytes)")
+
+        # ── Compute total expected size for each base (sanity check) ──
+        total_sizes = {}
+        for base, parts in groups.items():
+            total = sum(os.path.getsize(os.path.join(flat_temp, p)) for p in parts)
+            total_sizes[base] = total
+            if log_func:
+                log_func(f"  Base '{base}': {len(parts)} parts, total size {total} bytes")
+
+        # ── Reassemble using flat method (exactly like copy /b) ──
+        count = reassemble_flat(flat_temp, DOWNLOAD_DIR)
+        if count == 0:
+            return "ERR upload: reassembly produced no files"
+
+        # ── Verify assembled file sizes (optional, but helpful) ──
+        for base, expected_size in total_sizes.items():
+            assembled_path = os.path.join(DOWNLOAD_DIR, base)
+            if os.path.isfile(assembled_path):
+                actual_size = os.path.getsize(assembled_path)
+                if actual_size == expected_size:
+                    if log_func:
+                        log_func(f"✅ Assembled '{base}' size OK: {actual_size} bytes")
+                else:
+                    if log_func:
+                        log_func(f"⚠️ Size mismatch for '{base}': expected {expected_size}, got {actual_size}")
+            else:
+                if log_func:
+                    log_func(f"❌ Missing assembled file: {base}")
+
+        # ===== NO FILE RENAMING – keep original names =====
+        # (The renaming block that produced 1.ext, 2.ext has been removed.)
+
+        # ── Refresh file registry (this also sends "Files:" report) ──
+        refresh_file_registry()
+
+        if log_func:
+            log_func(f"File registry after refresh: {_file_registry}")
+
+        # ── Auto‑select newly assembled file(s) based on original names ──
+        new_ids = []
+        for fid, fname in _file_registry.items():
+            if fname in groups:   # original base name matches
+                new_ids.append(fid)
+        if new_ids:
+            _upload_file_paths.clear()
+            sorted_ids = sorted(new_ids)
+            _upload_file_paths.extend([_file_registry[fid] for fid in sorted_ids])
+            add_autonomous_report("selectfiles",
+                                  f"selectfiles({','.join(str(i) for i in sorted_ids)})")
+            if log_func:
+                log_func(f"Auto‑selected file IDs: {sorted_ids}")
+        else:
+            # Fallback: select the first file in the registry
+            if _file_registry:
+                first_id = min(_file_registry.keys())
+                _upload_file_paths.clear()
+                _upload_file_paths.append(_file_registry[first_id])
+                add_autonomous_report("selectfiles", f"selectfiles({first_id})")
+                if log_func:
+                    log_func("No newly assembled files matched – auto-selected first file.")
+
+        return f"OK upload({count} files) (ready – use 'uploadtoyoutube')"
+    except Exception as e:
+        if log_func:
+            log_func(f"Upload error: {e}")
+        return f"ERR upload: {e}"
+    finally:
+        shutil.rmtree(flat_temp, ignore_errors=True)
+
+upload_injector.py:
+#!/usr/bin/env python3
+# ==============================================================================
+# upload_injector.py – Version 2.6.1 (robust file‑list reporting)
+# ==============================================================================
+import os, time, re, shutil, tempfile
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from uploader import reassemble
+
+# ---------- CDP (optional) ----------
+HAS_CDP = False
+_cdp_session = None
+
+def _init_cdp(driver, log_func=None):
+    global HAS_CDP, _cdp_session
+    if HAS_CDP: return True
+    try:
+        from selenium.webdriver.common.devtools import devtools
+        from selenium.webdriver.common.devtools import DevTools
+        _cdp_session = DevTools(driver)
+        _cdp_session.create_session()
+        _cdp_session.send(devtools.page.set_intercept_file_chooser_dialog(enabled=True))
+        def _on_chooser(event):
+            try:
+                paths = _get_upload_paths()
+                if paths:
+                    _cdp_session.send(devtools.page.handle_file_chooser(action="accept", files=[paths[0]]))
+                    if log_func: log_func(f"✅ CDP accepted: {paths[0]}")
+            except Exception as ex:
+                if log_func: log_func(f"CDP error: {ex}")
+        _cdp_session.on(devtools.page.FileChooserOpened, _on_chooser)
+        HAS_CDP = True
+        if log_func: log_func("CDP interception active.")
+        return True
+    except Exception as e:
+        if log_func: log_func(f"CDP unavailable ({e}) – using send_keys fallback.")
+        return False
+
+# ---------- send_keys into YouTube's hidden input ----------
+def upload_to_youtube(driver, file_path, log_func=None):
+    """Inject a file into YouTube Studio's hidden <input name='Filedata'>."""
+    try:
+        file_input = WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.NAME, "Filedata"))
+        )
+    except Exception:
+        try:
+            file_input = driver.find_element(By.CSS_SELECTOR, "input[type='file'][name='Filedata']")
+        except Exception:
+            if log_func: log_func("❌ YouTube file input not found.")
+            return False
+
+    driver.execute_script("""
+        arguments[0].removeAttribute('aria-hidden');
+        arguments[0].removeAttribute('hidden');
+        arguments[0].style.display = 'block';
+        arguments[0].style.visibility = 'visible';
+        arguments[0].style.opacity = '1';
+        arguments[0].style.position = 'static';
+        arguments[0].style.height = 'auto';
+        arguments[0].style.width = 'auto';
+        arguments[0].disabled = false;
+    """, file_input)
+    time.sleep(0.5)
+    try:
+        file_input.send_keys(file_path)
+        if log_func: log_func(f"✅ YouTube upload started: {file_path}")
+        return True
+    except Exception as e:
+        if log_func: log_func(f"❌ YouTube send_keys failed: {e}")
+        return False
+
+_upload_paths_callable = None
+
+def _get_upload_paths():
+    if _upload_paths_callable: return _upload_paths_callable()
+    return []
+
+def inject_selected_file(driver, get_upload_paths_fn, log_func=None):
+    global _upload_paths_callable
+    _upload_paths_callable = get_upload_paths_fn
+    paths = get_upload_paths_fn()
+    if not paths:
+        if log_func: log_func("⚠️ No file selected.")
+        return False
+    return upload_to_youtube(driver, paths[0], log_func)
+
+# ---------- Main upload logic ----------
+def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
+                   refresh_file_registry, add_autonomous_report,
+                   _file_registry, _upload_file_paths,
+                   git_push_with_retry, inject_file_fn, log_func=None):
+    if not os.path.isdir("chunks"):
+        return "ERR upload: chunks directory not found"
+    chunk_files = [f for f in os.listdir("chunks") if ".part" in f]
+    if not chunk_files:
+        return "ERR upload: no .part files in chunks/"
+    groups = {}
+    for f in chunk_files:
+        base = re.sub(r'\.part\d+$', '', f)
+        groups.setdefault(base, []).append(f)
+    temp_dir = tempfile.mkdtemp(prefix="chunks_")
+    try:
+        for base, parts in groups.items():
+            dest_dir = os.path.join(temp_dir, base)
+            os.makedirs(dest_dir, exist_ok=True)
+            for p in parts:
+                src = os.path.join("chunks", p)
+                if os.path.isfile(src): shutil.copy2(src, os.path.join(dest_dir, p))
+        count = reassemble(temp_dir, DOWNLOAD_DIR)
+        if count == 0:
+            return "ERR upload: reassembly produced no files"
+        result = f"OK upload({count} files)"
+        refresh_file_registry()
+        # ✅ Always report the file list to the app
+        if _file_registry:
+            lines = [f"{fid}: {fname}" for fid, fname in sorted(_file_registry.items())]
+            add_autonomous_report("files", "Files: " + " | ".join(lines))
+        # Auto‑select newly assembled files
+        new_ids = []
+        for fid, fname in _file_registry.items():
+            if fname in groups.keys(): new_ids.append(fid)
+        if new_ids:
+            _upload_file_paths.clear()
+            _upload_file_paths.extend([_file_registry[fid] for fid in sorted(new_ids)])
+            add_autonomous_report("selectfiles",
+                                  f"selectfiles({','.join(str(i) for i in sorted(new_ids))})")
+        if callable(inject_file_fn):
+            if inject_file_fn(): result += " (injected)"
+            else: result += " (ready; use 'uploadtoyoutube')"
+        return result
+    except Exception as e:
+        if log_func: log_func(f"Upload error: {e}")
+        return f"ERR upload: {e}"
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
