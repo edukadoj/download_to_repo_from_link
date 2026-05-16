@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.20.2 (load profile cache on startup)
-#   - Now calls load_profile() before creating Chrome, restoring session state
-#   - Includes the sequence number fix (v39.20.1) for proper command acknowledgement
+# command_mouse_keyboard.py – Version 39.20.3
+#   - FIX: profile cache saved via git (chunks pushed to repo)
+#   - FIX: deduplicate command responses (no more double confirmations)
+#   - FIX: load_profile() on startup (was already present, but now save is git‑based)
+#   - Old screenshots purged immediately after every new screenshot push
+#   - Log file pushed when screenshots are pushed AND when it alone changes
+#   - Robust comment fetching with retries and detailed logging
 # ==============================================================================
 import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re
 from datetime import datetime, timezone
@@ -79,7 +83,7 @@ def log(msg: str) -> None:
     now = datetime.now().strftime("%H:%M:%S")
     echo(f"[{now}] {msg}")
 
-echo(f"{'='*60}\n  Remote Control v39.20.2 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.20.3 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -132,10 +136,10 @@ def gh_api_safe(*args, max_retries=3, **kwargs):
                 return None
     return None
 
-# ---------- Profile cache (chunked, manual save only) ----------
+# ---------- Profile cache (chunked, git‑based save/load) ----------
 PROFILE_DIR = "/tmp/chrome_profile"
-CACHE_DIR = ".profile_cache"
-CHUNK_SIZE = 45 * 1024 * 1024
+CACHE_DIR = ".profile_cache"          # inside the repository working directory
+CHUNK_SIZE = 45 * 1024 * 1024          # 45 MB per chunk (GitHub limit for direct file upload)
 ENCRYPTION_KEY = None
 try:
     KEY = os.environ["KEY"]
@@ -147,6 +151,7 @@ except Exception as e:
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 def load_profile():
+    """Decrypt and restore the Chrome profile from .profile_cache/ chunks (if any)."""
     chunks = sorted(glob.glob(os.path.join(CACHE_DIR, "profile.enc.part*")))
     if not chunks:
         log("⚠️ No profile cache chunks found – starting with fresh browser profile.")
@@ -167,101 +172,45 @@ def load_profile():
         return False
 
 def save_profile():
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    """Encrypt the Chrome profile, split into chunks, and push them to the repository."""
     try:
+        # 1. Encrypt and compress the profile directory
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             tar.add(PROFILE_DIR, arcname="chrome_profile")
         encrypted = Fernet(ENCRYPTION_KEY).encrypt(buf.getvalue())
+
+        # 2. Remove old chunks and write new ones
         for old in glob.glob(os.path.join(CACHE_DIR, "profile.enc.part*")):
             os.remove(old)
-        chunk_paths = []
         for i in range(0, len(encrypted), CHUNK_SIZE):
             part_name = f"profile.enc.part{i//CHUNK_SIZE:04d}"
             part_path = os.path.join(CACHE_DIR, part_name)
             with open(part_path, "wb") as f:
                 f.write(encrypted[i:i+CHUNK_SIZE])
-            chunk_paths.append(part_path)
-        log(f"Profile cache prepared: {len(chunk_paths)} chunk(s) locally.")
 
-        upload_ok = True
-        for part_path in chunk_paths:
-            part_name = os.path.basename(part_path)
-            remote_path = f"{CACHE_DIR}/{part_name}"
-            local_size = os.path.getsize(part_path)
-            with open(part_path, "rb") as f:
-                content_b64 = base64.b64encode(f.read()).decode()
-            success = _upload_chunk_with_retry(remote_path, content_b64, local_size)
-            if not success:
-                log(f"❌ Failed to upload {part_name} after all retries.")
-                upload_ok = False
+        log(f"Profile cache prepared: {len(glob.glob(os.path.join(CACHE_DIR, 'profile.enc.part*')))} chunk(s).")
+
+        # 3. Git add, commit, push
+        with GIT_SEQUENCE_LOCK:
+            git_run(["git","add",CACHE_DIR], check=True, capture_output=True)
+            diff_check = subprocess.run(["git","diff","--cached","--quiet"], capture_output=True)
+            if diff_check.returncode != 0:
+                git_run(["git","commit","-m","Update profile cache chunks"], check=True, capture_output=True)
+                if git_push_with_retry():
+                    log("🎉 Profile cache saved to repository.")
+                else:
+                    log("❌ Git push failed – profile cache NOT stored.")
             else:
-                log(f"✅ Chunk {part_name} uploaded and verified.")
-        if upload_ok:
-            log("🎉 Profile cache fully saved to repo.")
-        else:
-            log("⚠️ Some profile chunks were NOT uploaded. Try 'save' again.")
+                log("✅ Profile cache already up‑to‑date in repo.")
     except Exception as e:
         log(f"ERROR saving profile cache: {e}")
-
-def _upload_chunk_with_retry(remote_path, content_b64, local_size, max_retries=3):
-    for attempt in range(1, max_retries + 1):
-        sha, remote_size = _get_remote_file_sha_and_size(remote_path)
-        if remote_size == local_size:
-            return True
-        if sha is not None:
-            log(f"  {os.path.basename(remote_path)}: remote size mismatch ({remote_size} vs {local_size}) – deleting old file.")
-            _delete_remote_file(remote_path, sha)
-        log(f"  Uploading {os.path.basename(remote_path)} (attempt {attempt}/{max_retries})…")
-        if _create_remote_file(remote_path, content_b64):
-            _, new_remote_size = _get_remote_file_sha_and_size(remote_path)
-            if new_remote_size == local_size:
-                return True
-            else:
-                log(f"  Verification failed: local {local_size}, remote {new_remote_size}. Retrying…")
-        else:
-            log(f"  Upload attempt {attempt} failed.")
-        time.sleep(1)
-    return False
-
-def _get_remote_file_sha_and_size(remote_path):
-    try:
-        out = gh_api_safe(
-            f"repos/{REPO}/contents/{remote_path}",
-            "--jq", ".sha + '\n' + (.size | tostring)"
-        )
-        if out:
-            sha, size_str = out.strip().split('\n', 1)
-            return sha.strip(), int(size_str)
-    except Exception:
-        pass
-    return None, None
-
-def _delete_remote_file(remote_path, sha):
-    payload = json.dumps({"message": "purge old chunk", "sha": sha, "branch": "main"})
-    try:
-        gh("--method", "DELETE", f"repos/{REPO}/contents/{remote_path}", input_data=payload)
-        return True
-    except subprocess.CalledProcessError:
-        return False
-
-def _create_remote_file(remote_path, content_b64):
-    payload = json.dumps({
-        "message": f"Upload profile chunk: {os.path.basename(remote_path)}",
-        "content": content_b64,
-        "branch": "main"
-    })
-    try:
-        gh("--method", "PUT", f"repos/{REPO}/contents/{remote_path}", input_data=payload)
-        return True
-    except subprocess.CalledProcessError:
-        return False
 
 # ---------- Browser setup ----------
 DOWNLOAD_DIR = "/home/runner/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# ★ NEW: restore cached profile before launching Chrome ★
+# Restore cached profile if available
 load_profile()
 
 try:
@@ -414,7 +363,6 @@ def ss(desc="screenshot", push=True, response_suffix=""):
                 if git_push_with_retry():
                     log(f"Pushed {len(files_to_push)} screenshot(s) + log")
                     # Immediately purge all old screenshots (only keep latest of each? keep only the newest)
-                    # Actually purge all except the ones we just pushed? We'll just purge all older .png files.
                     purge_old_screenshots(fname)
                 else:
                     log("ERROR: Failed to push screenshots – will retry")
@@ -679,72 +627,72 @@ def main():
                         if ctext: new_cmds.append((cid, ctext))
 
             for cid, ctext in new_cmds:
+                # If we already processed this command ID, do NOT re‑append its response
                 if cid in executed_cache:
-                    ts, seq_stored, cached_result = executed_cache[cid]
-                    unsent_reports.append((ts, seq_stored, cached_result))
-                else:
-                    cmd_type, arg = parse_single_command(ctext)
-                    result = execute_one_command(
-                        cmd_type, arg,
-                        driver=driver, cursor_x=agent_state.cursor_x, cursor_y=agent_state.cursor_y,
-                        W=agent_state.W, H=agent_state.H, DOWNLOAD_DIR=DOWNLOAD_DIR, LOG_FILENAME=LOG_FILENAME,
-                        KEY_SECRET=KEY_SECRET, REPO=REPO, ISSUE_NUMBER=ISSUE_NUMBER,
-                        HAS_GEMINI=HAS_GEMINI, HAS_PYPERCLIP=HAS_PYPERCLIP,
-                        allowed_secrets=allowed_secrets, ENCRYPTION_KEY=ENCRYPTION_KEY,
-                        human_click_callable=human_click, human_click_at_callable=human_click_at,
-                        _try_gemini_click=_try_gemini_click,
-                        move_cursor_absolute=move_cursor_absolute,
-                        move_cursor_relative=move_cursor_relative,
-                        left_click=left_click, left_button_down=left_button_down,
-                        left_button_up=left_button_up, right_button_down=right_button_down,
-                        right_button_up=right_button_up, middle_button_down=middle_button_down,
-                        middle_button_up=middle_button_up, double_click=double_click,
-                        right_click=right_click, middle_click=middle_click,
-                        scroll_by=scroll_by, drag_from_to=drag_from_to,
-                        press_key=press_key, press_combo=press_combo,
-                        type_secret=type_secret, decode_string=decode_string,
-                        ss=ss, refresh_file_registry=refresh_file_registry,
-                        add_autonomous_report=add_autonomous_report,
-                        refresh_known_handles=refresh_known_handles,
-                        get_upload_paths=get_upload_paths, save_profile=save_profile,
-                        _file_registry=_file_registry, _upload_file_paths=_upload_file_paths,
-                        pyperclip=pyperclip if HAS_PYPERCLIP else None,
-                        upload_reassemble=upload_reassemble,
-                        HAS_PYPERCLIP_local=HAS_PYPERCLIP,
-                        encrypt_string=encrypt_string, gh=gh,
-                        get_all_comments=get_all_comments,
-                        delete_comment=delete_comment, issue_comment=issue_comment,
-                        smart_edit_comment=smart_edit_comment, git_push_with_retry=git_push_with_retry,
-                        comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
-                    )
-                    ts = int(time.time())
-                    # extract sequence number from cid
-                    seq_num = 0
-                    if cid.startswith("APP-"):
-                        parts_cid = cid.split('-')
-                        if len(parts_cid) >= 2:
-                            try:
-                                seq_num = int(parts_cid[1])
-                            except ValueError:
-                                pass
-                    executed_cache[cid] = (ts, seq_num, result)
-                    unsent_reports.append((ts, seq_num, result))
-                    last_command_time = time.time()
-                    log(f"Executed: {cid} → {result}")
-                    if cmd_type == "exit":
-                        response_comment_id = publish_reports(response_comment_id)
-                        log("Exit command received – saving profile cache...")
-                        save_profile()
-                        time.sleep(1)
-                        response_comment_id = publish_reports(response_comment_id)
-                        ss("final", push=True)
-                        _screenshot_stop.set()
-                        _url_monitor_stop.set()
-                        _download_watcher_stop.set()
-                        driver.quit(); display.stop()
-                        push_logs()
-                        echo("\n🎉 Remote session ended.")
-                        sys.exit(0)
+                    continue
+
+                cmd_type, arg = parse_single_command(ctext)
+                result = execute_one_command(
+                    cmd_type, arg,
+                    driver=driver, cursor_x=agent_state.cursor_x, cursor_y=agent_state.cursor_y,
+                    W=agent_state.W, H=agent_state.H, DOWNLOAD_DIR=DOWNLOAD_DIR, LOG_FILENAME=LOG_FILENAME,
+                    KEY_SECRET=KEY_SECRET, REPO=REPO, ISSUE_NUMBER=ISSUE_NUMBER,
+                    HAS_GEMINI=HAS_GEMINI, HAS_PYPERCLIP=HAS_PYPERCLIP,
+                    allowed_secrets=allowed_secrets, ENCRYPTION_KEY=ENCRYPTION_KEY,
+                    human_click_callable=human_click, human_click_at_callable=human_click_at,
+                    _try_gemini_click=_try_gemini_click,
+                    move_cursor_absolute=move_cursor_absolute,
+                    move_cursor_relative=move_cursor_relative,
+                    left_click=left_click, left_button_down=left_button_down,
+                    left_button_up=left_button_up, right_button_down=right_button_down,
+                    right_button_up=right_button_up, middle_button_down=middle_button_down,
+                    middle_button_up=middle_button_up, double_click=double_click,
+                    right_click=right_click, middle_click=middle_click,
+                    scroll_by=scroll_by, drag_from_to=drag_from_to,
+                    press_key=press_key, press_combo=press_combo,
+                    type_secret=type_secret, decode_string=decode_string,
+                    ss=ss, refresh_file_registry=refresh_file_registry,
+                    add_autonomous_report=add_autonomous_report,
+                    refresh_known_handles=refresh_known_handles,
+                    get_upload_paths=get_upload_paths, save_profile=save_profile,
+                    _file_registry=_file_registry, _upload_file_paths=_upload_file_paths,
+                    pyperclip=pyperclip if HAS_PYPERCLIP else None,
+                    upload_reassemble=upload_reassemble,
+                    HAS_PYPERCLIP_local=HAS_PYPERCLIP,
+                    encrypt_string=encrypt_string, gh=gh,
+                    get_all_comments=get_all_comments,
+                    delete_comment=delete_comment, issue_comment=issue_comment,
+                    smart_edit_comment=smart_edit_comment, git_push_with_retry=git_push_with_retry,
+                    comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
+                )
+                ts = int(time.time())
+                # extract sequence number from cid
+                seq_num = 0
+                if cid.startswith("APP-"):
+                    parts_cid = cid.split('-')
+                    if len(parts_cid) >= 2:
+                        try:
+                            seq_num = int(parts_cid[1])
+                        except ValueError:
+                            pass
+                executed_cache[cid] = (ts, seq_num, result)
+                unsent_reports.append((ts, seq_num, result))
+                last_command_time = time.time()
+                log(f"Executed: {cid} → {result}")
+                if cmd_type == "exit":
+                    response_comment_id = publish_reports(response_comment_id)
+                    log("Exit command received – saving profile cache...")
+                    save_profile()
+                    time.sleep(1)
+                    response_comment_id = publish_reports(response_comment_id)
+                    ss("final", push=True)
+                    _screenshot_stop.set()
+                    _url_monitor_stop.set()
+                    _download_watcher_stop.set()
+                    driver.quit(); display.stop()
+                    push_logs()
+                    echo("\n🎉 Remote session ended.")
+                    sys.exit(0)
 
             response_comment_id = publish_reports(response_comment_id)
         except Exception as e:
