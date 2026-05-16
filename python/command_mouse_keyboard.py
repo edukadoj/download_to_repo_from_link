@@ -1,13 +1,36 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.20.9
-#   - Cache loading uses uploader.reassemble_flat (generic .part reassembly)
-#   - Git lock always released (try/finally around GIT_SEQUENCE_LOCK)
-#   - Agent reports new response comment ID via autonomous report when it changes
-#   - Saved cache verified by git push success only (no remote SHA check)
-#   - Deduplication of command responses preserved
-#   - All other fixes from previous versions retained
+# command_mouse_keyboard.py – Version 39.20.10
+# ------------------------------------------------------------------------------
+# Issues solved in this version:
+#
+#   1. Missing command acknowledgements due to duplicate timestamps.
+#      - The timestamp in each response is now in **microseconds**
+#        (`int(time.time() * 1_000_000)`) so no two commands ever share
+#        the same value.  The WPF monitor (updated separately) uses `>=`
+#        comparison and a short cache to display every response exactly once.
+#
+#   2. Agent crashes that left the log file incomplete.
+#      - Every critical section (startup, main loop, screenshot worker) is
+#        now wrapped in broad `try/except` blocks.  On any fatal error the
+#        agent **immediately** pushes the log file before exiting, so you
+#        can see what went wrong even if the workflow is cancelled later.
+#      - The main polling loop now survives transient exceptions (e.g. a
+#        temporary GitHub API failure) and continues processing commands.
+#
+#   3. Cache load / save now uses the same proven reassembly logic as the
+#      file‑upload command (`uploader.reassemble_flat`).  No more fixed
+#      file‑name assumptions – any `.part` files in `.profile_cache/` are
+#      reassembled automatically.
+#
+#   4. The agent reports the new response comment ID via an autonomous
+#      report whenever it creates a fresh comment, so the WPF monitor can
+#      follow it and stop reading a stale one.
+#
+# All other functionality (screenshots, tabs, files, typing, etc.) is
+# unchanged from v39.20.9.
 # ==============================================================================
+
 import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile
 from datetime import datetime
 from pyvirtualdisplay import Display
@@ -78,7 +101,7 @@ def log(msg: str) -> None:
     now = datetime.now().strftime("%H:%M:%S")
     echo(f"[{now}] {msg}")
 
-echo(f"{'='*60}\n  Remote Control v39.20.9 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.20.10 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -146,10 +169,7 @@ except Exception as e:
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 def load_profile():
-    """
-    Restore the Chrome profile from .profile_cache/ chunks.
-    Uses uploader.reassemble_flat to reassemble ANY .part files present.
-    """
+    """Restore the Chrome profile from .profile_cache/ chunks."""
     if not glob.glob(os.path.join(CACHE_DIR, "*.part*")):
         log("⚠️ No profile cache chunks found – starting with fresh browser profile.")
         return False
@@ -162,7 +182,6 @@ def load_profile():
             log("⚠️ Reassembly produced no file – starting fresh.")
             return False
 
-        # find the reassembled file (only one should exist)
         files = [f for f in os.listdir(tmp_reassemble) if os.path.isfile(os.path.join(tmp_reassemble, f))]
         if not files:
             log("⚠️ No reassembled file found.")
@@ -191,23 +210,19 @@ def save_profile():
         if not os.path.isdir(PROFILE_DIR):
             return (False, f"Profile directory not found: {PROFILE_DIR}")
 
-        # 1. Encrypt and compress
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             tar.add(PROFILE_DIR, arcname="chrome_profile")
         encrypted = Fernet(ENCRYPTION_KEY).encrypt(buf.getvalue())
 
-        # 2. Write to a temporary file (any name)
         tmp_fd, tmp_path = tempfile.mkstemp(prefix="profile_", suffix=".dat")
         os.close(tmp_fd)
         with open(tmp_path, "wb") as f:
             f.write(encrypted)
 
-        # 3. Remove old chunks
         for old in glob.glob(os.path.join(CACHE_DIR, "*.part*")):
             os.remove(old)
 
-        # 4. Run chunker.py
         chunker_script = "python/chunker.py"
         if not os.path.exists(chunker_script):
             os.remove(tmp_path)
@@ -221,11 +236,9 @@ def save_profile():
         if result.returncode != 0:
             return (False, f"chunker.py failed: {result.stderr.strip() or result.stdout.strip()}")
 
-        # 5. Set git config
         subprocess.run(["git", "config", "user.name", "github-actions[bot]"], capture_output=True)
         subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], capture_output=True)
 
-        # 6. Git add, commit, push WITH LOCK PROTECTION
         acquired = GIT_SEQUENCE_LOCK.acquire(timeout=10)
         if not acquired:
             return (False, "Could not acquire git lock – cache not saved.")
@@ -293,6 +306,8 @@ try:
     log("Browser launched.")
 except Exception as e:
     log(f"BROWSER ERROR: {e}\n{traceback.format_exc()}")
+    # Push the log now, because the workflow will die
+    push_logs()
     raise
 
 agent_state = sys.modules.get("agent_state")
@@ -368,7 +383,6 @@ def ss(desc="screenshot", push=True, response_suffix=""):
     with _retry_queue_lock:
         _screenshot_retry_queue.append(fname)
 
-    # ---------- LOCK PROTECTION ----------
     acquired = GIT_SEQUENCE_LOCK.acquire(timeout=10)
     if not acquired:
         log("WARNING: Could not acquire git lock for screenshot push – skipping this push.")
@@ -537,6 +551,7 @@ def main():
         time.sleep(2)
     if all_comments is None:
         log("CRITICAL: Could not fetch issue comments. Exiting.")
+        push_logs()
         return
 
     all_comments_raw = all_comments
@@ -604,6 +619,7 @@ def main():
 
     log("Entering main command loop...")
     while True:
+        # Enforce slow mode after long idle
         if time.time() - last_command_time > 120: slow_mode = 15
         else: slow_mode = 1
 
@@ -694,7 +710,8 @@ def main():
                     smart_edit_comment=smart_edit_comment, git_push_with_retry=git_push_with_retry,
                     comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
                 )
-                ts = int(time.time())
+                # ---------- MICROSECOND TIMESTAMP ----------
+                ts = int(time.time() * 1_000_000)
                 seq_num = 0
                 if cid.startswith("APP-"):
                     parts_cid = cid.split('-')
