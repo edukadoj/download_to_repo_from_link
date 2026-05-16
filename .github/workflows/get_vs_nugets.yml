@@ -1,0 +1,387 @@
+# ==============================================================================
+#  version: 3.7
+#  Offline NuGet Feed Builder for Visual Studio 2026 Community
+#  - For packages with an explicit version, first try restore (to get deps).
+#    If restore fails, fall back to direct V2 .nupkg download.
+#  - Top packages optional (skip checkbox).
+# ==============================================================================
+
+name: Download NuGet Packages Offline
+
+on:
+  workflow_dispatch:
+    inputs:
+      priority_packages:
+        description: |
+          **Packages you definitely need** (comma‑separated).
+          Optionally add @version, e.g. Newtonsoft.Json@13.0.3.
+          Example:
+            Microsoft.Maui.Controls, ClosedXML@0.104.2, xunit
+        type: string
+        default: ''
+      skip_top_packages:
+        description: 'Check to download ONLY the priority packages (ignore popular).'
+        type: boolean
+        required: false
+        default: false
+      search_term:
+        description: 'Keyword to filter top packages (e.g. maui, excel). Leave empty for all.'
+        type: string
+        default: ''
+      max_size_gb:
+        description: 'Maximum feed size in GB (only for top packages). Default: 10.'
+        type: string
+        default: '10'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 600
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK (Visual Studio 2026 compatible)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Install workloads (MAUI, WASM, Aspire) – only if top packages are not skipped
+        if: inputs.skip_top_packages != 'true' && inputs.skip_top_packages != true
+        run: |
+          dotnet workload install maui wasm-tools aspire --skip-sign-check
+          dotnet workload list
+
+      - name: Compute cache key
+        id: cache-key
+        shell: pwsh
+        run: |
+          $key = "nuget-offline-feed-v37-" +
+            "search-${{ inputs.search_term }}" +
+            "-maxGB-${{ inputs.max_size_gb }}" +
+            "-topskip-${{ inputs.skip_top_packages }}"
+          "key=$key" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Create output directory
+        shell: pwsh
+        run: |
+          $feedDir = '${{ github.workspace }}\nuget_offline_packages'
+          New-Item -ItemType Directory -Force -Path $feedDir | Out-Null
+          echo "FEED_DIR=$feedDir" >> $env:GITHUB_ENV
+
+      # ---------------------------------------------------------------
+      # 1. PRIORITY PACKAGES (restore first for versioned, V2 fallback)
+      # ---------------------------------------------------------------
+      - name: Download priority packages (full restore if possible, else exact .nupkg)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $feedDir = $env:FEED_DIR
+
+          $input = @"
+          ${{ inputs.priority_packages }}
+          "@
+          $input = $input -replace '^\s*#.*$', '' -replace "`r`n", ' ' -replace "`n", ' '
+          $tokens = $input -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+
+          if ($tokens.Count -eq 0) {
+            Write-Host "No priority packages – nothing to download."
+            exit 0
+          }
+
+          Write-Host "Processing $($tokens.Count) priority packages..."
+
+          foreach ($tok in $tokens) {
+            Write-Host "--- Processing: $tok ---"
+            if ($tok -match '@') {
+              $parts = $tok -split '@', 2
+              $id = $parts[0].Trim()
+              $ver = $parts[1].Trim()
+              $hasVersion = $true
+            } else {
+              $id = $tok
+              $ver = $null
+              $hasVersion = $false
+            }
+
+            # Build the PackageReference element
+            if ($hasVersion) {
+              $pkgRef = "<PackageReference Include=`"$id`" Version=`"$ver`" />"
+            } else {
+              $pkgRef = "<PackageReference Include=`"$id`" Version=`"*`" />"
+            }
+
+            # ---------- COMMON RESTORE ATTEMPT ----------
+            $tempCsproj = Join-Path $env:RUNNER_TEMP "prio_$([Guid]::NewGuid()).csproj"
+            @"
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <TargetFrameworks>net10.0;net10.0-android;net10.0-ios;net10.0-maccatalyst;net10.0-windows10.0.19041.0</TargetFrameworks>
+            </PropertyGroup>
+            <ItemGroup>
+              $pkgRef
+            </ItemGroup>
+          </Project>
+          "@ | Out-File -FilePath $tempCsproj -Encoding UTF8
+
+            $restoreOk = $false
+            try {
+              dotnet restore $tempCsproj --packages $feedDir 2>&1 | Out-Null
+              if ($LASTEXITCODE -eq 0) { $restoreOk = $true }
+            } catch { }
+
+            if ($restoreOk) {
+              Write-Host "  Restored with all dependencies."
+            }
+            # ---------- RESTORE FAILED – apply fallback ----------
+            else {
+              Write-Host "  Restore failed."
+
+              if ($hasVersion) {
+                # Fallback for exact version: direct V2 download (no deps, but reliable)
+                Write-Host "  Downloading exact version $ver from NuGet V2 API (no dependencies)..."
+                $nupkgUrl = "https://www.nuget.org/api/v2/package/$id/$ver"
+                $outFile = Join-Path $feedDir "$id.$ver.nupkg"
+                try {
+                  Invoke-WebRequest -Uri $nupkgUrl -OutFile $outFile -ErrorAction Stop
+                  if (Test-Path $outFile) {
+                    Write-Host "  Exact .nupkg saved: $outFile"
+                  } else {
+                    Write-Warning "  Download seemed to succeed, but file not found."
+                  }
+                } catch {
+                  Write-Warning "  Direct V2 download failed for $id@$ver : $_"
+                  # last resort: dotnet package download (likely wrong version, but maybe)
+                  Write-Host "  Attempting dotnet package download as last resort..."
+                  dotnet package download $id --version $ver --output $feedDir 2>&1 | Out-Null
+                  if ($LASTEXITCODE -ne 0) { Write-Warning "  dotnet package download also failed." }
+                  $global:LASTEXITCODE = 0
+                }
+              } else {
+                # Fallback for unversioned: dotnet package download
+                Write-Host "  Downloading as bare .nupkg (no deps)."
+                dotnet package download $id --output $feedDir 2>&1 | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                  Write-Warning "  Failed to download $id – skipped."
+                }
+                $global:LASTEXITCODE = 0
+              }
+            }
+
+            Remove-Item $tempCsproj -Force -ErrorAction SilentlyContinue
+          }
+
+          Write-Host "All priority packages processed."
+          exit 0
+
+      # ---------------------------------------------------------------
+      # 2. Measure initial feed size
+      # ---------------------------------------------------------------
+      - name: Measure current feed size
+        id: measure
+        shell: pwsh
+        run: |
+          $feedDir = $env:FEED_DIR
+          $size = (Get-ChildItem -Path $feedDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          $mb = [math]::Round($size / 1MB, 1)
+          Write-Host "Feed size: $mb MB"
+          echo "CURRENT_SIZE=$size" >> $env:GITHUB_ENV
+
+      # ---------------------------------------------------------------
+      # DEBUG: show inputs
+      # ---------------------------------------------------------------
+      - name: Debug inputs
+        shell: pwsh
+        run: |
+          Write-Host "skip_top_packages = ${{ inputs.skip_top_packages }}"
+          Write-Host "max_size_gb = ${{ inputs.max_size_gb }}"
+          Write-Host "search_term = ${{ inputs.search_term }}"
+
+      # ---------------------------------------------------------------
+      # 3. TOP POPULAR PACKAGES (only if NOT skipped)
+      # ---------------------------------------------------------------
+      - name: Fetch and process top packages
+        if: inputs.skip_top_packages != 'true' && inputs.skip_top_packages != true && inputs.max_size_gb != '0'
+        shell: pwsh
+        timeout-minutes: 540
+        run: |
+          $feedDir = $env:FEED_DIR
+          $maxSizeBytes = [double]${{ inputs.max_size_gb }} * 1GB
+          $currentSize = [long]$env:CURRENT_SIZE
+
+          $searchTerm = "${{ inputs.search_term }}"
+          $baseUrl = "https://azuresearch-usnc.nuget.org/query"
+          $ids = [System.Collections.ArrayList]::new()
+          $skip = 0
+          do {
+            $q = if ($searchTerm) { "q=$searchTerm" } else { "q=" }
+            $uri = "$baseUrl`?$q&skip=$skip&take=100&prerelease=false&sortby=totalDownloads-desc"
+            Write-Host "API: $uri"
+            try { $resp = Invoke-RestMethod $uri -TimeoutSec 30 } catch { break }
+            if (-not $resp.data -or $resp.data.Count -eq 0) { break }
+            foreach ($hit in $resp.data) {
+              if ($ids.Count -ge 2000) { break }
+              $ids.Add($hit.id) | Out-Null
+            }
+            $skip += 100
+          } while ($true -and $skip -lt 5000)
+
+          if ($ids.Count -eq 0) { Write-Host "No top packages found." ; exit 0 }
+          Write-Host "Fetched $($ids.Count) top package IDs."
+
+          $processed = 0
+          foreach ($id in $ids) {
+            if ($currentSize -ge $maxSizeBytes) {
+              Write-Host "Size limit reached. Stopping."
+              break
+            }
+            Write-Host "--- Processing: $id ---"
+            $tempCsproj = Join-Path $env:RUNNER_TEMP "top_$([Guid]::NewGuid()).csproj"
+            @"
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <TargetFrameworks>net10.0;net10.0-android;net10.0-ios;net10.0-maccatalyst;net10.0-windows10.0.19041.0</TargetFrameworks>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="$id" Version="*" />
+            </ItemGroup>
+          </Project>
+          "@ | Out-File -FilePath $tempCsproj -Encoding UTF8
+
+            $restoreOk = $false
+            try {
+              dotnet restore $tempCsproj --packages $feedDir 2>&1 | Out-Null
+              if ($LASTEXITCODE -eq 0) { $restoreOk = $true }
+            } catch { }
+
+            if (-not $restoreOk) {
+              Write-Host "  Restore failed – downloading as bare .nupkg (no deps)."
+              dotnet package download $id --output $feedDir 2>&1 | Out-Null
+            }
+
+            $currentSize = (Get-ChildItem -Path $feedDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
+            $mb = [math]::Round($currentSize / 1MB, 1)
+            Write-Host "  Current feed size: $mb MB"
+            $processed++
+          }
+
+          Write-Host "Top packages processed: $processed"
+          echo "TOP_COUNT=$processed" >> $env:GITHUB_ENV
+
+      # ---------------------------------------------------------------
+      # 4. Package into ZIP
+      # ---------------------------------------------------------------
+      - name: Package offline feed into ZIP
+        shell: pwsh
+        run: |
+          $feedDir = $env:FEED_DIR
+          $zipPath = "${{ runner.temp }}\NuGetOfflineFeed_${{ github.run_id }}.zip"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
+          Get-ChildItem -Path $feedDir -Recurse -File | ForEach-Object {
+            $rel = $_.FullName.Substring($feedDir.Length + 1)
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $rel, 'Optimal')
+          }
+          $zip.Dispose()
+          Write-Host "ZIP size: $([math]::Round((Get-Item $zipPath).Length/1MB,1)) MB"
+          echo "ZIP_PATH=$zipPath" >> $env:GITHUB_ENV
+
+      # ---------------------------------------------------------------
+      # 5. Clean old chunk folder
+      # ---------------------------------------------------------------
+      - name: Clean up old chunk folder
+        shell: powershell
+        run: |
+          $chunks = "nuget_offline_chunks"
+          if (Test-Path $chunks) {
+            Remove-Item -Recurse -Force $chunks
+            Write-Host "Cleaned old chunk folder."
+          } else {
+            Write-Host "No old chunk folder found."
+          }
+
+      # ---------------------------------------------------------------
+      # 6. Split and upload chunks
+      # ---------------------------------------------------------------
+      - name: Split zip and upload chunks
+        shell: powershell
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $zip = $env:ZIP_PATH
+          if (-not $zip) { $zip = "$env:RUNNER_TEMP\NuGetOfflineFeed_${{ github.run_id }}.zip" }
+          $chunks = "nuget_offline_chunks"
+          New-Item -ItemType Directory -Force -Path $chunks | Out-Null
+          $stream = [System.IO.File]::OpenRead($zip)
+          $buffer = New-Object byte[] (20 * 1MB)
+          $idx = 0
+          while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            [System.IO.File]::WriteAllBytes("$chunks\NuGetOfflineFeed.part{0:D4}" -f $idx, $buffer[0..($n-1)])
+            $idx++
+          }
+          $stream.Close()
+          Write-Host "Total chunks: $idx"
+
+          $batContent = @"
+          @echo off
+          setlocal enabledelayedexpansion
+          echo ========================================
+          echo  Reassembling NuGet Offline Feed...
+          echo ========================================
+          echo.
+          echo Combining NuGetOfflineFeed.part* into NuGetOfflineFeed.zip...
+          copy /b NuGetOfflineFeed.part* NuGetOfflineFeed.zip
+          if %errorlevel% equ 0 (
+              echo.
+              echo Successfully created NuGetOfflineFeed.zip
+              echo.
+              echo Deleting temporary parts...
+              del NuGetOfflineFeed.part*
+              echo Done! You can now extract NuGetOfflineFeed.zip
+          ) else (
+              echo.
+              echo ERROR: Failed to reassemble the ZIP file.
+              echo All parts are kept intact so you can retry.
+          )
+          echo.
+          echo ========================================
+          pause
+          "@
+          $batContent | Out-File "$chunks\reassemble.bat" -Encoding ASCII
+
+          $token = $env:GITHUB_TOKEN
+          $repo = $env:GITHUB_REPOSITORY
+          $branch = $env:GITHUB_REF_NAME
+          $base = "https://api.github.com/repos/$repo/contents"
+          $headers = @{ Authorization = "Bearer $token" }
+          for ($i=0; $i -lt $idx; $i++) {
+            $f = "$chunks\NuGetOfflineFeed.part{0:D4}" -f $i
+            $bytes = [System.IO.File]::ReadAllBytes($f)
+            $enc = [Convert]::ToBase64String($bytes)
+            $url = "$base/$($f -replace '\\','/')"
+            $sha = try { (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $null }
+            $body = @{message="Upload $([System.IO.Path]::GetFileName($f))"; content=$enc; branch=$branch}
+            if ($sha) { $body.sha = $sha }
+            $retry = 0; $ok = $false
+            do {
+              try {
+                Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType "application/json"
+                Write-Host "[OK] Chunk $($i+1)/$idx"
+                $ok = $true
+              } catch {
+                if ($retry -lt 2) { Start-Sleep -Seconds 10; $retry++ } else { throw }
+              }
+            } while (-not $ok)
+            Start-Sleep -Milliseconds 500
+          }
+          # upload reassemble.bat
+          $batBytes = [System.IO.File]::ReadAllBytes("$chunks\reassemble.bat")
+          $batEnc = [Convert]::ToBase64String($batBytes)
+          $batUrl = "$base/$chunks/reassemble.bat"
+          $shaBat = try { (Invoke-RestMethod $batUrl -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $null }
+          $batBody = @{message="Upload reassemble.bat"; content=$batEnc; branch=$branch}
+          if ($shaBat) { $batBody.sha = $shaBat }
+          Invoke-RestMethod $batUrl -Method Put -Headers $headers -Body ($batBody | ConvertTo-Json -Compress)
+          Write-Host "All chunks uploaded."

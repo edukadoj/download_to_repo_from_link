@@ -1,0 +1,437 @@
+# version 52.1 – Clean first, portable Chrome profile cache, manual 2FA fallback
+name: Gmail – Portable Chrome Profile Cache
+
+on: workflow_dispatch
+
+jobs:
+  access-gmail:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      EMAIL: ${{ secrets.EMAIL }}
+      PASS: ${{ secrets.PASS }}
+      KEY: ${{ secrets.KEY }}
+      PYTHONUNBUFFERED: 1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------- FIRST ACTION: delete screenshots & bestlog.txt ----------
+      - name: "1) Clean screenshots & bestlog.txt"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          rm -rf screenshots email.txt bestlog.txt
+          mkdir -p screenshots
+          git add -A
+          git commit -m "Clean start" || echo "Nothing to commit"
+          git pull --rebase && git push || echo "Push failed, continuing"
+
+      - name: Setup Cloudflare WARP
+        uses: viperadnan-git/setup-warp@v1
+        with:
+          mode: 'client'
+          stack: 'dual'
+          configure_docker: 'false'
+
+      - name: Verify WARP connection
+        run: |
+          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
+          echo "WARP is active"
+
+      - name: Install dependencies
+        run: |
+          sudo apt update && sudo apt install -y wget gnupg python3-pip
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+          sudo apt update && sudo apt install -y google-chrome-stable
+          pip3 install selenium webdriver-manager requests cryptography
+
+      - name: Restore cached Chrome profile
+        uses: actions/cache/restore@v3
+        id: cache
+        with:
+          path: profile_cache.tar.enc
+          key: chrome-profile-v1
+
+      - name: Full Automation (Portable Profile or Fresh Login)
+        timeout-minutes: 30
+        run: |
+          python3 << 'PYEOF'
+          import os, time, subprocess, hashlib, pickle, sys, base64, re, requests, shutil, tarfile, io
+          from datetime import datetime
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.common.keys import Keys
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+          from selenium.webdriver.chrome.options import Options
+          from selenium.common.exceptions import TimeoutException, NoSuchElementException
+
+          # ── helpers ──
+          def echo(msg):
+              print(msg, flush=True)
+
+          def stage(title):
+              echo(f"\n{'#'*55}\n#  STAGE: {title}\n{'#'*55}")
+
+          counter = [0]
+          def ss(desc, push=True):
+              counter[0] += 1
+              now = datetime.now().strftime("%H%M%S")
+              fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
+              driver.save_screenshot(fname)
+              echo(f"📸 {fname}" + ("" if push else " (private)"))
+              if not push:
+                  return
+              subprocess.run(["git","stash","--include-untracked"],capture_output=True)
+              try: subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
+              except: pass
+              subprocess.run(["git","stash","pop"],capture_output=True)
+              subprocess.run(["git","add",fname,"gmail_yml.log"],check=True)
+              try: subprocess.run(["git","diff","--cached","--quiet"],check=True)
+              except subprocess.CalledProcessError:
+                  subprocess.run(["git","commit","-m",f"Screenshot {fname}"],check=True)
+                  try: subprocess.run(["git","push"],check=True); echo("   ↳ pushed")
+                  except: echo("   ↳ push failed, retry later")
+
+          log_file = "gmail_yml.log"
+          def log(msg):
+              with open(log_file,"a") as f:
+                  f.write(f"{datetime.now().strftime('%H:%M:%S')} - {msg}\n")
+              echo(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+
+          # write header
+          now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+          with open(log_file,"w") as f:
+              f.write(f"============================================================\n"
+                      f"  Gmail workflow started at {now_str}\n"
+                      f"  Version: 52.1\n"
+                      f"============================================================\n\n")
+
+          # screenshots and bestlog.txt already deleted by the first YAML step
+
+          # ── encryption ──
+          from cryptography.fernet import Fernet
+          KEY = os.environ["KEY"]
+          ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(KEY.encode()).digest())
+
+          def encrypt_data(data):
+              f = Fernet(ENCRYPTION_KEY)
+              return f.encrypt(data)
+
+          def decrypt_data(encrypted_data):
+              f = Fernet(ENCRYPTION_KEY)
+              return f.decrypt(encrypted_data)
+
+          # ── tar/untar profile ──
+          PROFILE_DIR = "/tmp/chrome_profile"
+
+          def tar_profile():
+              buf = io.BytesIO()
+              with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+                  tar.add(PROFILE_DIR, arcname='chrome_profile')
+              return buf.getvalue()
+
+          def untar_profile(data):
+              shutil.rmtree(PROFILE_DIR, ignore_errors=True)
+              buf = io.BytesIO(data)
+              with tarfile.open(fileobj=buf, mode='r:gz') as tar:
+                  tar.extractall('/tmp')
+
+          # ── decoder (matches C# encoder) ──
+          def get_permutation():
+              h = hashlib.sha256(KEY.encode('utf-8')).digest()
+              digits = list(range(10))
+              for i in range(9,0,-1):
+                  j = h[9-i] % (i+1)
+                  digits[i], digits[j] = digits[j], digits[i]
+              return digits
+
+          def decode(enc):
+              digits_only = ''.join(c for c in enc if c.isdigit())
+              perm = get_permutation()
+              rev = [0]*10
+              for orig,e in enumerate(perm):
+                  rev[e] = orig
+              return ''.join(str(rev[int(d)]) for d in digits_only[:10])
+
+          # self‑test
+          stage("DECODER SELF‑TEST")
+          log("Running decoder self‑test…")
+          tests = [("1234567898","4736259010"),("4158745258","6420962720")]
+          for o,e in tests:
+              assert decode(e)==o, f"FAIL: decode({e})={decode(e)}, expected {o}"
+          log("Decoder self‑test passed ✅")
+
+          # ── browser ──
+          stage("LAUNCH BROWSER")
+          log("Starting headless Chrome…")
+          opts = Options()
+          opts.add_argument("--headless")
+          opts.add_argument("--no-sandbox")
+          opts.add_argument("--disable-gpu")
+          opts.add_argument("--disable-blink-features=AutomationControlled")
+          opts.add_argument("--window-size=1920,1080")
+          opts.add_argument(f"--user-data-dir={PROFILE_DIR}")
+          opts.add_argument("--profile-directory=Default")
+          opts.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.7727.137 Safari/537.36")
+          opts.add_experimental_option("excludeSwitches",["enable-automation"])
+          opts.add_experimental_option('useAutomationExtension',False)
+
+          driver = None
+          try:
+              profile_loaded = False
+
+              # ====== RESTORE PROFILE ======
+              if os.path.exists("profile_cache.tar.enc"):
+                  stage("RESTORE CHROME PROFILE")
+                  log("Cached profile found. Decrypting…")
+                  try:
+                      with open("profile_cache.tar.enc","rb") as f:
+                          encrypted = f.read()
+                      decrypted = decrypt_data(encrypted)
+                      untar_profile(decrypted)
+                      log("Profile restored. Launching Chrome…")
+                      driver = webdriver.Chrome(options=opts)
+                      driver.execute_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
+                      wait = WebDriverWait(driver,20)
+                      driver.get("https://mail.google.com/mail/u/0/#inbox")
+                      time.sleep(5)
+                      wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"tr.zA")))
+                      log("✅ Restored profile is valid – inbox reached!")
+                      profile_loaded = True
+                      ss("cached_inbox")
+                  except Exception as e:
+                      log(f"Profile restoration failed: {e}")
+                      echo("Falling back to fresh login.")
+                      profile_loaded = False
+              else:
+                  log("No cached profile found.")
+
+              # ====== FRESH LOGIN ======
+              if not profile_loaded:
+                  stage("FRESH LOGIN")
+                  shutil.rmtree(PROFILE_DIR, ignore_errors=True)
+                  driver = webdriver.Chrome(options=opts)
+                  driver.execute_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
+                  wait = WebDriverWait(driver,20)
+
+                  driver.get("https://accounts.google.com/signin")
+                  time.sleep(4)
+                  ss("01_signin_page")
+                  try:
+                      driver.find_element(By.XPATH,"//button[contains(.,'Accept all') or contains(.,'I agree')]").click()
+                      time.sleep(1)
+                      log("Cookie consent accepted.")
+                      ss("02_cookies_accepted")
+                  except:
+                      log("No cookie popup.")
+
+                  # email
+                  stage("ENTER EMAIL")
+                  log("Typing email…")
+                  email_el = wait.until(EC.element_to_be_clickable((By.ID,"identifierId")))
+                  email_el.clear(); email_el.send_keys(os.environ["EMAIL"])
+                  driver.find_element(By.ID,"identifierNext").click()
+                  log("Email submitted.")
+                  ss("03_after_email_next")
+
+                  # password
+                  stage("ENTER PASSWORD")
+                  try:
+                      wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"input[type='password']")))
+                  except TimeoutException:
+                      try:
+                          driver.find_element(By.XPATH,"//div[contains(text(),'Welcome')]")
+                          driver.find_element(By.XPATH,"//button[contains(.,'Next')]").click()
+                          time.sleep(2)
+                          wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"input[type='password']")))
+                      except:
+                          ss("error_no_password_page")
+                          raise Exception("Password page missing")
+                  pwd_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR,"input[type='password']")))
+                  pwd_field.clear(); pwd_field.send_keys(os.environ["PASS"])
+                  driver.find_element(By.ID,"passwordNext").click()
+                  log("Password submitted.")
+                  time.sleep(5)
+                  ss("04_after_password_submit")
+
+                  # 2FA method
+                  stage("SELECT 2FA METHOD")
+                  log("Selecting backup/security code option…")
+                  try:
+                      driver.find_element(By.XPATH,"//button[contains(.,'Try another way') or contains(.,'More options')]").click()
+                      time.sleep(2)
+                      log("Clicked 'Try another way'.")
+                      ss("05_try_another_way")
+                  except: pass
+                  for sel in ["//div[@data-challengetype='12']","//div[@data-challengetype='13']",
+                              "//span[contains(text(),'security code')]","//span[contains(text(),'Backup code')]",
+                              "//div[@role='link' and contains(.,'code')]"]:
+                      try:
+                          opt = driver.find_element(By.XPATH,sel)
+                          if opt.is_displayed(): opt.click(); time.sleep(2)
+                          log(f"Selected: {sel}")
+                          ss("06_code_option_selected")
+                          break
+                      except: continue
+
+                  code_input = None
+                  for fid in ["idvPin","totpPin","idvPreregisteredPhonePin","backupCode"]:
+                      try:
+                          code_input = driver.find_element(By.ID,fid)
+                          if code_input.is_displayed(): break
+                      except: continue
+                  if not code_input:
+                      for inp in driver.find_elements(By.CSS_SELECTOR,"input[type='text'],input[type='tel']"):
+                          if inp.is_displayed(): code_input = inp; break
+                  if not code_input:
+                      ss("error_no_code_input")
+                      raise Exception("Code input not found")
+                  log("Code input ready.")
+                  ss("07_code_input_ready")
+
+                  # poll bestlog.txt
+                  stage("WAIT FOR CODE")
+                  log("Creating empty bestlog.txt…")
+                  with open("bestlog.txt","w") as f:
+                      f.write("")
+                  subprocess.run(["git","stash","--include-untracked"],capture_output=True)
+                  subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
+                  subprocess.run(["git","stash","pop"],capture_output=True)
+                  subprocess.run(["git","add","bestlog.txt"],check=True)
+                  subprocess.run(["git","commit","-m","Empty bestlog ready"],check=True)
+                  subprocess.run(["git","push"],check=True)
+                  log("bestlog.txt pushed. Encode your code and paste it there.")
+
+                  raw = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
+                  decoded = None
+                  while not decoded:
+                      echo("⏳ waiting for entering the code into bestlog")
+                      time.sleep(10)
+                      try:
+                          r = requests.get(raw, timeout=10)
+                          if r.status_code==200:
+                              nums = re.findall(r'\d', r.text)
+                              if len(nums)>=10:
+                                  encoded = ''.join(nums[:10])
+                                  decoded = decode(encoded)
+                                  log(f"Encoded digits found: {encoded}")
+                                  break
+                      except Exception as e:
+                          log(f"Poll error: {e}")
+
+                  # enter code
+                  stage("ENTER SECURITY CODE")
+                  log("Entering decoded security code…")
+                  code_input.clear(); code_input.send_keys(decoded)
+                  driver.find_element(By.XPATH,"//button[contains(.,'Next') or contains(.,'Verify')]").click()
+                  log("Code submitted.")
+                  time.sleep(5)
+                  ss("08_after_code_submit")
+
+                  # reach inbox
+                  stage("REACH INBOX")
+                  time.sleep(3)
+                  if "mail.google.com" not in driver.current_url:
+                      driver.get("https://mail.google.com/mail/u/0/#inbox")
+                      time.sleep(5)
+                  try:
+                      wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"tr.zA")))
+                      log("✅ Inbox reached!")
+                      ss("09_inbox_reached")
+                  except TimeoutException:
+                      try:
+                          driver.find_element(By.XPATH,"//a[contains(@href,'mail.google.com')]").click()
+                          time.sleep(3)
+                          wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"tr.zA")))
+                          ss("09_inbox_reached")
+                      except:
+                          ss("error_cannot_reach_inbox")
+                          raise Exception("Could not reach inbox")
+
+                  # save profile
+                  stage("SAVE PROFILE")
+                  log("Closing browser to flush profile data…")
+                  driver.quit()
+                  driver = None
+                  log("Packing profile…")
+                  profile_tar = tar_profile()
+                  encrypted = encrypt_data(profile_tar)
+                  # self‑test
+                  try:
+                      test_dec = decrypt_data(encrypted)
+                      if test_dec == profile_tar:
+                          log("Encryption self‑test passed ✅")
+                      else:
+                          log("Encryption self‑test FAILED ❌")
+                  except Exception as e:
+                      log(f"Encryption self‑test error: {e}")
+                  with open("profile_cache.tar.enc","wb") as f:
+                      f.write(encrypted)
+                  log("Encrypted profile saved.")
+
+              # ====== READ FIRST EMAIL ======
+              if not driver:
+                  driver = webdriver.Chrome(options=opts)
+                  driver.execute_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
+                  wait = WebDriverWait(driver,20)
+                  driver.get("https://mail.google.com/mail/u/0/#inbox")
+                  time.sleep(5)
+                  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,"tr.zA")))
+              stage("READ FIRST EMAIL")
+              log("Reading first email…")
+              rows = driver.find_elements(By.CSS_SELECTOR,"tr.zA")
+              if not rows:
+                  raise Exception("No emails in inbox")
+              rows[0].click()
+              time.sleep(4)
+              try:
+                  body = driver.find_element(By.CSS_SELECTOR,"div.a3s")
+                  content = body.text
+              except:
+                  content = driver.find_element(By.TAG_NAME,"body").text
+              log(f"First email: {len(content)} chars")
+              ss("10_first_email_read")
+
+              with open("email.txt","w",encoding="utf-8") as f:
+                  f.write("--- First email ---\n\n"+content)
+              log("email.txt saved")
+
+              echo("Pushing final files…")
+              subprocess.run(["git","stash","--include-untracked"],capture_output=True)
+              subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
+              subprocess.run(["git","stash","pop"],capture_output=True)
+              subprocess.run(["git","add","email.txt",log_file],check=True)
+              subprocess.run(["git","commit","-m","Final - first email fetched"],check=True)
+              subprocess.run(["git","push"],check=True)
+              echo("🎉 Success! First email saved.")
+
+          except Exception as e:
+              log(f"FAILED: {e}")
+              try: ss("99_failure")
+              except: pass
+              raise
+          finally:
+              if driver:
+                  driver.quit()
+              log("Browser closed.")
+              try:
+                  subprocess.run(["git","stash","--include-untracked"],capture_output=True)
+                  subprocess.run(["git","pull","--rebase"],check=True,capture_output=True)
+                  subprocess.run(["git","stash","pop"],capture_output=True)
+                  subprocess.run(["git","add","screenshots/","gmail_yml.log","email.txt"],check=True)
+                  subprocess.run(["git","commit","-m","Final state"],check=True)
+                  subprocess.run(["git","push"],check=True)
+              except:
+                  echo("Final push failed (non‑critical).")
+          PYEOF
+
+      - name: Save profile to cache
+        if: always() && hashFiles('profile_cache.tar.enc') != ''
+        uses: actions/cache/save@v3
+        with:
+          path: profile_cache.tar.enc
+          key: chrome-profile-v1

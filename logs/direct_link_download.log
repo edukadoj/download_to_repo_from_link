@@ -1,0 +1,12 @@
+
+Trying simple download: https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.0/windowsdesktop-runtime-10.0.0-win-x64.exe
+✓ Downloaded: windowsdesktop-runtime-10.0.0-win-x64.exe (58 MB)
+No URLs required browser fallback.
+[2026-05-16 09:44:16] Splitting 1 large file(s) using chunker.py
+[2026-05-16 09:44:16] Running: python3 python/chunker.py --files Download/windowsdesktop-runtime-10.0.0-win-x64.exe --output-dir Download --chunk-size 20
+[2026-05-16 09:44:16] Uploading chunks and reassemble.bat
+[2026-05-16 09:44:16] Uploading reassemble.bat
+[2026-05-16 09:44:18] Uploading windowsdesktop-runtime-10.0.0-win-x64.exe.part0000
+[2026-05-16 09:44:24] Uploading windowsdesktop-runtime-10.0.0-win-x64.exe.part0001
+[2026-05-16 09:44:31] Uploading windowsdesktop-runtime-10.0.0-win-x64.exe.part0002
+[2026-05-16 09:44:37] ✅ Processing complete.

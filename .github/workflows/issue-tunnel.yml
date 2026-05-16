@@ -1,0 +1,147 @@
+# ===========================================================
+#  Two‑Comment Mailbox Relay  v1.1.0  (HTTP + TCP, configurable poll)
+# ===========================================================
+
+name: Two-Comment Mailbox Relay
+
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      REQ_ID: "4359685100"
+      RESP_ID: "4359685685"
+      POLL_SECONDS: "4"     # <-- set to 4 for responsiveness
+    steps:
+      - name: Relay loop
+        run: |
+          echo "Relay started. Polling every ${POLL_SECONDS}s..."
+          LAST_BODY=""
+          declare -A TCP_SOCKS
+
+          while true; do
+            REQ_BODY=$(gh api repos/$GITHUB_REPOSITORY/issues/comments/$REQ_ID --jq '.body' 2>/dev/null || echo "")
+
+            if [ -n "$REQ_BODY" ] && [ "$REQ_BODY" != "$LAST_BODY" ]; then
+              echo "Processing: ${REQ_BODY:0:100}..."
+              LAST_BODY="$REQ_BODY"
+
+              # ---- HTTP REQUEST ----
+              if [[ "$REQ_BODY" == REQUEST:* ]]; then
+                B64=${REQ_BODY#REQUEST:}
+                echo "$B64" | base64 -d > raw_request.txt 2>/dev/null
+                METHOD=$(head -1 raw_request.txt | awk '{print $1}')
+                URL=$(head -1 raw_request.txt | awk '{print $2}')
+                echo "HTTP: $METHOD $URL"
+
+                HEADERS=$(sed '/^\r$/q' raw_request.txt | head -n -1 | tail -n +2)
+                BODY_DATA=$(sed -n '/^\r$/,$p' raw_request.txt | tail -n +2)
+
+                HEADER_ARGS=()
+                while IFS= read -r line; do
+                  [[ -z "$line" ]] && continue
+                  HEADER_ARGS+=(--header "$line")
+                done <<< "$HEADERS"
+
+                if [ "$METHOD" = "GET" ]; then
+                  RESPONSE=$(curl -s -i --max-time 30 "${HEADER_ARGS[@]}" "$URL" 2>&1 || echo "HTTP/1.1 502 Bad Gateway\r\n\r\nCurl error")
+                else
+                  RESPONSE=$(curl -s -i --max-time 30 -X "$METHOD" "${HEADER_ARGS[@]}" -d "$BODY_DATA" "$URL" 2>&1 || echo "HTTP/1.1 502 Bad Gateway\r\n\r\nCurl error")
+                fi
+
+                RESP_B64=$(echo -n "$RESPONSE" | base64 -w0)
+                gh api repos/$GITHUB_REPOSITORY/issues/comments/$RESP_ID \
+                  -X PATCH \
+                  -f body="RESPONSE:$RESP_B64" > /dev/null 2>&1
+                echo "HTTP response posted."
+
+              # ---- TCP CONNECT ----
+              elif [[ "$REQ_BODY" == CONNECT:* ]]; then
+                TAG=$(echo "$REQ_BODY" | cut -d: -f2)
+                TARGET_B64=$(echo "$REQ_BODY" | cut -d: -f3)
+                TARGET=$(echo "$TARGET_B64" | base64 -d 2>/dev/null)
+                HOST=$(echo "$TARGET" | cut -d: -f1)
+                PORT=$(echo "$TARGET" | cut -d: -f2)
+
+                echo "TCP CONNECT: $TAG -> $HOST:$PORT"
+                if nc -z -w5 "$HOST" "$PORT" 2>/dev/null; then
+                  exec 3<>/dev/tcp/$HOST/$PORT 2>/dev/null || true
+                  if [ -e /proc/self/fd/3 ]; then
+                    TCP_SOCKS[$TAG]="3"
+                    gh api repos/$GITHUB_REPOSITORY/issues/comments/$RESP_ID \
+                      -X PATCH \
+                      -f body="CONNECTED:$TAG:" > /dev/null 2>&1
+                    echo "TCP connected. fd 3 for tag $TAG"
+                  else
+                    gh api repos/$GITHUB_REPOSITORY/issues/comments/$RESP_ID \
+                      -X PATCH \
+                      -f body="CONNECT_FAILED:$TAG:" > /dev/null 2>&1
+                    echo "Socket open failed."
+                  fi
+                else
+                  gh api repos/$GITHUB_REPOSITORY/issues/comments/$RESP_ID \
+                    -X PATCH \
+                    -f body="CONNECT_FAILED:$TAG:" > /dev/null 2>&1
+                  echo "TCP connection failed (nc test)."
+                fi
+
+              # ---- TCP SEND ----
+              elif [[ "$REQ_BODY" == SEND:* ]]; then
+                TAG=$(echo "$REQ_BODY" | cut -d: -f2)
+                CHUNK_B64=$(echo "$REQ_BODY" | cut -d: -f3)
+                FD="${TCP_SOCKS[$TAG]}"
+                if [ -n "$FD" ] && [ -e /proc/self/fd/$FD ]; then
+                  echo "$CHUNK_B64" | base64 -d > /dev/fd/$FD 2>/dev/null || {
+                    echo "Write failed, closing tag $TAG"
+                    gh api repos/$GITHUB_REPOSITORY/issues/comments/$RESP_ID \
+                      -X PATCH \
+                      -f body="CLOSED:$TAG:" > /dev/null 2>&1
+                    exec {FD}>&- 2>/dev/null
+                    unset TCP_SOCKS[$TAG]
+                  }
+                else
+                  echo "SEND on invalid tag $TAG"
+                fi
+
+              # ---- TCP CLOSE ----
+              elif [[ "$REQ_BODY" == CLOSE:* ]]; then
+                TAG=$(echo "$REQ_BODY" | cut -d: -f2)
+                FD="${TCP_SOCKS[$TAG]}"
+                if [ -n "$FD" ]; then
+                  exec {FD}>&- 2>/dev/null
+                  unset TCP_SOCKS[$TAG]
+                  echo "Closed tag $TAG"
+                fi
+              fi
+            fi
+
+            # ---- TCP READ (poll all open sockets) ----
+            for TAG in "${!TCP_SOCKS[@]}"; do
+              FD="${TCP_SOCKS[$TAG]}"
+              if [ -e /proc/self/fd/$FD ]; then
+                if read -t 0.1 -u $FD data; then
+                  chunk=$(head -c 4096 <&$FD)
+                  if [ -n "$chunk" ]; then
+                    CHUNK_B64=$(echo -n "$chunk" | base64 -w0)
+                    gh api repos/$GITHUB_REPOSITORY/issues/comments/$RESP_ID \
+                      -X PATCH \
+                      -f body="DATA:$TAG:$CHUNK_B64" > /dev/null 2>&1
+                  fi
+                fi
+              else
+                gh api repos/$GITHUB_REPOSITORY/issues/comments/$RESP_ID \
+                  -X PATCH \
+                  -f body="CLOSED:$TAG:" > /dev/null 2>&1
+                unset TCP_SOCKS[$TAG]
+              fi
+            done
+
+            sleep $POLL_SECONDS
+          done

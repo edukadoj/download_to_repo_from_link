@@ -1,0 +1,140 @@
+# ==============================================================================
+# command_mouse_keyboard.yml – version 36.6 (WARP dependency fix – refresh apt)
+# ==============================================================================
+name: Remote Mouse & Keyboard (Full Command Set + File I/O)
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'GitHub Issue number (default 4)'
+        required: false
+        type: string
+        default: '4'
+      start_url:
+        description: 'Starting URL (default: https://studio.youtube.com)'
+        required: false
+        type: string
+        default: 'https://studio.youtube.com'
+
+jobs:
+  control:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    env:
+      KEY: ${{ secrets.KEY }}
+      PASS: ${{ secrets.PASS }}
+      EMAIL: ${{ secrets.EMAIL }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PAT: ${{ secrets.GH_TOKEN }}
+      PYTHONUNBUFFERED: 1
+      SECRETS_TO_EXPOSE: "EMAIL,PASS,PHONE"
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Clean start + create log directory"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          rm -rf screenshots command_mouse_keyboard.log downloaded_chunks logs/command_mouse_keyboard.log
+          mkdir -p screenshots downloaded_chunks logs
+          touch logs/command_mouse_keyboard.log
+          git checkout --ours screenshots/ 2>/dev/null || true
+          git add -A && git commit -m "Clean start" || echo "Nothing to commit"
+          git pull --rebase && git push || echo "Push failed, continuing"
+
+      # ---------- WARP caching ----------
+      - name: "Cache Cloudflare WARP package"
+        uses: actions/cache@v4
+        id: warp-cache
+        with:
+          path: /tmp/warp-pkg
+          key: cloudflare-warp-${{ runner.os }}-${{ hashFiles('.github/workflows/command_mouse_keyboard.yml') }}
+
+      - name: "Download WARP (first time)"
+        if: steps.warp-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y curl gnupg apt-transport-https
+          curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+          sudo apt-get update -qq
+          sudo apt-get install -y --download-only cloudflare-warp
+          mkdir -p /tmp/warp-pkg
+          cp /var/cache/apt/archives/cloudflare-warp*.deb /tmp/warp-pkg/
+
+      - name: "Install WARP (from cache)"
+        if: steps.warp-cache.outputs.cache-hit == 'true'
+        run: |
+          sudo dpkg -i /tmp/warp-pkg/cloudflare-warp*.deb || true
+          sudo apt-get update -qq
+          sudo apt-get install -f -y --fix-missing || sudo apt-get install -f -y
+
+      - name: "Verify WARP"
+        run: |
+          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
+          echo "WARP is active"
+
+      # ---------- APT packages (system + Chrome + ffmpeg) ----------
+      - name: "Add Google Chrome key"
+        run: |
+          sudo rm -f /usr/share/keyrings/google-chrome.gpg
+          curl -fsSL https://dl-ssl.google.com/linux/linux_signing_key.pub \
+            | sudo gpg --batch --yes --no-tty --dearmor -o /usr/share/keyrings/google-chrome.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] \
+            http://dl.google.com/linux/chrome/deb/ stable main" \
+            | sudo tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
+
+      - name: "Install & cache APT packages (system + Chrome + ffmpeg)"
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: wget gnupg python3-pip ffmpeg xclip xvfb google-chrome-stable
+          version: 1.0
+
+      # ---------- pip packages ----------
+      - name: "Cache pip packages"
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('.github/workflows/command_mouse_keyboard.yml') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: "Install Python packages (fast from cache)"
+        run: |
+          pip3 install --upgrade selenium webdriver-manager requests cryptography \
+                       Pillow pyperclip google-genai undetected-chromedriver \
+                       pyvirtualdisplay
+
+      - name: "Push unified log after installations"
+        if: always()
+        run: |
+          git checkout --ours screenshots/ 2>/dev/null || true
+          git add logs/command_mouse_keyboard.log
+          if ! git diff --cached --quiet; then
+            git commit -m "Installation log (unified)"
+            git pull --rebase && git push || echo "Push failed"
+          fi
+
+      - name: "Agent"
+        timeout-minutes: 360
+        env:
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          START_URL: ${{ github.event.inputs.start_url }}
+          PYTHONPATH: python
+        run: |
+          python3 python/command_mouse_keyboard.py 2>&1 | tee -a logs/command_mouse_keyboard.log
+
+      - name: "Push final logs"
+        if: always()
+        run: |
+          git checkout --ours screenshots/ 2>/dev/null || true
+          git add logs/command_mouse_keyboard.log
+          if ! git diff --cached --quiet; then
+            git commit -m "Agent run log"
+            git pull --rebase && git push || echo "Push failed"
+          fi

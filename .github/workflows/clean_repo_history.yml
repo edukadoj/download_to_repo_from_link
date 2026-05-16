@@ -1,0 +1,184 @@
+# ================================================================
+#  Clean Repo - Purge History (Current files will be kept)  v7.0.0
+#  ================================================================
+#  Exact steps:
+#  1) Download ZIP of current repo → report size & log
+#  2) Extract ZIP → create fresh repo (no history)
+#  3) Replace current repo with clean repo (force push)
+#  4) Immediately download ZIP again → report new size & log
+#  5) Announce size reduction (how much history was purged)
+#  6) Push the log file (clean_repo_history.log) to logs/ folder
+# ================================================================
+
+name: Clean Repo - Purge History (Current files will be kept)
+
+on:
+  workflow_dispatch:
+    inputs:
+      main_branch:
+        description: 'The branch to replace (usually main)'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  purge-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # ------------------------------------------------------------
+      # 0. Prepare log file on runner
+      # ------------------------------------------------------------
+      - name: Create log file
+        run: |
+          mkdir -p logs
+          cat > logs/clean_repo_history.log << EOF
+          === Clean Repo Purge v7.0.0 - $(date -u +'%Y-%m-%d %H:%M:%S UTC') ===
+          Repository: ${{ github.repository }}
+          Triggered by: ${{ github.actor }}
+          Job ID: $GITHUB_RUN_ID
+          Target branch: ${{ github.event.inputs.main_branch }}
+          
+          --- Step 1: Download original ZIP ---
+          EOF
+
+      # ------------------------------------------------------------
+      # 1. Download ZIP of current repo and log its size
+      # ------------------------------------------------------------
+      - name: Download current repo as ZIP
+        run: |
+          echo "Downloading current repository ZIP..."
+          curl -L --max-time 60 --connect-timeout 10 \
+            -H "Authorization: token ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/zipball/${{ github.event.inputs.main_branch }} \
+            -o current_repo.zip
+          
+          SIZE_BYTES=$(stat -c%s current_repo.zip)
+          SIZE_MB=$(echo "scale=2; $SIZE_BYTES / 1048576" | bc)
+          SIZE_GB=$(echo "scale=2; $SIZE_BYTES / 1073741824" | bc)
+          
+          echo "Original ZIP size: ${SIZE_BYTES} bytes (${SIZE_MB} MB / ${SIZE_GB} GB)" | tee -a logs/clean_repo_history.log
+          echo "=========================================" | tee -a logs/clean_repo_history.log
+          echo "CURRENT ZIP SIZE: ${SIZE_MB} MB" | tee -a logs/clean_repo_history.log
+          echo "=========================================" | tee -a logs/clean_repo_history.log
+          echo "CURRENT_SIZE_BYTES=$SIZE_BYTES" >> $GITHUB_ENV
+
+      # ------------------------------------------------------------
+      # 2. Extract ZIP and preserve all files (including .github)
+      # ------------------------------------------------------------
+      - name: Extract ZIP contents
+        run: |
+          echo "Extracting ZIP to fresh directory..." | tee -a logs/clean_repo_history.log
+          mkdir fresh_repo
+          unzip -q current_repo.zip -d fresh_repo
+          cd fresh_repo
+          SUBDIR=$(ls -1 | head -n1)
+          shopt -s dotglob
+          mv $SUBDIR/* . 2>/dev/null || true
+          mv $SUBDIR/.[!.]* . 2>/dev/null || true
+          shopt -u dotglob
+          rm -rf $SUBDIR
+          cd ..
+          echo "Extraction complete." >> logs/clean_repo_history.log
+
+      # ------------------------------------------------------------
+      # 3. Create fresh Git repo (no history) from extracted files
+      # ------------------------------------------------------------
+      - name: Create fresh Git repo with no history
+        run: |
+          echo "Creating fresh Git repository (no history)..." | tee -a logs/clean_repo_history.log
+          cd fresh_repo
+          git init
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions Cleaner"
+          git add .
+          git commit -m "Initial commit after full history purge [skip ci]"
+          echo "Fresh repo created with all current files." >> $GITHUB_WORKSPACE/logs/clean_repo_history.log
+
+      # ------------------------------------------------------------
+      # 4. Force push to replace the current repository
+      # ------------------------------------------------------------
+      - name: Replace current repo with clean repo (force push)
+        run: |
+          echo "Force pushing fresh repo to replace remote branch..." | tee -a logs/clean_repo_history.log
+          cd fresh_repo
+          git remote add origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
+          git push --force origin HEAD:${{ github.event.inputs.main_branch }}
+          echo "Force push completed." >> $GITHUB_WORKSPACE/logs/clean_repo_history.log
+
+      # ------------------------------------------------------------
+      # 5. Immediately download new ZIP and compare sizes
+      # ------------------------------------------------------------
+      - name: Download new ZIP after purge and compute savings
+        run: |
+          echo "Downloading new ZIP immediately after push..." | tee -a logs/clean_repo_history.log
+          curl -L --max-time 60 --connect-timeout 10 \
+            -H "Authorization: token ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/zipball/${{ github.event.inputs.main_branch }} \
+            -o new_repo.zip
+          
+          NEW_SIZE_BYTES=$(stat -c%s new_repo.zip)
+          NEW_SIZE_MB=$(echo "scale=2; $NEW_SIZE_BYTES / 1048576" | bc)
+          NEW_SIZE_GB=$(echo "scale=2; $NEW_SIZE_BYTES / 1073741824" | bc)
+          
+          echo "New ZIP size: ${NEW_SIZE_BYTES} bytes (${NEW_SIZE_MB} MB / ${NEW_SIZE_GB} GB)" | tee -a logs/clean_repo_history.log
+          echo "=========================================" | tee -a logs/clean_repo_history.log
+          echo "NEW ZIP SIZE: ${NEW_SIZE_MB} MB" | tee -a logs/clean_repo_history.log
+          echo "=========================================" | tee -a logs/clean_repo_history.log
+          
+          # Calculate difference in bytes and MB
+          DIFF_BYTES=$((CURRENT_SIZE_BYTES - NEW_SIZE_BYTES))
+          DIFF_MB=$(echo "scale=2; $DIFF_BYTES / 1048576" | bc)
+          
+          echo "-----------------------------------------" | tee -a logs/clean_repo_history.log
+          echo "SIZE REDUCTION (history purged):" | tee -a logs/clean_repo_history.log
+          echo "  Before: ${{ env.CURRENT_SIZE_BYTES }} bytes" | tee -a logs/clean_repo_history.log
+          echo "  After:  $NEW_SIZE_BYTES bytes" | tee -a logs/clean_repo_history.log
+          echo "  Reduction: ${DIFF_BYTES} bytes (${DIFF_MB} MB)" | tee -a logs/clean_repo_history.log
+          echo "-----------------------------------------" | tee -a logs/clean_repo_history.log
+          
+          # Announce to job log (visible in GitHub Actions)
+          echo "::notice:: You got rid of ${DIFF_MB} MB of history successfully!"
+          
+          # Save the announcement message for later use (to be appended to log)
+          echo "ANNOUNCEMENT=You got rid of ${DIFF_MB} MB of history successfully!" >> $GITHUB_ENV
+          echo "DIFF_MB=$DIFF_MB" >> $GITHUB_ENV
+
+      # ------------------------------------------------------------
+      # 6. Push the log file to the logs/ folder of the cleaned repo
+      # ------------------------------------------------------------
+      - name: Push log file to repository
+        run: |
+          echo "Pushing log file to logs/ folder..." | tee -a logs/clean_repo_history.log
+          # Clone the freshly pushed repository (shallow) to add the log file
+          git clone --depth 1 --branch ${{ github.event.inputs.main_branch }} \
+            https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git push_log_repo
+          cd push_log_repo
+          mkdir -p logs
+          cp $GITHUB_WORKSPACE/logs/clean_repo_history.log logs/
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions Cleaner"
+          git add logs/clean_repo_history.log
+          git commit -m "Add purge history log [skip ci]"
+          git push origin HEAD:${{ github.event.inputs.main_branch }}
+          cd ..
+          echo "Log file successfully pushed to logs/clean_repo_history.log" >> $GITHUB_WORKSPACE/logs/clean_repo_history.log
+
+      # ------------------------------------------------------------
+      # 7. Final announcement (also echoes the size saved)
+      # ------------------------------------------------------------
+      - name: Final announcement
+        run: |
+          echo "========================================="
+          echo "✅ REPO PURGE COMPLETE"
+          echo "   ${{ env.ANNOUNCEMENT }}"
+          echo "   Log file: logs/clean_repo_history.log"
+          echo "========================================="

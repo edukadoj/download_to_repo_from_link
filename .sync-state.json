@@ -1,0 +1,362 @@
+{
+  ".github/workflows/advanced_cloud_downloder.yml": {
+    "LocalHash": "575b025b89412acbf523954958690c54aa0c73be",
+    "RemoteHash": "575b025b89412acbf523954958690c54aa0c73be",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:12.8351946Z"
+  },
+  ".github/workflows/clean_repo_history.yml": {
+    "LocalHash": "000927e1f656b574e18f5c80b1a65cf604968535",
+    "RemoteHash": "000927e1f656b574e18f5c80b1a65cf604968535",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:13.1777609Z"
+  },
+  ".github/workflows/command_mouse_keyboard.yml": {
+    "LocalHash": "f984a4ca22cfbc9b796ae6137c4e8d881de53d50",
+    "RemoteHash": "f984a4ca22cfbc9b796ae6137c4e8d881de53d50",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:13.5732285Z"
+  },
+  ".github/workflows/direct_link_download.yml": {
+    "LocalHash": "1d7e73bbec0048b462d964e5a4589cc9f6565b31",
+    "RemoteHash": "1d7e73bbec0048b462d964e5a4589cc9f6565b31",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:14.0208105Z"
+  },
+  ".github/workflows/download_vs_2026_community.yml": {
+    "LocalHash": "4f0993c778f4b8516e1f0a7539ac0cb9c8838f53",
+    "RemoteHash": "4f0993c778f4b8516e1f0a7539ac0cb9c8838f53",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:14.5329738Z"
+  },
+  ".github/workflows/download_website.yml": {
+    "LocalHash": "86a422781d6c839c10b22061774354e1113ee385",
+    "RemoteHash": "86a422781d6c839c10b22061774354e1113ee385",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:14.9531778Z"
+  },
+  ".github/workflows/get_google_studio_api.yml": {
+    "LocalHash": "b304e251beeea3beb9a4fb08a04d5090fb5902dd",
+    "RemoteHash": "b304e251beeea3beb9a4fb08a04d5090fb5902dd",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:15.3712512Z"
+  },
+  ".github/workflows/get_vs_nugets.yml": {
+    "LocalHash": "b6b5fdbea3c674e202f3ef542f7abd41c17990c9",
+    "RemoteHash": "b6b5fdbea3c674e202f3ef542f7abd41c17990c9",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:15.7055781Z"
+  },
+  ".github/workflows/issue-tunnel.yml": {
+    "LocalHash": "b8ab5f8738af1eadb82c2c0aeab8d90d6390aa60",
+    "RemoteHash": "b8ab5f8738af1eadb82c2c0aeab8d90d6390aa60",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:16.0685916Z"
+  },
+  ".github/workflows/sign_in_to_gmail.yml": {
+    "LocalHash": "5d8491aeeba05bc0cd72d7e0c84f2a7b1f1d2d35",
+    "RemoteHash": "5d8491aeeba05bc0cd72d7e0c84f2a7b1f1d2d35",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:16.4118733Z"
+  },
+  ".github/workflows/telegram.yml": {
+    "LocalHash": "17c79bb9a9fb319b6c84bfc22b4f8fe69723679f",
+    "RemoteHash": "17c79bb9a9fb319b6c84bfc22b4f8fe69723679f",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:16.7934705Z"
+  },
+  ".github/workflows/upload_to_youtube.yml": {
+    "LocalHash": "17bf64caeeaeb4891637e40cf38213014153645d",
+    "RemoteHash": "17bf64caeeaeb4891637e40cf38213014153645d",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:17.1649927Z"
+  },
+  ".github/workflows/youtube_downloader.yml": {
+    "LocalHash": "07b097c785c82190b220222c8700d713be94dbab",
+    "RemoteHash": "07b097c785c82190b220222c8700d713be94dbab",
+    "LocalWriteTimeUtc": "2026-05-15T11:09:20.4622238Z",
+    "RemoteDateUtc": "2026-05-14T07:00:34.0000000Z"
+  },
+  "LICENSE": {
+    "LocalHash": "07b951eb2787d1faff8999ecd31fd689d3ee8a67",
+    "RemoteHash": "07b951eb2787d1faff8999ecd31fd689d3ee8a67",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:21.9094077Z"
+  },
+  "chunks/reassemble.bat": {
+    "LocalHash": "5de1152ae2c25241b1a5b42d2d89fa50c31bf963",
+    "RemoteHash": "5de1152ae2c25241b1a5b42d2d89fa50c31bf963",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:22.3840304Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0000": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:22.7478029Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0001": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:23.1050842Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0002": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:23.4554112Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0003": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:23.8454669Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0004": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:24.2125910Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0005": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:24.5777498Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0006": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:24.9637955Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0007": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:25.4481591Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0008": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:25.7998896Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0009": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:26.1584712Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0010": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:26.5087984Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0011": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:26.8701255Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0012": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:27.2224359Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0013": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:27.5748609Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0014": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:27.9763374Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0015": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:28.4422714Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0016": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:28.8281920Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0017": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:29.2529863Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0018": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:29.6697543Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0019": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:30.0282616Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0020": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:30.4157294Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0021": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:30.7674453Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0022": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:31.1268283Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0023": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:31.4799348Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0024": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:31.8585400Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0025": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:32.2470915Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0026": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:32.6251171Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0027": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:33.3054117Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0028": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:33.6541764Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0029": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:34.0103142Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0030": {
+    "LocalHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "RemoteHash": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:34.4135176Z"
+  },
+  "chunks/\u0627\u062B\u0631\u06CC \u0627\u0632\u0645 \u0645\u0648\u0646\u062F\u0647 \u0628\u0627\u0634\u0647.mp4.part0031": {
+    "LocalHash": "1bdc986ffff8d00951c86a0ac6dc38939d0e6f10",
+    "RemoteHash": "1bdc986ffff8d00951c86a0ac6dc38939d0e6f10",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:35.9774800Z"
+  },
+  "combiner.bat": {
+    "LocalHash": "120329e0d66200cebe64954187b703ce3a7ddf0c",
+    "RemoteHash": "120329e0d66200cebe64954187b703ce3a7ddf0c",
+    "LocalWriteTimeUtc": "2026-05-15T09:57:20.2735294Z"
+  },
+  "logs/clean_repo_history.log": {
+    "LocalHash": "8faed6faa6e5839062f0faed7729f59e1475f266",
+    "RemoteHash": "8faed6faa6e5839062f0faed7729f59e1475f266",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:36.2870663Z"
+  },
+  "logs/command_mouse_keyboard.log": {
+    "LocalHash": "324bf56197aff64ac12119fbe3af4d4ff65bbfe8",
+    "RemoteHash": "324bf56197aff64ac12119fbe3af4d4ff65bbfe8",
+    "LocalWriteTimeUtc": "2026-05-15T11:16:35.0000000Z",
+    "RemoteDateUtc": "2026-05-15T11:16:35.0000000Z"
+  },
+  "logs/direct_link_download.log": {
+    "LocalHash": "8576a6d765021debe77f5dbf06798ab6c2b7772c",
+    "RemoteHash": "8576a6d765021debe77f5dbf06798ab6c2b7772c",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:36.9132327Z"
+  },
+  "logs/youtube_downloader.log": {
+    "LocalHash": "79a067f5e038a056a57226457745415ae25fbdb0",
+    "RemoteHash": "79a067f5e038a056a57226457745415ae25fbdb0",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:37.3145180Z"
+  },
+  "python/agent_state.py": {
+    "LocalHash": "cab6dc52335dd931a8b4e69fcc49dccc4906a2c5",
+    "RemoteHash": "cab6dc52335dd931a8b4e69fcc49dccc4906a2c5",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:37.6595512Z"
+  },
+  "python/browser_agent.py": {
+    "LocalHash": "e767aba9cb72946865c9878c788b1b5d9f4b9f67",
+    "RemoteHash": "e767aba9cb72946865c9878c788b1b5d9f4b9f67",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:37.9775019Z"
+  },
+  "python/browser_setup.py": {
+    "LocalHash": "02e0341357b2d0081e05009fddc6109ee1a5d94d",
+    "RemoteHash": "02e0341357b2d0081e05009fddc6109ee1a5d94d",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:38.2897410Z"
+  },
+  "python/chunker.py": {
+    "LocalHash": "b16565f379712e05c0b3d0046b6a37cd99d52846",
+    "RemoteHash": "b16565f379712e05c0b3d0046b6a37cd99d52846",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:38.5992425Z"
+  },
+  "python/combiner.bat": {
+    "LocalHash": "120329e0d66200cebe64954187b703ce3a7ddf0c",
+    "RemoteHash": "120329e0d66200cebe64954187b703ce3a7ddf0c",
+    "LocalWriteTimeUtc": "2026-05-15T09:57:20.2735294Z"
+  },
+  "python/command_handlers.py": {
+    "LocalHash": "839200bbfcf4245bcc700c3c5ae057d7bf12add0",
+    "RemoteHash": "839200bbfcf4245bcc700c3c5ae057d7bf12add0",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:38.9343223Z"
+  },
+  "python/command_mouse_keyboard.py": {
+    "LocalHash": "3c8d06e2ed21518907511c0a9ff87d75e1fdffd5",
+    "RemoteHash": "3c8d06e2ed21518907511c0a9ff87d75e1fdffd5",
+    "LocalWriteTimeUtc": "2026-05-15T09:13:14.0038128Z"
+  },
+  "python/comments.py": {
+    "LocalHash": "bec01a4d54fd39e748c1fdfeec4229af9260a714",
+    "RemoteHash": "bec01a4d54fd39e748c1fdfeec4229af9260a714",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:39.5839889Z"
+  },
+  "python/crypto_utils.py": {
+    "LocalHash": "b3cbb3fd10cf60965ef936bc311c8e24f43f4cfb",
+    "RemoteHash": "b3cbb3fd10cf60965ef936bc311c8e24f43f4cfb",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:39.9023567Z"
+  },
+  "python/execution_queue.py": {
+    "LocalHash": "a327ad4a2dc90a81d6bab6a5728359b5d12d8ee5",
+    "RemoteHash": "a327ad4a2dc90a81d6bab6a5728359b5d12d8ee5",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:40.2315318Z"
+  },
+  "python/queue_manager.py": {
+    "LocalHash": "06a43e1cc46c6ae3ff02e0a3961e7447a374f09e",
+    "RemoteHash": "06a43e1cc46c6ae3ff02e0a3961e7447a374f09e",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:40.7255715Z"
+  },
+  "python/upload_handler.py": {
+    "LocalHash": "2678d28dd0c4fcc37de00fe8966c2343e2e917f3",
+    "RemoteHash": "2678d28dd0c4fcc37de00fe8966c2343e2e917f3",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:41.0465716Z"
+  },
+  "python/upload_injector.py": {
+    "LocalHash": "4c4b5ac9e850ec52fdec4459835e7343ec79e3b1",
+    "RemoteHash": "4c4b5ac9e850ec52fdec4459835e7343ec79e3b1",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:41.3859399Z"
+  },
+  "python/uploader.py": {
+    "LocalHash": "7360aa98ad62cb1dd7e34504194af0744e96682b",
+    "RemoteHash": "7360aa98ad62cb1dd7e34504194af0744e96682b",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:41.6930641Z"
+  },
+  "sync.ps1": {
+    "LocalHash": "e524e4a66a06d4ff9a36e56dd9dbb825ab71e77a",
+    "RemoteHash": "e524e4a66a06d4ff9a36e56dd9dbb825ab71e77a",
+    "LocalWriteTimeUtc": "2026-05-15T08:39:42.0000000Z"
+  },
+  "uploadrepo.bat": {
+    "LocalHash": "220120937e9787312458c76bad41c6bca9ac9a86",
+    "RemoteHash": "220120937e9787312458c76bad41c6bca9ac9a86",
+    "LocalWriteTimeUtc": "2026-05-15T08:38:43.8871480Z"
+  },
+  ".github/workflows/combiner.bat": {
+    "LocalHash": "120329e0d66200cebe64954187b703ce3a7ddf0c",
+    "RemoteHash": "120329e0d66200cebe64954187b703ce3a7ddf0c",
+    "LocalWriteTimeUtc": "2026-05-15T09:57:20.2735294Z",
+    "RemoteDateUtc": "2026-05-15T12:09:25.5047777Z"
+  },
+  "screenshots/112_113454_auto.png": {
+    "LocalHash": "2cd51134f372ffe194cbab5cecb79c932636eafe",
+    "RemoteHash": "2cd51134f372ffe194cbab5cecb79c932636eafe",
+    "LocalWriteTimeUtc": "2026-05-15T11:34:54.0000000Z",
+    "RemoteDateUtc": "2026-05-15T11:34:54.0000000Z"
+  },
+  "screenshots/113_113456_final.png": {
+    "LocalHash": "24b610e58c9b01840068a39a7c22f2d06fce7dd7",
+    "RemoteHash": "24b610e58c9b01840068a39a7c22f2d06fce7dd7",
+    "LocalWriteTimeUtc": "2026-05-15T11:34:57.0000000Z",
+    "RemoteDateUtc": "2026-05-15T11:34:57.0000000Z"
+  }
+}

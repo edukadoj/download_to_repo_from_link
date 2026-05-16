@@ -1,0 +1,563 @@
+# Version: 2.5.4 – Robust Upload & Cache Resilience
+
+name: YouTube Download (WARP + Cookie Fallback)
+
+on:
+  workflow_dispatch:
+    inputs:
+      youtube_url1:
+        description: 'YouTube URL #1 (required)'
+        required: true
+        default: ''
+      youtube_url2:
+        description: 'YouTube URL #2 (optional)'
+        required: false
+        default: ''
+      youtube_url3:
+        description: 'YouTube URL #3 (optional)'
+        required: false
+        default: ''
+      youtube_url4:
+        description: 'YouTube URL #4 (optional)'
+        required: false
+        default: ''
+      youtube_url5:
+        description: 'YouTube URL #5 (optional)'
+        required: false
+        default: ''
+      quality:
+        description: 'Video quality'
+        required: true
+        type: choice
+        default: '720p'
+        options:
+          - '144p'
+          - '360p'
+          - '480p'
+          - '720p'
+          - '1080p'
+          - 'best'
+      sub_lang:
+        description: 'Subtitles language'
+        required: true
+        type: choice
+        default: 'en (English)'
+        options:
+          - 'en (English)'
+          - 'fa (Persian)'
+          - 'none'
+      burner_subs:
+        description: 'Burn subtitles into video?'
+        required: true
+        type: boolean
+        default: false
+      compress_video:
+        description: 'Compress video (CRF 26) – may reduce quality but saves space?'
+        required: true
+        type: boolean
+        default: false
+      use_cache:
+        description: 'Enable pip & Deno caching'
+        required: true
+        type: boolean
+        default: true
+      folder_name:
+        description: 'Folder to store downloads'
+        required: false
+        default: 'YouTube Download'
+
+jobs:
+  download-and-chunk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: write
+    env:
+      KEY: ${{ secrets.KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Clean up old downloads and logs
+        run: |
+          rm -rf "${{ github.event.inputs.folder_name }}"
+          rm -f youtube_downloader.log cookies.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Clean up old downloads" || true
+          git pull --rebase
+          git push || true
+
+      # ✅ Cache restore will silently fail (skip) if no cache exists – workflow continues.
+      - name: Restore cached Chrome profile
+        id: cache-profile
+        uses: actions/cache/restore@v4
+        with:
+          path: profile_cache.tar.enc
+          key: chrome-profile-v1
+
+      - name: Restore pip & Deno cache
+        if: ${{ inputs.use_cache }}
+        id: cache-pip-deno
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            /home/runner/.deno
+          key: pip-deno-cache-v1
+
+      - name: Setup Cloudflare WARP
+        uses: viperadnan-git/setup-warp@v1
+        with:
+          mode: 'client'
+          stack: 'dual'
+          configure_docker: 'false'
+
+      - name: Install dependencies
+        run: |
+          echo "=== Installing Dependencies ===" | tee -a youtube_downloader.log
+          sudo apt-get update 2>&1 | tee -a youtube_downloader.log
+          sudo apt-get install -y ffmpeg 2>&1 | tee -a youtube_downloader.log
+          python3 -m pip install --upgrade yt-dlp "yt-dlp[default,curl-cffi]" requests 2>&1 | tee -a youtube_downloader.log
+          if [ ! -d "/home/runner/.deno" ]; then
+            curl -fsSL https://deno.land/install.sh | sh 2>&1 | tee -a youtube_downloader.log
+          fi
+          echo "/home/runner/.deno/bin" >> $GITHUB_PATH
+          pip3 install cryptography 2>&1 | tee -a youtube_downloader.log
+
+      - name: Download, convert, split & upload
+        id: process
+        env:
+          YT_URL_1: ${{ github.event.inputs.youtube_url1 }}
+          YT_URL_2: ${{ github.event.inputs.youtube_url2 }}
+          YT_URL_3: ${{ github.event.inputs.youtube_url3 }}
+          YT_URL_4: ${{ github.event.inputs.youtube_url4 }}
+          YT_URL_5: ${{ github.event.inputs.youtube_url5 }}
+          SUB_LANG: ${{ github.event.inputs.sub_lang }}
+          QUALITY: ${{ github.event.inputs.quality }}
+          BURN_SUBS: ${{ github.event.inputs.burner_subs }}
+          COMPRESS_VIDEO: ${{ github.event.inputs.compress_video }}
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 << 'PYEOF'
+          import os, sys, time, subprocess, base64, requests, json, re, traceback
+          from pathlib import Path
+          from urllib.parse import quote
+          from datetime import datetime
+
+          sys.stdout.reconfigure(line_buffering=True)
+          sys.stderr.reconfigure(line_buffering=True)
+
+          LOG_FILE = "youtube_downloader.log"
+
+          def log(msg):
+              print(msg, flush=True)
+              with open(LOG_FILE, "a", encoding="utf-8") as f:
+                  f.write(msg + "\n")
+
+          quality = os.environ.get("QUALITY", "720p")
+          sub_lang_input = os.environ.get("SUB_LANG", "none").strip()
+          burn_subs = os.environ.get("BURN_SUBS", "false").lower() == "true"
+          compress_video = os.environ.get("COMPRESS_VIDEO", "false").lower() == "true"
+          folder_name = os.environ.get("FOLDER_NAME", "YouTube Download")
+          token = os.environ.get("GITHUB_TOKEN")
+          repo = os.environ["GITHUB_REPOSITORY"]
+          branch = os.environ["GITHUB_REF_NAME"]
+
+          # ---- gather URLs ----
+          urls = []
+          for i in range(1, 6):
+              v = os.environ.get(f"YT_URL_{i}", "").strip()
+              if v:
+                  urls.append(v)
+
+          if not urls:
+              log("❌ No URLs provided.")
+              sys.exit(0)
+
+          log(f"🚀 Processing {len(urls)} URL(s) through Cloudflare WARP")
+          log(f"   Quality: {quality}")
+          log(f"   Subtitles: {sub_lang_input}")
+          log(f"   Burn subtitles: {burn_subs}")
+          log(f"   Compress video (CRF 26): {compress_video}")
+
+          # Quality mapping – prefer mp4+m4a
+          quality_map = {
+              "144p": "bestvideo[height<=144][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=144]+bestaudio/best[height<=144]",
+              "360p": "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/best[height<=360]",
+              "480p": "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480]",
+              "720p": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]",
+              "1080p": "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+              "best": "best"
+          }
+          fmt = quality_map.get(quality, "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]")
+
+          out_dir = Path(folder_name)
+          out_dir.mkdir(exist_ok=True)
+
+          # Common yt-dlp base arguments
+          YTDLP_BASE_ARGS = [
+              "--extractor-args", "youtube:player_client=android",
+              "--geo-bypass", "--geo-bypass-country", "US",
+              "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+              "--remote-components", "ejs:github",
+              "--retries", "10", "--fragment-retries", "10",
+              "--sleep-requests", "1", "--sleep-interval", "5", "--max-sleep-interval", "15"
+          ]
+
+          def run_cmd_live(cmd, timeout=600):
+              before = set(os.listdir("."))
+              output_lines = []
+              proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+              for line in proc.stdout:
+                  print(line, end="", flush=True)
+                  output_lines.append(line)
+              proc.wait(timeout=timeout)
+              after = set(os.listdir("."))
+              new_files = after - before
+              return proc.returncode, new_files, "".join(output_lines)
+
+          def run_ytdlp_and_log(base_cmd, url, extra_args=None, attempt_name=""):
+              log(f"   ▶️ Starting {attempt_name} download...")
+              final_cmd = list(base_cmd)
+              if extra_args:
+                  final_cmd.extend(extra_args)
+              final_cmd.append(url)
+              log(f"   🔧 Command: {' '.join(final_cmd)}")
+              exit_code, new_files, all_output = run_cmd_live(final_cmd)
+              if exit_code == 0:
+                  log(f"   ✅ {attempt_name} download finished successfully")
+              else:
+                  tail = "\n".join(line.rstrip() for line in all_output.splitlines()[-20:])
+                  log(f"   ❌ {attempt_name} download FAILED (exit code {exit_code}). Last output lines:\n{tail}")
+              return exit_code == 0, new_files
+
+          def get_video_metadata(url):
+              title_cmd = ["yt-dlp", "--no-playlist", "--dump-json"] + YTDLP_BASE_ARGS + [url]
+              proc = subprocess.run(title_cmd, capture_output=True, text=True, timeout=60)
+              if proc.returncode == 0 and proc.stdout.strip():
+                  try:
+                      metadata = json.loads(proc.stdout.strip())
+                      title = metadata.get("title", None)
+                      upload_date = metadata.get("upload_date", None)
+                      return title, upload_date
+                  except:
+                      pass
+              return None, None
+
+          def make_sub_cmd(lang, output_template):
+              return ["yt-dlp", "--no-playlist", "--skip-download", "--write-auto-subs", "--sub-lang", lang, "--convert-subs", "srt", "--output", output_template, "--restrict-filenames", "--windows-filenames"] + YTDLP_BASE_ARGS
+
+          def build_video_cmd(output_filename):
+              return ["yt-dlp", "--no-playlist", "--format", fmt, "--merge-output-format", "mp4", "--output", output_filename, "--restrict-filenames", "--windows-filenames"] + YTDLP_BASE_ARGS
+
+          def upload_to_github(local_path, remote_path):
+              log(f"   ⬆️  Uploading {Path(local_path).name} ...")
+              file_size = os.path.getsize(local_path)
+              url = f"https://api.github.com/repos/{repo}/contents/{quote(remote_path)}"
+              headers = {"Authorization": f"token {token}"}
+
+              max_attempts = 3
+              for attempt in range(1, max_attempts + 1):
+                  try:
+                      # Fetch current SHA **inside** the loop so each retry has a fresh state
+                      try:
+                          resp_get = requests.get(url, headers=headers, timeout=30)
+                          if resp_get.status_code == 200:
+                              sha = resp_get.json().get("sha")
+                              log(f"      [attempt {attempt}] Existing file found – will update.")
+                          else:
+                              sha = None
+                              log(f"      [attempt {attempt}] File does not exist yet (HTTP {resp_get.status_code}) – will create.")
+                      except Exception as e:
+                          sha = None
+                          log(f"      [attempt {attempt}] Failed to fetch SHA: {e} – trying to create file.")
+
+                      with open(local_path, "rb") as f:
+                          b64 = base64.b64encode(f.read()).decode("utf-8")
+
+                      body = {
+                          "message": f"Add/update {Path(local_path).name}",
+                          "content": b64,
+                          "branch": branch
+                      }
+                      if sha:
+                          body["sha"] = sha
+
+                      resp_put = requests.put(url, headers=headers, json=body, timeout=60)
+                      status = resp_put.status_code
+                      if status in (200, 201):
+                          log(f"   ✅ Upload successful (HTTP {status})")
+                          return True
+                      else:
+                          log(f"   ⚠️  Upload attempt {attempt} returned HTTP {status}: {resp_put.text[:300]}")
+                  except Exception as exc:
+                      log(f"   ⚠️  Upload attempt {attempt} exception: {exc}")
+
+                  if attempt < max_attempts:
+                      log(f"   🔄 Retrying in 5 seconds ...")
+                      time.sleep(5)
+
+              log(f"   ❌ Upload failed after {max_attempts} attempts")
+              return False
+
+          # ------------------------------------------------------------
+          video_count = 0
+          total_uploaded = 0
+          chunk_size = 20 * 1024 * 1024
+          large_files = []
+
+          for idx, url in enumerate(urls):
+              video_count += 1
+              video_file = None
+              subtitle_file = None
+
+              log("")
+              log("╔══════════════════════════════════════════════════════════╗")
+              log(f"║               DOWNLOAD  STAGE  —  #{video_count}               ║")
+              log("╚══════════════════════════════════════════════════════════╝")
+              log(f"📥 URL: {url}")
+
+              log("   🔍 Fetching video metadata ...")
+              title, upload_date = get_video_metadata(url)
+              if title:
+                  safe_title = re.sub(r'[<>:"/\\|?*]', '', title)[:150]
+                  log(f"   📝 Title: {safe_title}")
+              else:
+                  safe_title = None
+                  log("   ⚠️ Could not fetch title, will use default naming.")
+
+              if upload_date and len(upload_date) == 8:
+                  try:
+                      date_obj = datetime.strptime(upload_date, "%Y%m%d")
+                      formatted_date = date_obj.strftime("%Y-%m-%d")
+                      log(f"   📅 Upload date: {formatted_date}")
+                  except:
+                      formatted_date = upload_date
+              else:
+                  formatted_date = None
+                  log("   ℹ️ Upload date not available.")
+
+              # Build the filename template
+              if formatted_date and safe_title:
+                  output_file = f"{formatted_date} {safe_title} [%(id)s].%(ext)s"
+              elif safe_title:
+                  output_file = f"{safe_title} [%(id)s].%(ext)s"
+              else:
+                  output_file = "%(title).150B [%(id)s].%(ext)s"
+
+              video_cmd = build_video_cmd(output_file)
+
+              # Try WARP + Android client
+              log("   🌐 Trying WARP with Android client (no cookies)")
+              ok, new_files = run_ytdlp_and_log(video_cmd, url, attempt_name="WARP_Android")
+              if not ok:
+                  log("   ❌ WARP+Android download failed. Skipping.")
+                  continue
+
+              for f in sorted(new_files):
+                  if not f.endswith((".part", ".srt", ".ytdl", ".log", ".tmp")) and os.path.exists(f):
+                      video_file = f
+                      break
+              if not video_file:
+                  log("   ⚠️ Video file not found after download.")
+                  continue
+
+              file_size = os.path.getsize(video_file)
+              log(f"   📦 Video file: {video_file} ({file_size/1024**2:.1f} MB)")
+
+              # Subtitle download
+              if sub_lang_input != "none":
+                  lang_code = sub_lang_input.split()[0]
+                  fallback_lang = "fa" if lang_code == "en" else "en"
+                  subtitle_success = False
+
+                  log(f"   📝 Attempting subtitle download for '{lang_code}' ...")
+                  sub_cmd = make_sub_cmd(lang_code, output_file)
+                  sub_ok, sub_new = run_ytdlp_and_log(sub_cmd, url, attempt_name=f"Sub ({lang_code})")
+                  if sub_ok:
+                      for f in sorted(sub_new):
+                          if f.endswith(".srt"):
+                              subtitle_file = f
+                              subtitle_success = True
+                              log(f"   ✅ Subtitle downloaded: {subtitle_file}")
+                              break
+                  if not subtitle_success:
+                      log(f"   ⚠️ Subtitle for '{lang_code}' not available.")
+                      log(f"   📝 Attempting fallback subtitle language '{fallback_lang}' ...")
+                      sub_cmd_fallback = make_sub_cmd(fallback_lang, output_file)
+                      sub_ok2, sub_new2 = run_ytdlp_and_log(sub_cmd_fallback, url, attempt_name=f"Sub ({fallback_lang})")
+                      if sub_ok2:
+                          for f in sorted(sub_new2):
+                              if f.endswith(".srt"):
+                                  subtitle_file = f
+                                  subtitle_success = True
+                                  log(f"   ✅ Fallback subtitle downloaded: {subtitle_file}")
+                                  break
+                      if not subtitle_success:
+                          log("   ℹ️ No subtitle file found for either language.")
+
+              # Optional conversion / compression
+              need_conversion = burn_subs or compress_video
+              if need_conversion:
+                  log("")
+                  log("╔══════════════════════════════════════════════════════════╗")
+                  log(f"║              CONVERSION  STAGE  —  #{video_count}              ║")
+                  log("╚══════════════════════════════════════════════════════════╝")
+
+                  normalized = f"normalized_{video_file}"
+                  if burn_subs and subtitle_file:
+                      log("   🔥 Burning subtitles into video...")
+                      sub_abs = os.path.abspath(subtitle_file)
+                      if compress_video:
+                          cmd_ffmpeg = [
+                              "ffmpeg", "-y", "-i", video_file,
+                              "-vf", f"subtitles='{sub_abs}':force_style='FontName=Arial,FontSize=18,BackColour=&H66000000&,BorderStyle=4,Outline=1,Shadow=1'",
+                              "-c:v", "libx264", "-crf", "26", "-preset", "medium", "-c:a", "copy", normalized
+                          ]
+                      else:
+                          cmd_ffmpeg = [
+                              "ffmpeg", "-y", "-i", video_file,
+                              "-vf", f"subtitles='{sub_abs}':force_style='FontName=Arial,FontSize=18,BackColour=&H66000000&,BorderStyle=4,Outline=1,Shadow=1'",
+                              "-c:v", "copy", "-c:a", "copy", normalized
+                          ]
+                  else:
+                      if compress_video:
+                          log("   🎞️  Compressing video (CRF 26)...")
+                          cmd_ffmpeg = ["ffmpeg", "-y", "-i", video_file, "-c:v", "libx264", "-crf", "26", "-preset", "medium", "-c:a", "copy", normalized]
+                      else:
+                          cmd_ffmpeg = None
+
+                  if cmd_ffmpeg:
+                      log(f"   🔧 Running: {' '.join(cmd_ffmpeg)}")
+                      proc = subprocess.run(cmd_ffmpeg, capture_output=True, text=True)
+                      if proc.returncode == 0:
+                          os.remove(video_file)
+                          os.rename(normalized, video_file)
+                          new_size = os.path.getsize(video_file)
+                          log(f"   ✅ Conversion complete. New size: {new_size/1024**2:.1f} MB")
+                      else:
+                          log(f"   ⚠️ Conversion failed (video kept unchanged): {proc.stderr.strip()[-200:]}")
+              else:
+                  log(f"\n   ℹ️ Skipping conversion/compression")
+
+              # Upload or queue for chunking
+              log("")
+              log("╔══════════════════════════════════════════════════════════╗")
+              log(f"║               UPLOAD  STAGE  —  #{video_count}                ║")
+              log("╚══════════════════════════════════════════════════════════╝")
+
+              file_size = os.path.getsize(video_file)
+              if file_size < chunk_size:
+                  log("   🚀 Uploading small file directly ...")
+                  remote_path = f"{folder_name}/{video_file}"
+                  if upload_to_github(video_file, remote_path):
+                      total_uploaded += 1
+                  else:
+                      log("   ❌ Direct upload failed")
+              else:
+                  large_files.append(video_file)
+                  log(f"   📦 File larger than {chunk_size//1024//1024} MB, will be chunked later.")
+
+              if subtitle_file:
+                  log(f"   ⬆️  Uploading subtitle file ...")
+                  remote_sub = f"{folder_name}/{subtitle_file}"
+                  upload_to_github(subtitle_file, remote_sub)
+
+              if file_size < chunk_size:
+                  try: os.remove(video_file)
+                  except: pass
+
+          # Chunk large files
+          if large_files:
+              log("\n📦 Splitting large files into 20 MB chunks using chunker.py ...")
+              chunker_script = Path("python/chunker.py")
+              if not chunker_script.exists():
+                  log("❌ chunker.py not found in repository root. Cannot split large files.")
+                  sys.exit(1)
+
+              cmd = ["python3", str(chunker_script), "--files"] + large_files + ["--output-dir", folder_name, "--chunk-size", "20"]
+              log(f"🔧 Running: {' '.join(cmd)}")
+              result = subprocess.run(cmd, capture_output=True, text=True)
+              if result.returncode != 0:
+                  log(f"❌ chunker.py failed: {result.stderr}")
+                  sys.exit(1)
+              log(result.stdout)
+
+              log("\n⬆️  Uploading chunks and reassembly batch script ...")
+              for item in out_dir.iterdir():
+                  if item.is_file() and (".part" in item.name or item.name == "reassemble.bat"):
+                      remote_path = f"{folder_name}/{item.name}"
+                      if upload_to_github(str(item), remote_path):
+                          total_uploaded += 1
+                      else:
+                          log(f"   ❌ Failed to upload {item.name}")
+
+              for vf in large_files:
+                  try: os.remove(vf)
+                  except: pass
+          else:
+              log("\n📄 No large files – no chunking needed.")
+
+          log(f"\n📊 Summary")
+          log(f"   Total URLs: {len(urls)}")
+          log(f"   Successfully uploaded items: {total_uploaded}")
+
+          if total_uploaded == 0:
+              log("\n❌ No videos were uploaded. The workflow will be marked as failed.")
+              sys.exit(1)
+          else:
+              log(f"\n✅ Uploaded {total_uploaded} item(s).")
+          PYEOF
+
+      - name: Create encrypted profile cache for next run
+        if: always()
+        run: |
+          if [ -d /tmp/chrome_profile ]; then
+            python3 -c '
+          import os, base64, hashlib, tarfile, io
+          from cryptography.fernet import Fernet
+          KEY = os.environ["KEY"]
+          ENC_KEY = base64.urlsafe_b64encode(hashlib.sha256(KEY.encode()).digest())
+          f = Fernet(ENC_KEY)
+          buf = io.BytesIO()
+          with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            tar.add("/tmp/chrome_profile", arcname="chrome_profile")
+          encrypted = f.encrypt(buf.getvalue())
+          with open("profile_cache.tar.enc", "wb") as out:
+            out.write(encrypted)
+          print("✅ Profile cache saved.")
+          ' || echo "⚠️ Failed to encrypt profile"
+          else
+            echo "⚠️ Profile directory not found, skipping cache save."
+          fi
+
+      - name: Save Chrome profile cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: profile_cache.tar.enc
+          key: chrome-profile-v1
+
+      - name: Move log to logs folder
+        if: always()
+        run: |
+          mkdir -p logs
+          if [ -f youtube_downloader.log ]; then
+            mv youtube_downloader.log logs/youtube_downloader.log
+          else
+            echo "youtube_downloader.log not found, creating empty log" > logs/youtube_downloader.log
+          fi
+
+      - name: Commit log and output folder
+        if: always()
+        run: |
+          git add logs/ "${{ github.event.inputs.folder_name }}" 2>/dev/null || true
+          git commit -m "Final download log and files" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
