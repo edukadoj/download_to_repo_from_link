@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_handlers.py – Version 1.14.1
-#   - Fixed import: uses `import agent_state` so module reference works
-#   - Purge no longer retries on 404 (already deleted)
+# command_handlers.py – Version 1.15.0
+# ------------------------------------------------------------------------------
+# Translates a parsed command (type + arguments) into actual browser or system
+# actions.  It receives all the state it needs (driver, cursor, secrets, etc.)
+# as parameters and returns a result string that the main loop will publish as
+# a response.
+#
+# Changelog since 1.14.1:
+#   - The "save" and "savestate" commands now capture the (success, message)
+#     tuple returned by save_profile() and report "OK save" or "ERR save: …"
+#     accordingly.
 # ==============================================================================
 import os, time, subprocess, glob, shutil, re, tempfile, random
 from uploader import reassemble
@@ -364,9 +372,11 @@ def execute_one_command(
                 result = f"Upload file(s) unchanged (no valid IDs in {arg})"
         except Exception: result = "ERR invalid upload numbers"
     elif cmd == "savestate":
-        save_profile(); result = "OK savestate"
+        ok, msg = save_profile()
+        result = f"OK savestate: {msg}" if ok else f"ERR savestate: {msg}"
     elif cmd == "save":
-        save_profile(); result = "OK save"
+        ok, msg = save_profile()
+        result = f"OK save: {msg}" if ok else f"ERR save: {msg}"
     elif cmd == "setinterval":
         import sys
         main_mod = sys.modules.get("__main__")
