@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.20.3
+# command_mouse_keyboard.py – Version 39.20.4
+#   - FIX: profile cache chunk size lowered to 20 MB (safe for GitHub)
 #   - FIX: profile cache saved via git (chunks pushed to repo)
 #   - FIX: deduplicate command responses (no more double confirmations)
 #   - FIX: load_profile() on startup (was already present, but now save is git‑based)
@@ -83,7 +84,7 @@ def log(msg: str) -> None:
     now = datetime.now().strftime("%H:%M:%S")
     echo(f"[{now}] {msg}")
 
-echo(f"{'='*60}\n  Remote Control v39.20.3 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.20.4 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -139,7 +140,7 @@ def gh_api_safe(*args, max_retries=3, **kwargs):
 # ---------- Profile cache (chunked, git‑based save/load) ----------
 PROFILE_DIR = "/tmp/chrome_profile"
 CACHE_DIR = ".profile_cache"          # inside the repository working directory
-CHUNK_SIZE = 45 * 1024 * 1024          # 45 MB per chunk (GitHub limit for direct file upload)
+CHUNK_SIZE = 20 * 1024 * 1024          # 20 MB – safe for GitHub, same as chunker.py default
 ENCRYPTION_KEY = None
 try:
     KEY = os.environ["KEY"]
@@ -172,7 +173,7 @@ def load_profile():
         return False
 
 def save_profile():
-    """Encrypt the Chrome profile, split into chunks, and push them to the repository."""
+    """Encrypt the Chrome profile, split into 20 MB chunks, and push them to the repository."""
     try:
         # 1. Encrypt and compress the profile directory
         buf = io.BytesIO()
@@ -362,7 +363,7 @@ def ss(desc="screenshot", push=True, response_suffix=""):
                 git_run(["git","commit","-m","Screenshots & log"], check=True, capture_output=True)
                 if git_push_with_retry():
                     log(f"Pushed {len(files_to_push)} screenshot(s) + log")
-                    # Immediately purge all old screenshots (only keep latest of each? keep only the newest)
+                    # Immediately purge all old screenshots
                     purge_old_screenshots(fname)
                 else:
                     log("ERROR: Failed to push screenshots – will retry")
@@ -371,7 +372,6 @@ def ss(desc="screenshot", push=True, response_suffix=""):
                             if os.path.exists(f) and f not in _screenshot_retry_queue:
                                 _screenshot_retry_queue.append(f)
             else:
-                # No changes? That can happen if the same screenshot was already pushed.
                 pass
         except Exception as e:
             log(f"Screenshot git error: {e}")
@@ -627,7 +627,7 @@ def main():
                         if ctext: new_cmds.append((cid, ctext))
 
             for cid, ctext in new_cmds:
-                # If we already processed this command ID, do NOT re‑append its response
+                # Deduplicate: if already processed, skip
                 if cid in executed_cache:
                     continue
 
@@ -666,7 +666,6 @@ def main():
                     comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
                 )
                 ts = int(time.time())
-                # extract sequence number from cid
                 seq_num = 0
                 if cid.startswith("APP-"):
                     parts_cid = cid.split('-')
