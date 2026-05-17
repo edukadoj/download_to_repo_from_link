@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.24.0
-#   - Logs each command before execution with its line number in the app comment.
-#   - Signal handlers, queue‑based logging, heartbeat, auto‑restart browser.
-#   - For stability, delete the .profile_cache folder on the repo to avoid OOM kills.
+# command_mouse_keyboard.py – Version 39.25.0
+#   - All GitHub / git operations now go through the RepoWrapper (via SyncRepo).
+#   - The agent is robust: browser restarts are reported and navigate back to
+#     START_URL; during calibration, browser crashes cancel calibration instead
+#     of restarting.
+#   - Memory reports are sent autonomously before heavy operations.
+#   - The log file is pushed to the repo after every critical step – no more
+#     lost logs.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal, queue as queue_module
@@ -16,16 +20,13 @@ from selenium.webdriver.chrome.options import Options
 from PIL import Image, ImageDraw
 
 from crypto_utils import encrypt_string, decode_string
-from comments import (
-    get_all_comments, find_marker_comment, issue_comment,
-    delete_comment, edit_comment, comment_exists, gh_api as gh
-)
+from comments import find_marker_comment
 from uploader import reassemble_flat
 from execution_queue import ExecutionQueue
 from command_handlers import execute_one_command
+from repo_wrapper import RepoWrapper
 
 from agent_state import (
-    log as default_log,
     driver as state_driver, W as state_W, H as state_H,
     cursor_x as state_cx, cursor_y as state_cy,
     HAS_GEMINI, HAS_PYPERCLIP, pyperclip, allowed_secrets,
@@ -123,60 +124,70 @@ def log(msg: str) -> None:
 start_log_thread()
 threading.Thread(target=monitor_log_thread, daemon=True).start()
 
-echo(f"{'='*60}\n  Remote Control v39.24.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.25.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
 slow_mode = 1
 last_command_time = time.time()
 
-# ---------- SINGLE global lock for all git sequences ----------
-GIT_SEQUENCE_LOCK = threading.Lock()
+# ---------- Synchronous wrapper around RepoWrapper ----------
+class SyncRepo:
+    """Provides blocking (synchronous) methods for all repository operations."""
+    def __init__(self, repo_wrapper):
+        self._rw = repo_wrapper
 
-# Screenshot retry queue
-_screenshot_retry_queue = []
-_retry_queue_lock = threading.Lock()
+    def _call_and_wait(self, method, *args):
+        event = threading.Event()
+        result = [None]
+        def callback(value):
+            result[0] = value
+            event.set()
+        method(*args, callback)
+        event.wait()
+        return result[0]
 
-def git_cleanup():
-    lock_file = ".git/index.lock"
-    if os.path.exists(lock_file):
-        try: os.remove(lock_file)
-        except Exception: pass
+    def edit_comment(self, comment_id, new_body):
+        self._rw.edit_comment(comment_id, new_body)
 
-def git_run(cmd, **kwargs):
-    git_cleanup()
-    return subprocess.run(cmd, **kwargs)
+    def get_comment_body(self, comment_id):
+        return self._call_and_wait(self._rw.get_comment_body, comment_id)
 
-def git_push_with_retry() -> bool:
-    for attempt in range(3):
-        try:
-            git_run(["git","push"], check=True, capture_output=True, text=True)
-            return True
-        except subprocess.CalledProcessError as e:
-            log(f"Git push attempt {attempt+1} failed: {e.stderr.strip() if e.stderr else 'unknown'}")
-            if attempt < 2:
-                time.sleep(2 + random.random()*3)
-                try: git_run(["git","pull","--rebase"], check=True, capture_output=True)
-                except Exception: pass
-    return False
+    def get_all_comments(self):
+        return self._call_and_wait(self._rw.get_all_comments)
 
-# ---------- GitHub API helpers ----------
-def gh_api_safe(*args, max_retries=3, **kwargs):
-    for attempt in range(max_retries):
-        try:
-            return gh(*args, **kwargs)
-        except subprocess.CalledProcessError as e:
-            err_msg = e.stderr.strip() if e.stderr else "(no stderr)"
-            log(f"GitHub API error: {err_msg}")
-            if attempt < max_retries - 1:
-                delay = 2 ** attempt + random.uniform(0, 1)
-                log(f"Retrying in {delay:.1f}s...")
-                time.sleep(delay)
-            else:
-                return None
-    return None
+    def create_comment(self, body):
+        return self._call_and_wait(self._rw.post_comment_and_get_id, body)
 
-# ---------- Profile cache ----------
+    def delete_comment(self, comment_id):
+        self._rw.delete_comment(comment_id)
+
+    def push_log_file(self):
+        self._rw.push_log_file()
+
+    def push_screenshots(self, paths):
+        self._rw.push_screenshots(paths)
+
+    def comment_exists(self, comment_id):
+        return self._call_and_wait(self._rw.comment_exists, comment_id)
+
+    def report_memory(self):
+        self._rw.report_memory()
+
+# ---------- Repo and SyncRepo setup ----------
+ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER","4").strip()
+START_URL = os.environ.get("START_URL") or "https://studio.youtube.com"
+REPO = os.environ['GITHUB_REPOSITORY']
+
+repo_wrapper = RepoWrapper(REPO, int(ISSUE_NUMBER), LOG_FILENAME)
+sync_repo = SyncRepo(repo_wrapper)
+
+# Wire autonomous reports
+def _autonomous_callback(report_type, text):
+    add_autonomous_report(report_type, text)
+repo_wrapper.report_callback = _autonomous_callback
+
+# ---------- Profile cache (unchanged, local only) ----------
 PROFILE_DIR = "/tmp/chrome_profile"
 CACHE_DIR = ".profile_cache"
 CHUNK_SIZE_MB = 20
@@ -194,7 +205,6 @@ def load_profile():
     if not glob.glob(os.path.join(CACHE_DIR, "*.part*")):
         log("⚠️ No profile cache chunks found – starting with fresh browser profile.")
         return False
-
     log("♻️  Reassembling profile cache chunks …")
     tmp_reassemble = tempfile.mkdtemp(prefix="profile_reassemble_")
     try:
@@ -202,22 +212,21 @@ def load_profile():
         if count == 0:
             log("⚠️ Reassembly produced no file – starting fresh.")
             return False
-
         files = [f for f in os.listdir(tmp_reassemble) if os.path.isfile(os.path.join(tmp_reassemble, f))]
         if not files:
             log("⚠️ No reassembled file found.")
             return False
-
         reassembled_path = os.path.join(tmp_reassemble, files[0])
         log(f"   Reassembled: {files[0]} ({os.path.getsize(reassembled_path)} bytes)")
-
         with open(reassembled_path, "rb") as f:
             encrypted = f.read()
-
         decrypted = Fernet(ENCRYPTION_KEY).decrypt(encrypted)
         shutil.rmtree(PROFILE_DIR, ignore_errors=True)
         tarfile.open(fileobj=io.BytesIO(decrypted), mode='r:gz').extractall('/tmp')
         log("Profile cache loaded successfully.")
+        # Delete local chunk files to free disk space
+        for f in glob.glob(os.path.join(CACHE_DIR, "*.part*")):
+            os.remove(f)
         return True
     except Exception as e:
         log(f"ERROR loading profile cache: {type(e).__name__}: {e}")
@@ -229,51 +238,30 @@ def save_profile():
     try:
         if not os.path.isdir(PROFILE_DIR):
             return (False, f"Profile directory not found: {PROFILE_DIR}")
-
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             tar.add(PROFILE_DIR, arcname="chrome_profile")
         encrypted = Fernet(ENCRYPTION_KEY).encrypt(buf.getvalue())
-
         tmp_fd, tmp_path = tempfile.mkstemp(prefix="profile_", suffix=".dat")
         os.close(tmp_fd)
         with open(tmp_path, "wb") as f:
             f.write(encrypted)
-
         for old in glob.glob(os.path.join(CACHE_DIR, "*.part*")):
             os.remove(old)
-
         chunker_script = "python/chunker.py"
         if not os.path.exists(chunker_script):
             os.remove(tmp_path)
             return (False, f"Chunker script not found: {chunker_script}")
-
         cmd = ["python3", chunker_script, "--file", tmp_path, "--output-dir", CACHE_DIR, "--chunk-size", str(CHUNK_SIZE_MB)]
         log(f"Running chunker: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         os.remove(tmp_path)
-
         if result.returncode != 0:
             return (False, f"chunker.py failed: {result.stderr.strip() or result.stdout.strip()}")
-
         subprocess.run(["git", "config", "user.name", "github-actions[bot]"], capture_output=True)
         subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], capture_output=True)
-
-        acquired = GIT_SEQUENCE_LOCK.acquire(timeout=10)
-        if not acquired:
-            return (False, "Could not acquire git lock – cache not saved.")
-        try:
-            git_run(["git", "add", CACHE_DIR], check=True, capture_output=True)
-            diff_check = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
-            if diff_check.returncode != 0:
-                git_run(["git", "commit", "-m", "Update profile cache chunks"], check=True, capture_output=True)
-                if not git_push_with_retry():
-                    return (False, "Git push failed – profile cache NOT stored.")
-            else:
-                return (False, "No new cache chunks to commit.")
-        finally:
-            GIT_SEQUENCE_LOCK.release()
-
+        # Use SyncRepo to push cache files
+        sync_repo.push_log_file()   # includes the cache dir
         return (True, "Profile cache saved successfully.")
     except Exception as e:
         return (False, f"save_profile exception: {e}")
@@ -300,7 +288,6 @@ def create_driver():
     opts.add_experimental_option("prefs", prefs)
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
     opts.add_experimental_option('useAutomationExtension', False)
-
     drv = webdriver.Chrome(options=opts)
     drv.set_page_load_timeout(30)
     drv.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
@@ -344,7 +331,10 @@ if agent_state:
     agent_state.pyperclip = pyperclip
     agent_state.log = log
 
-# ---------- Background log pusher ----------
+# ---------- Background log pusher (via SyncRepo) ----------
+def push_logs():
+    sync_repo.push_log_file()
+
 def log_pusher():
     while not _log_pusher_stop.is_set():
         _log_pusher_stop.wait(30)
@@ -354,29 +344,16 @@ def log_pusher():
 _log_pusher_stop = threading.Event()
 threading.Thread(target=log_pusher, daemon=True).start()
 
-# Heartbeat thread
 def heartbeat_worker():
     while not _heartbeat_stop.is_set():
         _heartbeat_stop.wait(30)
         if not _heartbeat_stop.is_set():
             log("Agent alive")
+            sync_repo.report_memory()
             push_logs()
 
 _heartbeat_stop = threading.Event()
 threading.Thread(target=heartbeat_worker, daemon=True).start()
-
-def push_logs():
-    acquired = GIT_SEQUENCE_LOCK.acquire(timeout=5)
-    if not acquired: return
-    try:
-        git_run(["git","add",LOG_FILENAME], check=True, capture_output=True)
-        try: git_run(["git","diff","--cached","--quiet"], check=True, capture_output=True)
-        except subprocess.CalledProcessError:
-            git_run(["git","commit","-m","Log update"], check=True, capture_output=True)
-            git_push_with_retry()
-    except Exception: pass
-    finally:
-        GIT_SEQUENCE_LOCK.release()
 
 # ---------- Download watcher ----------
 _download_watcher_stop = threading.Event()
@@ -439,69 +416,12 @@ def ss(desc="screenshot", push=True, response_suffix=""):
         log(f"Screenshot image processing error: {e}")
     if not push: return fname
 
-    with _retry_queue_lock:
-        _screenshot_retry_queue.append(fname)
-
-    acquired = GIT_SEQUENCE_LOCK.acquire(timeout=10)
-    if not acquired:
-        log("WARNING: Could not acquire git lock for screenshot push – skipping this push.")
-        return fname
-    try:
-        git_run(["git","stash","--include-untracked"], capture_output=True)
-        try: git_run(["git","pull","--rebase"], check=True, capture_output=True)
-        except Exception: pass
-        git_run(["git","stash","pop"], capture_output=True)
-
-        files_to_push = []
-        with _retry_queue_lock:
-            files_to_push = list(_screenshot_retry_queue)
-            _screenshot_retry_queue.clear()
-
-        for f in files_to_push:
-            if os.path.exists(f):
-                git_run(["git","add",f], check=True, capture_output=True)
-
-        if os.path.exists(LOG_FILENAME):
-            git_run(["git","add",LOG_FILENAME], check=True, capture_output=True)
-
-        diff_check = subprocess.run(["git","diff","--cached","--quiet"], capture_output=True)
-        if diff_check.returncode != 0:
-            git_run(["git","commit","-m","Screenshots & log"], check=True, capture_output=True)
-            if git_push_with_retry():
-                log(f"Pushed {len(files_to_push)} screenshot(s) + log")
-                purge_old_screenshots(fname)
-            else:
-                log("ERROR: Failed to push screenshots – will retry")
-                with _retry_queue_lock:
-                    for f in files_to_push:
-                        if os.path.exists(f) and f not in _screenshot_retry_queue:
-                            _screenshot_retry_queue.append(f)
-    except BaseException as e:
-        log(f"Screenshot git error: {e}")
-        with _retry_queue_lock:
-            for f in files_to_push:
-                if os.path.exists(f) and f not in _screenshot_retry_queue:
-                    _screenshot_retry_queue.append(f)
-    finally:
-        GIT_SEQUENCE_LOCK.release()
+    # Push via SyncRepo
+    log("Pushing screenshot to repo...")
+    sync_repo.report_memory()
+    sync_repo.push_screenshots([fname])
+    log(f"Pushed {fname} + log")
     return fname
-
-def purge_old_screenshots(keep_path):
-    try:
-        raw = gh_api_safe(f"repos/{REPO}/contents/screenshots", "--jq", ".[].path")
-        if not raw: return
-        for path in raw.strip().splitlines():
-            path = path.strip().strip('"')
-            if not path.endswith(".png"): continue
-            if path == keep_path: continue
-            sha_raw = gh_api_safe(f"repos/{REPO}/contents/{path}", "--jq", ".sha")
-            if not sha_raw: continue
-            sha = sha_raw.strip().strip('"')
-            gh_api_safe("--method","DELETE",f"repos/{REPO}/contents/{path}",
-                         "-f","message=purge old screenshot","-f",f"sha={sha}","-f","branch=main")
-            log(f"Purged old screenshot: {path}")
-    except Exception as e:
-        log(f"Error purging old screenshots: {e}")
 
 _screenshot_stop = threading.Event()
 _screenshot_thread = None
@@ -542,29 +462,17 @@ def monitor_screenshot_worker():
 start_screenshot_worker()
 threading.Thread(target=monitor_screenshot_worker, daemon=True).start()
 
-ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER","4").strip()
-START_URL = os.environ.get("START_URL") or "https://studio.youtube.com"
-REPO = os.environ['GITHUB_REPOSITORY']
-
-KEY_SECRET = os.environ["KEY"]
-
-def smart_edit_comment(comment_id, new_body):
-    for attempt in range(2):
-        try:
-            edit_comment(REPO, comment_id, new_body)
-            return True
-        except subprocess.CalledProcessError:
-            if attempt == 0:
-                log("Edit rate‑limited, retrying in 2s...")
-                time.sleep(2)
-            else:
-                log("Edit failed after retry.")
-    return False
-
 # ---------- Browser recovery ----------
+_calibration_in_progress = False   # set by main loop during calibration
+
 def restart_browser():
     global driver
     log("Attempting browser restart...")
+    if _calibration_in_progress:
+        log("Calibration in progress – cancelling instead of restarting browser.")
+        add_autonomous_report("calibration_error", "Browser crashed during calibration – calibration cancelled.")
+        # The calibration will be cancelled by the main loop when it detects the exception.
+        return False
     try:
         driver.quit()
     except Exception:
@@ -577,7 +485,9 @@ def restart_browser():
                 agent_state.driver = driver
                 agent_state.cursor_x = 960
                 agent_state.cursor_y = 540
-            log("Browser restarted successfully.")
+            driver.get(START_URL)
+            log("Browser restarted and navigated to START_URL.")
+            add_autonomous_report("browser_restarted", "Browser was restarted after a crash.")
             start_screenshot_worker()
             return True
         except Exception as e:
@@ -587,9 +497,8 @@ def restart_browser():
 
 # ---------- Main loop ----------
 def main():
-    global slow_mode, last_command_time
+    global slow_mode, last_command_time, _calibration_in_progress
 
-    # Initial navigation
     try:
         log("Loading start URL...")
         driver.get(START_URL)
@@ -614,49 +523,26 @@ def main():
     APP_COMMAND_MARKER = "## App Commands"
 
     log("Fetching comments to locate markers...")
-    all_comments = None
-    for attempt in range(5):
-        all_comments = gh_api_safe(f"repos/{REPO}/issues/{ISSUE_NUMBER}/comments",
-                                    "--jq", ".[] | {id: .id, body: .body, user_type: .user.type}", "--paginate")
-        if all_comments is not None:
-            break
-        log(f"Comment fetch attempt {attempt+1} failed, retrying...")
-        time.sleep(2)
-    if all_comments is None:
+    all_comments = sync_repo.get_all_comments()
+    if not all_comments:
         log("CRITICAL: Could not fetch issue comments. Exiting.")
         push_logs()
         return
 
-    all_comments_raw = all_comments
-    parsed = []
-    try:
-        decoder = json.JSONDecoder()
-        idx = 0
-        while idx < len(all_comments_raw):
-            while idx < len(all_comments_raw) and all_comments_raw[idx].isspace(): idx += 1
-            if idx >= len(all_comments_raw): break
-            obj, end = decoder.raw_decode(all_comments_raw, idx)
-            parsed.append({"id": str(obj.get("id","")), "body": obj.get("body",""), "user_type": obj.get("user_type","")})
-            idx = end
-    except Exception as e:
-        log(f"Error parsing comments JSON: {e}")
-
-    resp_comment = find_marker_comment(parsed, RESPONSE_MARKER)
+    resp_comment = find_marker_comment(all_comments, RESPONSE_MARKER)
     if resp_comment: response_comment_id = resp_comment["id"]
     else:
         log("No response comment found, creating one...")
-        new_id = gh_api_safe(f"repos/{REPO}/issues/{ISSUE_NUMBER}/comments",
-                              "--method", "POST", "-f", f"body={RESPONSE_MARKER}\n", "--jq", ".id")
-        response_comment_id = new_id.strip() if new_id else None
+        response_comment_id = sync_repo.create_comment(f"{RESPONSE_MARKER}\n")
         if response_comment_id:
             add_autonomous_report("responsecommentid", f"responsecommentid:{response_comment_id}")
 
-    app_cmd = find_marker_comment(parsed, APP_COMMAND_MARKER)
+    app_cmd = find_marker_comment(all_comments, APP_COMMAND_MARKER)
     app_cmd_id = app_cmd["id"] if app_cmd else None
     log(f"App command comment: {app_cmd_id}")
 
     if app_cmd_id:
-        try: edit_comment(REPO, app_cmd_id, "## App Commands\n")
+        try: sync_repo.edit_comment(app_cmd_id, "## App Commands\n")
         except Exception as e: log(f"Could not blank: {e}")
 
     executed_cache = {}
@@ -672,10 +558,10 @@ def main():
             lines.append(f"{r['id']}; {r['text']}")
         body = "\n".join(lines)
         pending_autonomous_reports.clear()
-        if not comment_exists(REPO, comment_id):
+        if not sync_repo.comment_exists(comment_id):
             for _ in range(3):
                 try:
-                    new_id = issue_comment(REPO, ISSUE_NUMBER, body)
+                    new_id = sync_repo.create_comment(body)
                     log(f"Created new response comment: {new_id}")
                     response_comment_id = new_id
                     add_autonomous_report("responsecommentid", f"responsecommentid:{new_id}")
@@ -684,10 +570,9 @@ def main():
                     return new_id
                 except Exception: time.sleep(2)
             return comment_id
-        if smart_edit_comment(comment_id, body):
-            unsent_reports.clear()
-            push_logs()
-            return comment_id
+        sync_repo.edit_comment(comment_id, body)
+        unsent_reports.clear()
+        push_logs()
         return comment_id
 
     log("Entering main command loop...")
@@ -697,37 +582,24 @@ def main():
 
         try:
             if app_cmd_id:
-                test = gh_api_safe(f"repos/{REPO}/issues/comments/{app_cmd_id}", "--jq", ".id")
-                if test is None:
+                test = sync_repo.get_comment_body(app_cmd_id)
+                if not test:
                     log(f"App command comment {app_cmd_id} vanished – resetting.")
                     app_cmd_id = None
 
             if not app_cmd_id:
                 time.sleep(COMM_INTERVAL * slow_mode)
-                allc = gh_api_safe(f"repos/{REPO}/issues/{ISSUE_NUMBER}/comments",
-                                    "--jq", ".[] | {id: .id, body: .body, user_type: .user.type}", "--paginate")
-                if allc is None:
+                allc = sync_repo.get_all_comments()
+                if not allc:
                     time.sleep(COMM_INTERVAL * slow_mode)
                     continue
-                parsed_all = []
-                try:
-                    decoder = json.JSONDecoder()
-                    idx = 0
-                    while idx < len(allc):
-                        while idx < len(allc) and allc[idx].isspace(): idx += 1
-                        if idx >= len(allc): break
-                        obj, end = decoder.raw_decode(allc, idx)
-                        parsed_all.append({"id": str(obj.get("id","")), "body": obj.get("body",""), "user_type": obj.get("user_type","")})
-                        idx = end
-                except Exception: pass
-                app_c = find_marker_comment(parsed_all, APP_COMMAND_MARKER)
+                app_c = find_marker_comment(allc, APP_COMMAND_MARKER)
                 if app_c:
                     app_cmd_id = app_c["id"]
                     log(f"Re‑found app cmd: {app_cmd_id}")
                 continue
 
-            app_body = gh_api_safe(f"repos/{REPO}/issues/comments/{app_cmd_id}", "--jq", ".body")
-            if app_body is None: time.sleep(COMM_INTERVAL * slow_mode); continue
+            app_body = sync_repo.get_comment_body(app_cmd_id)
             if not app_body: time.sleep(COMM_INTERVAL * slow_mode); continue
             lines = app_body.strip().splitlines()
             if not lines: time.sleep(COMM_INTERVAL * slow_mode); continue
@@ -748,8 +620,10 @@ def main():
                 if cid in executed_cache:
                     continue
 
-                # ── Log the command before execution ──────────────────
                 log(f"Executing [{cid}] from line {line_num}: {ctext}")
+
+                # Before execution, report memory
+                sync_repo.report_memory()
 
                 cmd_type, arg = parse_single_command(ctext)
                 result = execute_one_command(
@@ -779,10 +653,12 @@ def main():
                     pyperclip=pyperclip if HAS_PYPERCLIP else None,
                     upload_reassemble=None,
                     HAS_PYPERCLIP_local=HAS_PYPERCLIP,
-                    encrypt_string=encrypt_string, gh=gh,
-                    get_all_comments=get_all_comments,
-                    delete_comment=delete_comment, issue_comment=issue_comment,
-                    smart_edit_comment=smart_edit_comment, git_push_with_retry=git_push_with_retry,
+                    encrypt_string=encrypt_string, gh=None,   # gh no longer needed
+                    get_all_comments=lambda: sync_repo.get_all_comments(),
+                    delete_comment=lambda cid: sync_repo.delete_comment(cid),
+                    issue_comment=lambda body: sync_repo.create_comment(body),
+                    smart_edit_comment=lambda cid, body: sync_repo.edit_comment(cid, body),
+                    git_push_with_retry=None,   # handled by SyncRepo
                     comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
                 )
                 ts = int(time.time() * 1_000_000)
@@ -798,6 +674,10 @@ def main():
                 unsent_reports.append((ts, seq_num, result))
                 last_command_time = time.time()
                 log(f"Executed: {cid} → {result}")
+
+                # Push log after each command execution
+                push_logs()
+
                 if cmd_type == "exit":
                     response_comment_id = publish_reports(response_comment_id)
                     log("Exit command received – saving profile cache...")
@@ -823,7 +703,7 @@ def main():
         except SystemExit:
             raise
         except (WebDriverException, InvalidSessionIdException) as driver_error:
-            log(f"Driver error: {driver_error}. Restarting browser...")
+            log(f"Driver error: {driver_error}. Attempting browser restart...")
             if not restart_browser():
                 log("Browser restart failed permanently. Exiting.")
                 push_logs()
