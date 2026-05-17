@@ -24,3 +24,5 @@
 [21:48:52] New autonomous report: AUT-2-1779054532 -> Available memory: 13966 MB
 [21:48:52] STEP 5: First screenshot saved – pushing logs
 [21:48:52] STEP 6: refresh_known_handles()
+[21:48:57] Pushing screenshot to repo...
+[21:48:57] Pushed screenshots/004_214857_auto.png + log
