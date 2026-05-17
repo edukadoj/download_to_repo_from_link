@@ -22,3 +22,9 @@
 [22:33:03] Pushed screenshots/002_223302_01_start_page.png + log
 [22:33:03] STEP 5: First screenshot saved – pushing logs
 [22:33:03] STEP 6: refresh_known_handles()
+[22:33:06] STEP 11: Comments fetched – 3 entries
+[22:33:06] STEP 12: Locating markers in comments
+[22:33:06] Found response comment: 4377972232
+[22:33:06] STEP 13: App command comment id = 4377752559
+[22:33:06] STEP 14: Blanked app command comment
+[22:33:06] STEP 15: Entering main command loop...
