@@ -202,3 +202,4 @@
 [22:37:13] Taking screenshot: screenshots/053_223713_auto.png
 [22:37:13] Pushing screenshot to repo...
 [22:37:13] Pushed screenshots/053_223713_auto.png + log
+[22:37:15] Error reading app cmd body: RepoWrapper call timed out after 30s
