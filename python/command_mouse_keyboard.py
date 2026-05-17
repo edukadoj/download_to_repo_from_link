@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.21.0
-#   - Robust main loop: recovers from any exception without exiting.
-#   - Screenshot worker & main loop survive driver crashes; auto‑restart browser.
-#   - Background log pusher (every 30 s) prevents log loss.
-#   - All git sequences release the GIT_SEQUENCE_LOCK even on error.
-#   - Removed duplicate autonomous reports for tabs/dir (done in command_handlers).
+# command_mouse_keyboard.py – Version 39.22.0
+#   - Queue‑based logging (no blocking, survives IO errors).
+#   - Heartbeat thread (logs + pushes every 30 s).
+#   - Robust main loop and screenshot worker – recover from all exceptions.
+#   - Browser auto‑restart on WebDriver failure.
+#   - Exit command honoured immediately; no further commands processed.
 # ==============================================================================
 
-import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile
+import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, queue as queue_module
 from datetime import datetime
 from pyvirtualdisplay import Display
 from cryptography.fernet import Fernet
 from selenium import webdriver
+from selenium.common.exceptions import WebDriverException, InvalidSessionIdException
 from selenium.webdriver.chrome.options import Options
 from PIL import Image, ImageDraw
 
@@ -51,34 +52,64 @@ from agent_state import (
     ensure_active_tab, ACTIVE_TAB_INDEX
 )
 
-# ---------- Logging ----------
+# ---------- Logging queue ----------
 LOG_FILENAME = "logs/command_mouse_keyboard.log"
 os.makedirs("logs", exist_ok=True)
 
-_logfile = open(LOG_FILENAME, "a", encoding="utf-8")
-_log_lock = threading.Lock()
-_log_closed = False
+_log_queue = queue_module.Queue()
+_log_thread = None
+_log_thread_stop = threading.Event()
 
-def safe_log_write(message: str) -> None:
-    global _log_closed
-    if _log_closed:
+def _log_writer():
+    """Dedicated thread that writes log entries to file and stdout."""
+    with open(LOG_FILENAME, "a", encoding="utf-8") as f:
+        while not _log_thread_stop.is_set() or not _log_queue.empty():
+            try:
+                msg = _log_queue.get(timeout=1)
+                print(msg, flush=True)
+                f.write(msg + "\n")
+                f.flush()
+            except queue_module.Empty:
+                continue
+            except Exception:
+                pass
+
+def start_log_thread():
+    global _log_thread
+    if _log_thread and _log_thread.is_alive():
         return
+    _log_thread_stop.clear()
+    _log_thread = threading.Thread(target=_log_writer, daemon=True)
+    _log_thread.start()
+
+def stop_log_thread():
+    _log_thread_stop.set()
+    if _log_thread:
+        _log_thread.join(timeout=5)
+
+def echo(msg: str) -> None:
+    # Direct print for initial boot messages before log thread starts
+    print(msg, flush=True)
+    # Also queue for file writing
     try:
-        with _log_lock:
-            _logfile.write(message + "\n")
-            _logfile.flush()
+        _log_queue.put(msg)
     except Exception:
         pass
 
-def echo(msg: str) -> None:
-    print(msg, flush=True)
-    safe_log_write(msg)
-
 def log(msg: str) -> None:
+    """Queue a log line with timestamp."""
     now = datetime.now().strftime("%H:%M:%S")
-    echo(f"[{now}] {msg}")
+    line = f"[{now}] {msg}"
+    try:
+        _log_queue.put(line)
+    except Exception:
+        # Last resort if queue broken
+        print(line, flush=True)
 
-echo(f"{'='*60}\n  Remote Control v39.21.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+# Start log thread early
+start_log_thread()
+
+echo(f"{'='*60}\n  Remote Control v39.22.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -312,6 +343,17 @@ def log_pusher():
 _log_pusher_stop = threading.Event()
 threading.Thread(target=log_pusher, daemon=True).start()
 
+# Heartbeat thread
+def heartbeat_worker():
+    while not _heartbeat_stop.is_set():
+        _heartbeat_stop.wait(30)
+        if not _heartbeat_stop.is_set():
+            log("Agent alive")
+            push_logs()
+
+_heartbeat_stop = threading.Event()
+threading.Thread(target=heartbeat_worker, daemon=True).start()
+
 def push_logs():
     acquired = GIT_SEQUENCE_LOCK.acquire(timeout=5)
     if not acquired: return
@@ -382,7 +424,7 @@ def ss(desc="screenshot", push=True, response_suffix=""):
         draw.line([(x-15,y),(x+15,y)], fill='red', width=3)
         draw.line([(x,y-15),(x,y+15)], fill='red', width=3)
         img.save(fname)
-    except Exception as e:
+    except BaseException as e:
         log(f"Screenshot image processing error: {e}")
         # still try to push whatever we have
     if not push: return fname
@@ -424,7 +466,7 @@ def ss(desc="screenshot", push=True, response_suffix=""):
                     for f in files_to_push:
                         if os.path.exists(f) and f not in _screenshot_retry_queue:
                             _screenshot_retry_queue.append(f)
-    except Exception as e:
+    except BaseException as e:
         log(f"Screenshot git error: {e}")
         with _retry_queue_lock:
             for f in files_to_push:
@@ -462,13 +504,13 @@ def screenshot_worker():
                 start = time.time()
                 try:
                     ss("auto", push=True)
-                except Exception as e:
+                except BaseException as e:
                     log(f"Screenshot worker error: {e}")
                     time.sleep(5)
                     continue
                 elapsed = time.time() - start
                 _screenshot_stop.wait(max(0, COMM_INTERVAL * slow_mode - elapsed))
-        except Exception as outer_e:
+        except BaseException as outer_e:
             log(f"Screenshot worker crashed: {outer_e}. Restarting in 5s...")
             _screenshot_stop.wait(5)
 
@@ -518,18 +560,20 @@ def restart_browser():
     except Exception:
         pass
     time.sleep(2)
-    try:
-        driver = create_driver()
-        if agent_state:
-            agent_state.driver = driver
-            agent_state.cursor_x = 960
-            agent_state.cursor_y = 540
-        log("Browser restarted successfully.")
-        start_screenshot_worker()
-        return True
-    except Exception as e:
-        log(f"Browser restart failed: {e}")
-        return False
+    for attempt in range(3):
+        try:
+            driver = create_driver()
+            if agent_state:
+                agent_state.driver = driver
+                agent_state.cursor_x = 960
+                agent_state.cursor_y = 540
+            log("Browser restarted successfully.")
+            start_screenshot_worker()
+            return True
+        except Exception as e:
+            log(f"Browser restart attempt {attempt+1} failed: {e}")
+            time.sleep(5)
+    return False
 
 # ---------- Main loop ----------
 def main():
@@ -754,6 +798,7 @@ def main():
                     _url_monitor_stop.set()
                     _download_watcher_stop.set()
                     _log_pusher_stop.set()
+                    _heartbeat_stop.set()
                     driver.quit(); display.stop()
                     push_logs()
                     echo("\n🎉 Remote session ended.")
@@ -765,15 +810,16 @@ def main():
             raise
         except SystemExit:
             raise
+        except (WebDriverException, InvalidSessionIdException) as driver_error:
+            log(f"Driver error: {driver_error}. Restarting browser...")
+            if not restart_browser():
+                log("Browser restart failed permanently. Exiting.")
+                push_logs()
+                break
         except Exception as e:
             log(f"Main loop exception: {traceback.format_exc()}")
-            # If driver is dead, try to restart it
-            if driver is None or not hasattr(driver, 'session_id'):
-                restart_browser()
-            else:
-                # just wait and continue
-                time.sleep(5)
             push_logs()
+            time.sleep(5)
 
 if __name__ == "__main__":
     try:
@@ -788,9 +834,8 @@ if __name__ == "__main__":
         _url_monitor_stop.set()
         _download_watcher_stop.set()
         _log_pusher_stop.set()
+        _heartbeat_stop.set()
         ok, msg = save_profile()
         log(f"Final profile save: {msg}")
         push_logs()
-        _log_closed = True
-        try: _logfile.close()
-        except Exception: pass
+        stop_log_thread()
