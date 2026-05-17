@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.27.0
-#   - SYNCHRONOUS logging: every log line is immediately written to disk
-#     and flushed.  No queue – no lost lines on crash.
-#   - Every step of the initialisation is wrapped in its own try/except,
-#     with a detailed log and a push_logs() call after each step.
-#   - The main loop is even more resilient: any exception restarts the loop.
-#   - RepoWrapper still used for GitHub operations; SyncRepo unchanged.
+# command_mouse_keyboard.py – Version 39.27.1
+#   - KEY_SECRET is defined at module level, fixing the NameError.
+#   - Memory reports throttled to once every 2 minutes.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -92,7 +88,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.27.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.27.1 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -147,8 +143,12 @@ ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER","4").strip()
 START_URL = os.environ.get("START_URL") or "https://studio.youtube.com"
 REPO = os.environ['GITHUB_REPOSITORY']
 
+# ── THIS WAS MISSING ────────────────────────────────────────
+KEY_SECRET = os.environ["KEY"]
+# ────────────────────────────────────────────────────────────
+
 repo_wrapper = RepoWrapper(REPO, int(ISSUE_NUMBER), LOG_FILENAME)
-repo_wrapper.error_log = safe_log   # forward repo errors to our log
+repo_wrapper.error_log = safe_log
 sync_repo = SyncRepo(repo_wrapper)
 
 def _autonomous_callback(report_type, text):
@@ -310,12 +310,18 @@ def log_pusher():
 _log_pusher_stop = threading.Event()
 threading.Thread(target=log_pusher, daemon=True).start()
 
+# Memory throttle
+_last_memory_report = 0
 def heartbeat_worker():
+    global _last_memory_report
     while not _heartbeat_stop.is_set():
         _heartbeat_stop.wait(30)
         if not _heartbeat_stop.is_set():
             safe_log("Agent alive")
-            sync_repo.report_memory()
+            now = time.time()
+            if now - _last_memory_report >= 120:
+                sync_repo.report_memory()
+                _last_memory_report = now
             push_logs()
 
 _heartbeat_stop = threading.Event()
@@ -344,7 +350,6 @@ def ss(desc="screenshot", push=True, response_suffix=""):
     if not push: return fname
 
     safe_log("Pushing screenshot to repo...")
-    sync_repo.report_memory()
     sync_repo.push_screenshots([fname])
     safe_log(f"Pushed {fname} + log")
     return fname
@@ -424,7 +429,6 @@ def restart_browser():
 def main():
     global slow_mode, last_command_time, _calibration_in_progress
 
-    # ── Initial navigation – each step isolated with logging ─────────
     safe_log("STEP 1: Loading start URL...")
     try:
         driver.get(START_URL)
@@ -622,7 +626,6 @@ def main():
                     continue
 
                 safe_log(f"Executing [{cid}] from line {line_num}: {ctext}")
-                sync_repo.report_memory()
 
                 cmd_type, arg = parse_single_command(ctext)
                 result = execute_one_command(
