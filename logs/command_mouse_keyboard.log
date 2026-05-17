@@ -14,3 +14,11 @@
 [22:32:58] Taking screenshot: screenshots/001_223258_auto.png
 [22:32:58] Pushing screenshot to repo...
 [22:32:58] Pushed screenshots/001_223258_auto.png + log
+[22:33:02] STEP 3: Scrolling to top
+[22:33:02] STEP 4: Taking first screenshot
+[22:33:02] Taking screenshot: screenshots/002_223302_01_start_page.png
+[22:33:03] Taking screenshot: screenshots/003_223303_auto.png
+[22:33:03] Pushing screenshot to repo...
+[22:33:03] Pushed screenshots/002_223302_01_start_page.png + log
+[22:33:03] STEP 5: First screenshot saved – pushing logs
+[22:33:03] STEP 6: refresh_known_handles()
