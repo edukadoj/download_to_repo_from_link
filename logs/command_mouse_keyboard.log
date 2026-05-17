@@ -15,3 +15,12 @@
 [21:48:47] Pushing screenshot to repo...
 [21:48:47] Pushed screenshots/001_214847_auto.png + log
 [21:48:47] New autonomous report: AUT-1-1779054527 -> Available memory: 13904 MB
+[21:48:51] STEP 3: Scrolling to top
+[21:48:51] STEP 4: Taking first screenshot
+[21:48:51] Taking screenshot: screenshots/002_214851_01_start_page.png
+[21:48:52] Taking screenshot: screenshots/003_214852_auto.png
+[21:48:52] Pushing screenshot to repo...
+[21:48:52] Pushed screenshots/002_214851_01_start_page.png + log
+[21:48:52] New autonomous report: AUT-2-1779054532 -> Available memory: 13966 MB
+[21:48:52] STEP 5: First screenshot saved – pushing logs
+[21:48:52] STEP 6: refresh_known_handles()
