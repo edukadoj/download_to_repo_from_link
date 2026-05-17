@@ -128,3 +128,13 @@
 [21:50:57] Pushed screenshots/028_215057_auto.png + log
 [21:50:57] New autonomous report: AUT-30-1779054657 -> Available memory: 14531 MB
 [21:51:02] Taking screenshot: screenshots/029_215102_auto.png
+[21:51:02] Pushing screenshot to repo...
+[21:51:02] Pushed screenshots/029_215102_auto.png + log
+[21:51:05] Executing [APP-51755-20260517214934] from line 3: tabs
+[21:51:05] New autonomous report: AUT-32-1779054665 -> Available memory: 14583 MB
+[21:51:05] Main loop exception: Traceback (most recent call last):
+  File "/home/runner/work/download_to_repo_from_link/download_to_repo_from_link/python/command_mouse_keyboard.py", line 632, in main
+    KEY_SECRET=KEY_SECRET, REPO=REPO, ISSUE_NUMBER=ISSUE_NUMBER,
+               ^^^^^^^^^^
+NameError: name 'KEY_SECRET' is not defined
+
