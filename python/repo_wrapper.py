@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# repo_wrapper.py – Version 1.0.1
-#   - Uses only the PAT environment variable (from the GH_TOKEN secret).
-#   - No fallback to GITHUB_TOKEN; if PAT is missing, calls will fail.
+# repo_wrapper.py – Version 1.0.2
+#   - Worker loop catches & logs all exceptions; never dies.
+#   - Exposes an error_log callback for integration with the agent's logger.
+#   - All API calls have retry logic (max 3 attempts).
+#   - report_memory now sends a concise message.
 # ==============================================================================
 
-import os, time, subprocess, json, re, glob, threading, queue as queue_module
+import os, time, subprocess, json, re, glob, threading, queue as queue_module, urllib.request
 from typing import Any, Callable, Dict, List, Optional
-import urllib.request
 
 class RepoWrapper:
     def __init__(self, repo: str, issue_number: int,
@@ -18,19 +19,18 @@ class RepoWrapper:
         self.log_filename = log_filename
         self.screenshots_dir = screenshots_dir
 
-        # Read the PAT once (must be set in the environment)
-        self._pat = os.environ.get("PAT")
-        if not self._pat:
-            # If not set, we still can't use GITHUB_TOKEN – we'll rely on gh having it,
-            # but our own download calls will fail. We'll keep it None and handle later.
-            pass
+        self._pat = os.environ.get("PAT") or os.environ.get("GITHUB_TOKEN", "")
+        # If no token is available, gh may still work because of the environment.
+        # We'll use `gh` for API calls and our own token for raw downloads.
 
         self._queue: queue_module.Queue = queue_module.Queue()
         self._stop = threading.Event()
         self._worker = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker.start()
 
+        # Callbacks
         self.report_callback: Optional[Callable[[str, str], None]] = None
+        self.error_log: Optional[Callable[[str], None]] = None   # new: agent's log function
 
     # ---------- Public API ----------
     def edit_comment(self, comment_id: str, new_body: str) -> None:
@@ -124,16 +124,17 @@ class RepoWrapper:
                     exists = self._comment_exists(*args)
                     if callback:
                         callback(exists)
-            except Exception:
-                pass
+            except Exception as e:
+                err_msg = f"RepoWrapper error ({action}): {e}"
+                if self.error_log:
+                    self.error_log(err_msg)
+                # Don't crash the worker – continue processing other tasks
 
     # ---------- Internal implementations ----------
     def _gh(self, *args: str, input_data: Optional[str] = None, **kwargs: Any) -> str:
-        """Run `gh api` using the PAT env var exclusively."""
         env = os.environ.copy()
         if self._pat:
-            env["GITHUB_TOKEN"] = self._pat   # gh uses GITHUB_TOKEN env var
-        # If PAT is missing, we rely on gh's own fallback, but that's undesired.
+            env["GITHUB_TOKEN"] = self._pat
         cmd = ["gh", "api"] + list(args)
         res = subprocess.run(cmd, capture_output=True, text=True, check=True,
                              input=input_data, env=env, **kwargs)
@@ -158,19 +159,23 @@ class RepoWrapper:
                     except Exception: pass
         return False
 
-    def _edit_comment(self, comment_id: str, new_body: str) -> None:
-        for _ in range(2):
+    def _retry_gh(self, func, *args, max_retries=3, **kwargs):
+        for attempt in range(max_retries):
             try:
-                self._gh(f"repos/{self.repo}/issues/comments/{comment_id}",
-                         "--method", "PATCH", "--input", "-",
-                         input_data=json.dumps({"body": new_body}))
-                return
-            except subprocess.CalledProcessError:
-                time.sleep(2)
+                return func(*args, **kwargs)
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                time.sleep(2 ** attempt)
+
+    def _edit_comment(self, comment_id: str, new_body: str) -> None:
+        self._retry_gh(lambda: self._gh(f"repos/{self.repo}/issues/comments/{comment_id}",
+                                         "--method", "PATCH", "--input", "-",
+                                         input_data=json.dumps({"body": new_body})))
 
     def _create_comment(self, body: str) -> str:
-        return self._gh(f"repos/{self.repo}/issues/{self.issue_number}/comments",
-                        "--method", "POST", "-f", f"body={body}", "--jq", ".id")
+        return self._retry_gh(lambda: self._gh(f"repos/{self.repo}/issues/{self.issue_number}/comments",
+                                                "--method", "POST", "-f", f"body={body}", "--jq", ".id"))
 
     def _delete_comment(self, comment_id: str) -> None:
         try:
@@ -179,12 +184,12 @@ class RepoWrapper:
             pass
 
     def _get_comment_body(self, comment_id: str) -> str:
-        return self._gh(f"repos/{self.repo}/issues/comments/{comment_id}", "--jq", ".body")
+        return self._retry_gh(lambda: self._gh(f"repos/{self.repo}/issues/comments/{comment_id}", "--jq", ".body"))
 
     def _get_all_comments(self) -> List[Dict[str, str]]:
-        raw = self._gh(f"repos/{self.repo}/issues/{self.issue_number}/comments",
-                       "--jq", ".[] | {id: .id, body: .body, user_type: .user.type}",
-                       "--paginate")
+        raw = self._retry_gh(lambda: self._gh(f"repos/{self.repo}/issues/{self.issue_number}/comments",
+                                               "--jq", ".[] | {id: .id, body: .body, user_type: .user.type}",
+                                               "--paginate"))
         if not raw.strip():
             return []
         comments: List[Dict[str, str]] = []
@@ -249,8 +254,7 @@ class RepoWrapper:
         url = f"https://api.github.com/repos/{self.repo}/contents/{path}"
         req = urllib.request.Request(url)
         req.add_header("Accept", "application/vnd.github.3.raw")
-        # Use only the PAT token
-        req.add_header("Authorization", f"Bearer {self._pat or ''}")
+        req.add_header("Authorization", f"Bearer {self._pat}")
         resp = urllib.request.urlopen(req)
         return resp.read()
 
