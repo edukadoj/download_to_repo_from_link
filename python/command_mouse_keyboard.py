@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.25.0
-#   - All GitHub / git operations now go through the RepoWrapper (via SyncRepo).
-#   - The agent is robust: browser restarts are reported and navigate back to
-#     START_URL; during calibration, browser crashes cancel calibration instead
-#     of restarting.
-#   - Memory reports are sent autonomously before heavy operations.
-#   - The log file is pushed to the repo after every critical step – no more
-#     lost logs.
+# command_mouse_keyboard.py – Version 39.26.0
+#   - Extensive logging + push_logs after EVERY setup step so crash location
+#     is pinpointed exactly.
+#   - SyncRepo._call_and_wait has a timeout (30s) – if the repo worker dies,
+#     the main loop logs an error and recovers.
+#   - RepoWrapper worker loop catches and logs all exceptions; never dies.
+#   - Watchdog thread: if the main loop hasn't processed a command for 120 s,
+#     it logs "Main loop stalled" and triggers a restart of the main loop.
+#   - Browser restart now navigates back to START_URL and reports itself.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal, queue as queue_module
@@ -124,7 +125,7 @@ def log(msg: str) -> None:
 start_log_thread()
 threading.Thread(target=monitor_log_thread, daemon=True).start()
 
-echo(f"{'='*60}\n  Remote Control v39.25.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.26.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -133,18 +134,19 @@ last_command_time = time.time()
 
 # ---------- Synchronous wrapper around RepoWrapper ----------
 class SyncRepo:
-    """Provides blocking (synchronous) methods for all repository operations."""
     def __init__(self, repo_wrapper):
         self._rw = repo_wrapper
 
-    def _call_and_wait(self, method, *args):
+    def _call_and_wait(self, method, *args, timeout=30):
         event = threading.Event()
         result = [None]
+        exception = [None]
         def callback(value):
             result[0] = value
             event.set()
         method(*args, callback)
-        event.wait()
+        if not event.wait(timeout):
+            raise TimeoutError(f"RepoWrapper call timed out after {timeout}s")
         return result[0]
 
     def edit_comment(self, comment_id, new_body):
@@ -182,12 +184,11 @@ REPO = os.environ['GITHUB_REPOSITORY']
 repo_wrapper = RepoWrapper(REPO, int(ISSUE_NUMBER), LOG_FILENAME)
 sync_repo = SyncRepo(repo_wrapper)
 
-# Wire autonomous reports
 def _autonomous_callback(report_type, text):
     add_autonomous_report(report_type, text)
 repo_wrapper.report_callback = _autonomous_callback
 
-# ---------- Profile cache (unchanged, local only) ----------
+# ---------- Profile cache ----------
 PROFILE_DIR = "/tmp/chrome_profile"
 CACHE_DIR = ".profile_cache"
 CHUNK_SIZE_MB = 20
@@ -224,7 +225,6 @@ def load_profile():
         shutil.rmtree(PROFILE_DIR, ignore_errors=True)
         tarfile.open(fileobj=io.BytesIO(decrypted), mode='r:gz').extractall('/tmp')
         log("Profile cache loaded successfully.")
-        # Delete local chunk files to free disk space
         for f in glob.glob(os.path.join(CACHE_DIR, "*.part*")):
             os.remove(f)
         return True
@@ -260,8 +260,7 @@ def save_profile():
             return (False, f"chunker.py failed: {result.stderr.strip() or result.stdout.strip()}")
         subprocess.run(["git", "config", "user.name", "github-actions[bot]"], capture_output=True)
         subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], capture_output=True)
-        # Use SyncRepo to push cache files
-        sync_repo.push_log_file()   # includes the cache dir
+        sync_repo.push_log_file()   # pushes cache
         return (True, "Profile cache saved successfully.")
     except Exception as e:
         return (False, f"save_profile exception: {e}")
@@ -331,7 +330,7 @@ if agent_state:
     agent_state.pyperclip = pyperclip
     agent_state.log = log
 
-# ---------- Background log pusher (via SyncRepo) ----------
+# ---------- Background log pusher ----------
 def push_logs():
     sync_repo.push_log_file()
 
@@ -416,7 +415,6 @@ def ss(desc="screenshot", push=True, response_suffix=""):
         log(f"Screenshot image processing error: {e}")
     if not push: return fname
 
-    # Push via SyncRepo
     log("Pushing screenshot to repo...")
     sync_repo.report_memory()
     sync_repo.push_screenshots([fname])
@@ -463,7 +461,7 @@ start_screenshot_worker()
 threading.Thread(target=monitor_screenshot_worker, daemon=True).start()
 
 # ---------- Browser recovery ----------
-_calibration_in_progress = False   # set by main loop during calibration
+_calibration_in_progress = False
 
 def restart_browser():
     global driver
@@ -471,7 +469,6 @@ def restart_browser():
     if _calibration_in_progress:
         log("Calibration in progress – cancelling instead of restarting browser.")
         add_autonomous_report("calibration_error", "Browser crashed during calibration – calibration cancelled.")
-        # The calibration will be cancelled by the main loop when it detects the exception.
         return False
     try:
         driver.quit()
@@ -495,55 +492,126 @@ def restart_browser():
             time.sleep(5)
     return False
 
+# ---------- Watchdog ----------
+_main_loop_last_active = time.time()
+
+def watchdog():
+    global _main_loop_last_active
+    while not _watchdog_stop.is_set():
+        _watchdog_stop.wait(60)
+        if time.time() - _main_loop_last_active > 120:
+            log("WATCHDOG: Main loop stalled for >120s. Triggering restart...")
+            # The main loop will be restarted by the outer while in main()
+            _restart_main_loop.set()
+
+_watchdog_stop = threading.Event()
+_restart_main_loop = threading.Event()
+threading.Thread(target=watchdog, daemon=True).start()
+
 # ---------- Main loop ----------
 def main():
-    global slow_mode, last_command_time, _calibration_in_progress
+    global slow_mode, last_command_time, _calibration_in_progress, _main_loop_last_active
 
+    # ── Initial navigation with logging ─────────────────────
+    log("STEP 1: Loading start URL...")
     try:
-        log("Loading start URL...")
         driver.get(START_URL)
-        log("Start URL loaded – sleeping 5s")
-        time.sleep(5)
-        log("Scrolling to top")
-        driver.execute_script("window.scrollTo(0,0);")
-        log("Taking first screenshot")
-        ss("01_start_page", push=True)
-        log("First screenshot saved")
-        refresh_known_handles()
-        agent_state._last_known_url = driver.current_url
-        threading.Thread(target=url_monitor_worker, daemon=True).start()
-        log("URL monitor started")
+        log("STEP 2: Start URL loaded – sleeping 5s")
     except Exception as e:
-        log(f"FATAL STARTUP: {e}\n{traceback.format_exc()}")
+        log(f"FATAL STARTUP: driver.get failed: {e}")
         push_logs()
         if not restart_browser():
             return
+    time.sleep(5)
+    log("STEP 3: Scrolling to top")
+    try:
+        driver.execute_script("window.scrollTo(0,0);")
+    except Exception as e:
+        log(f"FATAL STARTUP: scrollTo failed: {e}")
+        push_logs()
+        if not restart_browser():
+            return
+    log("STEP 4: Taking first screenshot")
+    try:
+        ss("01_start_page", push=True)
+    except Exception as e:
+        log(f"FATAL STARTUP: first screenshot failed: {e}")
+        push_logs()
+        if not restart_browser():
+            return
+    log("STEP 5: First screenshot saved – pushing logs")
+    push_logs()
+
+    log("STEP 6: refresh_known_handles()")
+    try:
+        refresh_known_handles()
+    except Exception as e:
+        log(f"Warning: refresh_known_handles failed: {e}")
+    log("STEP 7: Set last known URL")
+    try:
+        agent_state._last_known_url = driver.current_url
+    except Exception as e:
+        log(f"Warning: driver.current_url failed: {e}")
+    log("STEP 8: Start URL monitor")
+    try:
+        threading.Thread(target=url_monitor_worker, daemon=True).start()
+    except Exception as e:
+        log(f"Warning: URL monitor start failed: {e}")
+    log("STEP 9: URL monitor started")
+    push_logs()
 
     RESPONSE_MARKER = "## Remote Agent Responses"
     APP_COMMAND_MARKER = "## App Commands"
 
-    log("Fetching comments to locate markers...")
-    all_comments = sync_repo.get_all_comments()
-    if not all_comments:
-        log("CRITICAL: Could not fetch issue comments. Exiting.")
+    log("STEP 10: Fetching comments via sync_repo.get_all_comments()")
+    try:
+        all_comments = sync_repo.get_all_comments()
+    except Exception as e:
+        log(f"CRITICAL: get_all_comments failed: {e}\n{traceback.format_exc()}")
         push_logs()
-        return
+        # Try to restart browser and continue – maybe transient network
+        if not restart_browser():
+            return
+        # Retry comments after restart
+        try:
+            all_comments = sync_repo.get_all_comments()
+        except Exception as e2:
+            log(f"FATAL: get_all_comments still failing: {e2}")
+            return
+    log(f"STEP 11: Comments fetched – {len(all_comments)} entries")
+    push_logs()
 
+    log("STEP 12: Locating markers in comments")
     resp_comment = find_marker_comment(all_comments, RESPONSE_MARKER)
-    if resp_comment: response_comment_id = resp_comment["id"]
+    if resp_comment:
+        response_comment_id = resp_comment["id"]
+        log(f"Found response comment: {response_comment_id}")
     else:
         log("No response comment found, creating one...")
-        response_comment_id = sync_repo.create_comment(f"{RESPONSE_MARKER}\n")
-        if response_comment_id:
-            add_autonomous_report("responsecommentid", f"responsecommentid:{response_comment_id}")
+        try:
+            response_comment_id = sync_repo.create_comment(f"{RESPONSE_MARKER}\n")
+            if response_comment_id:
+                add_autonomous_report("responsecommentid", f"responsecommentid:{response_comment_id}")
+                log(f"Created response comment: {response_comment_id}")
+        except Exception as e:
+            log(f"CRITICAL: create_comment failed: {e}")
+            push_logs()
+            return
 
     app_cmd = find_marker_comment(all_comments, APP_COMMAND_MARKER)
     app_cmd_id = app_cmd["id"] if app_cmd else None
-    log(f"App command comment: {app_cmd_id}")
+    log(f"STEP 13: App command comment id = {app_cmd_id}")
 
     if app_cmd_id:
-        try: sync_repo.edit_comment(app_cmd_id, "## App Commands\n")
-        except Exception as e: log(f"Could not blank: {e}")
+        try:
+            sync_repo.edit_comment(app_cmd_id, "## App Commands\n")
+            log("STEP 14: Blanked app command comment")
+        except Exception as e:
+            log(f"Warning: Could not blank app cmd comment: {e}")
+
+    log("STEP 15: Entering main command loop...")
+    push_logs()
+    _main_loop_last_active = time.time()
 
     executed_cache = {}
     unsent_reports = []
@@ -558,38 +626,58 @@ def main():
             lines.append(f"{r['id']}; {r['text']}")
         body = "\n".join(lines)
         pending_autonomous_reports.clear()
-        if not sync_repo.comment_exists(comment_id):
-            for _ in range(3):
-                try:
-                    new_id = sync_repo.create_comment(body)
-                    log(f"Created new response comment: {new_id}")
-                    response_comment_id = new_id
-                    add_autonomous_report("responsecommentid", f"responsecommentid:{new_id}")
-                    unsent_reports.clear()
-                    push_logs()
-                    return new_id
-                except Exception: time.sleep(2)
+        try:
+            if not sync_repo.comment_exists(comment_id):
+                for _ in range(3):
+                    try:
+                        new_id = sync_repo.create_comment(body)
+                        log(f"Created new response comment: {new_id}")
+                        response_comment_id = new_id
+                        add_autonomous_report("responsecommentid", f"responsecommentid:{new_id}")
+                        unsent_reports.clear()
+                        push_logs()
+                        return new_id
+                    except Exception:
+                        time.sleep(2)
+                return comment_id
+            sync_repo.edit_comment(comment_id, body)
+            unsent_reports.clear()
+            push_logs()
             return comment_id
-        sync_repo.edit_comment(comment_id, body)
-        unsent_reports.clear()
-        push_logs()
-        return comment_id
+        except Exception as e:
+            log(f"Error publishing reports: {e}")
+            return comment_id
 
-    log("Entering main command loop...")
     while True:
-        if time.time() - last_command_time > 120: slow_mode = 15
-        else: slow_mode = 1
+        # Check if watchdog requested a restart
+        if _restart_main_loop.is_set():
+            _restart_main_loop.clear()
+            log("Main loop restart triggered by watchdog.")
+            break   # will return to outer while to restart
+
+        if time.time() - last_command_time > 120:
+            slow_mode = 15
+        else:
+            slow_mode = 1
 
         try:
             if app_cmd_id:
-                test = sync_repo.get_comment_body(app_cmd_id)
-                if not test:
-                    log(f"App command comment {app_cmd_id} vanished – resetting.")
-                    app_cmd_id = None
+                try:
+                    test = sync_repo.get_comment_body(app_cmd_id)
+                    if not test:
+                        log(f"App command comment {app_cmd_id} vanished – resetting.")
+                        app_cmd_id = None
+                except Exception as e:
+                    log(f"Error reading app cmd comment: {e}")
 
             if not app_cmd_id:
                 time.sleep(COMM_INTERVAL * slow_mode)
-                allc = sync_repo.get_all_comments()
+                try:
+                    allc = sync_repo.get_all_comments()
+                except Exception as e:
+                    log(f"Error in get_all_comments: {e}")
+                    time.sleep(COMM_INTERVAL * slow_mode)
+                    continue
                 if not allc:
                     time.sleep(COMM_INTERVAL * slow_mode)
                     continue
@@ -599,30 +687,42 @@ def main():
                     log(f"Re‑found app cmd: {app_cmd_id}")
                 continue
 
-            app_body = sync_repo.get_comment_body(app_cmd_id)
-            if not app_body: time.sleep(COMM_INTERVAL * slow_mode); continue
+            try:
+                app_body = sync_repo.get_comment_body(app_cmd_id)
+            except Exception as e:
+                log(f"Error reading app cmd body: {e}")
+                time.sleep(COMM_INTERVAL * slow_mode)
+                continue
+            if not app_body:
+                time.sleep(COMM_INTERVAL * slow_mode)
+                continue
             lines = app_body.strip().splitlines()
-            if not lines: time.sleep(COMM_INTERVAL * slow_mode); continue
+            if not lines:
+                time.sleep(COMM_INTERVAL * slow_mode)
+                continue
 
             capture = False
             new_cmds = []
             for line_idx, line in enumerate(lines, start=1):
                 m = re.match(r'^\[(\d+)\]: app commands:', line)
-                if m: capture = True; continue
+                if m:
+                    capture = True
+                    continue
                 if capture:
-                    if re.match(r'^\[', line): break
+                    if re.match(r'^\[', line):
+                        break
                     parts = line.split(';', 1)
                     if len(parts) == 2:
-                        cid = parts[0].strip(); ctext = parts[1].strip()
-                        if ctext: new_cmds.append((cid, ctext, line_idx))
+                        cid = parts[0].strip()
+                        ctext = parts[1].strip()
+                        if ctext:
+                            new_cmds.append((cid, ctext, line_idx))
 
             for cid, ctext, line_num in new_cmds:
                 if cid in executed_cache:
                     continue
 
                 log(f"Executing [{cid}] from line {line_num}: {ctext}")
-
-                # Before execution, report memory
                 sync_repo.report_memory()
 
                 cmd_type, arg = parse_single_command(ctext)
@@ -653,12 +753,12 @@ def main():
                     pyperclip=pyperclip if HAS_PYPERCLIP else None,
                     upload_reassemble=None,
                     HAS_PYPERCLIP_local=HAS_PYPERCLIP,
-                    encrypt_string=encrypt_string, gh=None,   # gh no longer needed
+                    encrypt_string=encrypt_string, gh=None,
                     get_all_comments=lambda: sync_repo.get_all_comments(),
                     delete_comment=lambda cid: sync_repo.delete_comment(cid),
                     issue_comment=lambda body: sync_repo.create_comment(body),
                     smart_edit_comment=lambda cid, body: sync_repo.edit_comment(cid, body),
-                    git_push_with_retry=None,   # handled by SyncRepo
+                    git_push_with_retry=None,
                     comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
                 )
                 ts = int(time.time() * 1_000_000)
@@ -673,9 +773,8 @@ def main():
                 executed_cache[cid] = (ts, seq_num, result)
                 unsent_reports.append((ts, seq_num, result))
                 last_command_time = time.time()
+                _main_loop_last_active = time.time()
                 log(f"Executed: {cid} → {result}")
-
-                # Push log after each command execution
                 push_logs()
 
                 if cmd_type == "exit":
@@ -691,7 +790,9 @@ def main():
                     _download_watcher_stop.set()
                     _log_pusher_stop.set()
                     _heartbeat_stop.set()
-                    driver.quit(); display.stop()
+                    _watchdog_stop.set()
+                    driver.quit()
+                    display.stop()
                     push_logs()
                     echo("\n🎉 Remote session ended.")
                     sys.exit(0)
@@ -713,21 +814,42 @@ def main():
             push_logs()
             time.sleep(5)
 
+    # If we break out of the inner loop, restart the main function
+    log("Restarting main loop...")
+    push_logs()
+
 if __name__ == "__main__":
-    try:
-        main()
-    except SystemExit:
-        pass
-    except Exception as ex:
-        log(f"FATAL: {ex}\n{traceback.format_exc()}")
-        push_logs()
-    finally:
-        _screenshot_stop.set()
-        _url_monitor_stop.set()
-        _download_watcher_stop.set()
-        _log_pusher_stop.set()
-        _heartbeat_stop.set()
-        ok, msg = save_profile()
-        log(f"Final profile save: {msg}")
-        push_logs()
-        stop_log_thread()
+    while True:
+        try:
+            main()
+        except SystemExit:
+            break
+        except Exception as ex:
+            log(f"FATAL in main: {ex}\n{traceback.format_exc()}")
+            push_logs()
+            time.sleep(10)
+            # Restart
+        finally:
+            # Cleanup that must happen on each restart
+            _screenshot_stop.set()
+            _url_monitor_stop.set()
+            _download_watcher_stop.set()
+            _log_pusher_stop.set()
+            _heartbeat_stop.set()
+            _watchdog_stop.set()
+            _restart_main_loop.clear()
+            ok, msg = save_profile()
+            log(f"Final profile save: {msg}")
+            push_logs()
+            # Re-initiate threads for the next main() call
+            _screenshot_stop.clear()
+            _url_monitor_stop.clear()
+            _download_watcher_stop.clear()
+            _log_pusher_stop.clear()
+            _heartbeat_stop.clear()
+            _watchdog_stop.clear()
+            # Restart the background threads
+            threading.Thread(target=log_pusher, daemon=True).start()
+            threading.Thread(target=heartbeat_worker, daemon=True).start()
+            threading.Thread(target=watchdog, daemon=True).start()
+    stop_log_thread()
