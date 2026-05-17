@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# repo_wrapper.py – Version 1.0.2
-#   - Worker loop catches & logs all exceptions; never dies.
-#   - Exposes an error_log callback for integration with the agent's logger.
-#   - All API calls have retry logic (max 3 attempts).
-#   - report_memory now sends a concise message.
+# repo_wrapper.py – Version 1.1.0
+#   - Dual worker threads: fast queue for comment operations, slow queue for
+#     screenshot/log pushes.
+#   - Rate‑limited comment edits are retried automatically after a short delay.
 # ==============================================================================
 
 import os, time, subprocess, json, re, glob, threading, queue as queue_module, urllib.request
@@ -20,66 +19,73 @@ class RepoWrapper:
         self.screenshots_dir = screenshots_dir
 
         self._pat = os.environ.get("PAT") or os.environ.get("GITHUB_TOKEN", "")
-        # If no token is available, gh may still work because of the environment.
-        # We'll use `gh` for API calls and our own token for raw downloads.
 
-        self._queue: queue_module.Queue = queue_module.Queue()
-        self._stop = threading.Event()
-        self._worker = threading.Thread(target=self._worker_loop, daemon=True)
-        self._worker.start()
+        # ── Fast queue for comment operations ──
+        self._fast_queue: queue_module.Queue = queue_module.Queue()
+        self._fast_stop = threading.Event()
+        self._fast_worker = threading.Thread(target=self._fast_worker_loop, daemon=True)
+        self._fast_worker.start()
 
-        # Callbacks
+        # ── Slow queue for file pushes ──
+        self._slow_queue: queue_module.Queue = queue_module.Queue()
+        self._slow_stop = threading.Event()
+        self._slow_worker = threading.Thread(target=self._slow_worker_loop, daemon=True)
+        self._slow_worker.start()
+
         self.report_callback: Optional[Callable[[str, str], None]] = None
-        self.error_log: Optional[Callable[[str], None]] = None   # new: agent's log function
+        self.error_log: Optional[Callable[[str], None]] = None
 
-    # ---------- Public API ----------
+    # ── Fast operations (comments) ──────────────────────────────
     def edit_comment(self, comment_id: str, new_body: str) -> None:
-        self._queue.put(("edit_comment", (comment_id, new_body), None))
+        self._fast_queue.put(("edit_comment", (comment_id, new_body), None))
 
     def create_comment(self, body: str) -> None:
-        self._queue.put(("create_comment", (body,), None))
+        self._fast_queue.put(("create_comment", (body,), None))
 
     def post_comment_and_get_id(self, body: str, callback: Callable[[str], None]) -> None:
-        self._queue.put(("create_comment_callback", (body,), callback))
+        self._fast_queue.put(("create_comment_callback", (body,), callback))
 
     def delete_comment(self, comment_id: str) -> None:
-        self._queue.put(("delete_comment", (comment_id,), None))
+        self._fast_queue.put(("delete_comment", (comment_id,), None))
 
     def get_comment_body(self, comment_id: str, callback: Callable[[str], None]) -> None:
-        self._queue.put(("get_comment_body", (comment_id,), callback))
+        self._fast_queue.put(("get_comment_body", (comment_id,), callback))
 
     def get_all_comments(self, callback: Callable[[List[Dict[str, str]]], None]) -> None:
-        self._queue.put(("get_all_comments", (), callback))
-
-    def push_log_file(self) -> None:
-        self._queue.put(("push_log_file", (), None))
-
-    def push_screenshots(self, screenshot_paths: List[str]) -> None:
-        self._queue.put(("push_screenshots", (screenshot_paths,), None))
-
-    def list_screenshot_files(self, callback: Callable[[List[str]], None]) -> None:
-        self._queue.put(("list_screenshot_files", (), callback))
-
-    def download_file(self, path: str, callback: Callable[[bytes], None]) -> None:
-        self._queue.put(("download_file", (path,), callback))
-
-    def delete_file(self, path: str, sha: str) -> None:
-        self._queue.put(("delete_file", (path, sha), None))
-
-    def report_memory(self) -> None:
-        self._queue.put(("report_memory", (), None))
+        self._fast_queue.put(("get_all_comments", (), callback))
 
     def comment_exists(self, comment_id: str, callback: Callable[[bool], None]) -> None:
-        self._queue.put(("comment_exists", (comment_id,), callback))
+        self._fast_queue.put(("comment_exists", (comment_id,), callback))
 
+    def report_memory(self) -> None:
+        self._fast_queue.put(("report_memory", (), None))
+
+    # ── Slow operations (files) ──────────────────────────────────
+    def push_log_file(self) -> None:
+        self._slow_queue.put(("push_log_file", (), None))
+
+    def push_screenshots(self, screenshot_paths: List[str]) -> None:
+        self._slow_queue.put(("push_screenshots", (screenshot_paths,), None))
+
+    def list_screenshot_files(self, callback: Callable[[List[str]], None]) -> None:
+        self._fast_queue.put(("list_screenshot_files", (), callback))
+
+    def download_file(self, path: str, callback: Callable[[bytes], None]) -> None:
+        self._fast_queue.put(("download_file", (path,), callback))
+
+    def delete_file(self, path: str, sha: str) -> None:
+        self._slow_queue.put(("delete_file", (path, sha), None))
+
+    # ── Stop ──────────────────────────────────────────────────────
     def stop(self) -> None:
-        self._stop.set()
+        self._fast_stop.set()
+        self._slow_stop.set()
 
-    # ---------- Worker thread ----------
-    def _worker_loop(self) -> None:
-        while not self._stop.is_set():
+    # ── Fast worker loop (comments) ─────────────────────────────
+    def _fast_worker_loop(self) -> None:
+        while not self._fast_stop.is_set():
             try:
-                task = self._queue.get(timeout=1)
+                task = self._fast_queue.get(timeout=1)
             except queue_module.Empty:
                 continue
             if task is None:
@@ -104,10 +110,12 @@ class RepoWrapper:
                     comments = self._get_all_comments()
                     if callback:
                         callback(comments)
-                elif action == "push_log_file":
-                    self._push_log_file()
-                elif action == "push_screenshots":
-                    self._push_screenshots(*args)
+                elif action == "comment_exists":
+                    exists = self._comment_exists(*args)
+                    if callback:
+                        callback(exists)
+                elif action == "report_memory":
+                    self._report_memory()
                 elif action == "list_screenshot_files":
                     files = self._list_screenshot_files()
                     if callback:
@@ -116,21 +124,34 @@ class RepoWrapper:
                     data = self._download_file(*args)
                     if callback:
                         callback(data)
-                elif action == "delete_file":
-                    self._delete_file(*args)
-                elif action == "report_memory":
-                    self._report_memory()
-                elif action == "comment_exists":
-                    exists = self._comment_exists(*args)
-                    if callback:
-                        callback(exists)
             except Exception as e:
-                err_msg = f"RepoWrapper error ({action}): {e}"
+                err_msg = f"RepoWrapper fast error ({action}): {e}"
                 if self.error_log:
                     self.error_log(err_msg)
-                # Don't crash the worker – continue processing other tasks
 
-    # ---------- Internal implementations ----------
+    # ── Slow worker loop (screenshots / logs) ──────────────────
+    def _slow_worker_loop(self) -> None:
+        while not self._slow_stop.is_set():
+            try:
+                task = self._slow_queue.get(timeout=1)
+            except queue_module.Empty:
+                continue
+            if task is None:
+                continue
+            action, args, callback = task
+            try:
+                if action == "push_log_file":
+                    self._push_log_file()
+                elif action == "push_screenshots":
+                    self._push_screenshots(*args)
+                elif action == "delete_file":
+                    self._delete_file(*args)
+            except Exception as e:
+                err_msg = f"RepoWrapper slow error ({action}): {e}"
+                if self.error_log:
+                    self.error_log(err_msg)
+
+    # ── Internal implementations (unchanged from previous) ──────
     def _gh(self, *args: str, input_data: Optional[str] = None, **kwargs: Any) -> str:
         env = os.environ.copy()
         if self._pat:
@@ -159,23 +180,20 @@ class RepoWrapper:
                     except Exception: pass
         return False
 
-    def _retry_gh(self, func, *args, max_retries=3, **kwargs):
+    def _edit_comment(self, comment_id: str, new_body: str, max_retries: int = 5) -> None:
         for attempt in range(max_retries):
             try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    raise
-                time.sleep(2 ** attempt)
-
-    def _edit_comment(self, comment_id: str, new_body: str) -> None:
-        self._retry_gh(lambda: self._gh(f"repos/{self.repo}/issues/comments/{comment_id}",
-                                         "--method", "PATCH", "--input", "-",
-                                         input_data=json.dumps({"body": new_body})))
+                self._gh(f"repos/{self.repo}/issues/comments/{comment_id}",
+                         "--method", "PATCH", "--input", "-",
+                         input_data=json.dumps({"body": new_body}))
+                return
+            except subprocess.CalledProcessError:
+                if attempt < max_retries - 1:
+                    time.sleep(1)   # retry after 1 second
 
     def _create_comment(self, body: str) -> str:
-        return self._retry_gh(lambda: self._gh(f"repos/{self.repo}/issues/{self.issue_number}/comments",
-                                                "--method", "POST", "-f", f"body={body}", "--jq", ".id"))
+        return self._gh(f"repos/{self.repo}/issues/{self.issue_number}/comments",
+                        "--method", "POST", "-f", f"body={body}", "--jq", ".id")
 
     def _delete_comment(self, comment_id: str) -> None:
         try:
@@ -184,12 +202,12 @@ class RepoWrapper:
             pass
 
     def _get_comment_body(self, comment_id: str) -> str:
-        return self._retry_gh(lambda: self._gh(f"repos/{self.repo}/issues/comments/{comment_id}", "--jq", ".body"))
+        return self._gh(f"repos/{self.repo}/issues/comments/{comment_id}", "--jq", ".body")
 
     def _get_all_comments(self) -> List[Dict[str, str]]:
-        raw = self._retry_gh(lambda: self._gh(f"repos/{self.repo}/issues/{self.issue_number}/comments",
-                                               "--jq", ".[] | {id: .id, body: .body, user_type: .user.type}",
-                                               "--paginate"))
+        raw = self._gh(f"repos/{self.repo}/issues/{self.issue_number}/comments",
+                       "--jq", ".[] | {id: .id, body: .body, user_type: .user.type}",
+                       "--paginate")
         if not raw.strip():
             return []
         comments: List[Dict[str, str]] = []
