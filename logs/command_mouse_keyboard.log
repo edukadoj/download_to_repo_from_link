@@ -376,3 +376,5 @@
 [23:14:13] Pushed screenshots/104_231413_auto.png + log
 [23:14:14] Executed: APP-51846-20260517231300 → Human click at (1768,260)
 [23:14:18] Taking screenshot: screenshots/105_231418_auto.png
+[23:14:18] Pushing screenshot to repo...
+[23:14:18] Pushed screenshots/105_231418_auto.png + log
