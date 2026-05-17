@@ -14,3 +14,24 @@
 [23:05:43] Taking screenshot: screenshots/001_230543_auto.png
 [23:05:43] Pushing screenshot to repo...
 [23:05:43] Pushed screenshots/001_230543_auto.png + log
+[23:05:48] STEP 3: Scrolling to top
+[23:05:48] STEP 4: Taking first screenshot
+[23:05:48] Taking screenshot: screenshots/002_230548_01_start_page.png
+[23:05:48] Pushing screenshot to repo...
+[23:05:48] Pushed screenshots/002_230548_01_start_page.png + log
+[23:05:48] STEP 5: First screenshot saved – pushing logs
+[23:05:48] STEP 6: refresh_known_handles()
+[23:05:48] New autonomous report: AUT-1-1779059148 -> New tab/window handle: 4CF28180A7C3DC9EBEC41D93A377D6F3
+[23:05:48] STEP 7: Set last known URL
+[23:05:48] STEP 8: Start URL monitor
+[23:05:48] STEP 9: URL monitor started
+[23:05:48] STEP 10: Fetching comments via sync_repo.get_all_comments()
+[23:05:48] Taking screenshot: screenshots/003_230548_auto.png
+[23:05:48] Pushing screenshot to repo...
+[23:05:48] Pushed screenshots/003_230548_auto.png + log
+[23:05:48] STEP 11: Comments fetched – 3 entries
+[23:05:48] STEP 12: Locating markers in comments
+[23:05:48] Found response comment: 4377972232
+[23:05:48] STEP 13: App command comment id = 4377752559
+[23:05:48] STEP 14: Blanked app command comment
+[23:05:48] STEP 15: Entering main command loop...
