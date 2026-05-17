@@ -142,3 +142,11 @@ TypeError: execute_one_command() got an unexpected keyword argument 'gh'
              ^^^^^^^^^^^^^^^^^^^^
 TypeError: execute_one_command() got an unexpected keyword argument 'gh'
 
+[22:04:11] Agent alive
+[22:04:11] Executing [APP-51765-20260517220218] from line 3: tabs
+[22:04:11] Main loop exception: Traceback (most recent call last):
+  File "/home/runner/work/download_to_repo_from_link/download_to_repo_from_link/python/command_mouse_keyboard.py", line 631, in main
+    result = execute_one_command(
+             ^^^^^^^^^^^^^^^^^^^^
+TypeError: execute_one_command() got an unexpected keyword argument 'gh'
+
