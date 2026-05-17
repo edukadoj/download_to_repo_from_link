@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.23.0
-#   - Trap SIGTERM/SIGINT → push logs + save profile → graceful exit.
-#   - Log writer thread auto‑restarted if it dies.
-#   - Main loop survives any exception (browser restarts, infinite retries).
-#   - Screenshot worker monitor with self‑healing.
-#   - Heartbeat every 30 s + log push.
-#   - All git locks released even on error.
+# command_mouse_keyboard.py – Version 39.24.0
+#   - Logs each command before execution with its line number in the app comment.
+#   - Signal handlers, queue‑based logging, heartbeat, auto‑restart browser.
+#   - For stability, delete the .profile_cache folder on the repo to avoid OOM kills.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal, queue as queue_module
@@ -123,11 +120,10 @@ def log(msg: str) -> None:
     except Exception:
         print(line, flush=True)
 
-# Start log thread and its monitor
 start_log_thread()
 threading.Thread(target=monitor_log_thread, daemon=True).start()
 
-echo(f"{'='*60}\n  Remote Control v39.23.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.24.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -611,7 +607,6 @@ def main():
     except Exception as e:
         log(f"FATAL STARTUP: {e}\n{traceback.format_exc()}")
         push_logs()
-        # Even after fatal startup, try to restart browser and continue
         if not restart_browser():
             return
 
@@ -697,12 +692,10 @@ def main():
 
     log("Entering main command loop...")
     while True:
-        # Enforce slow mode after long idle
         if time.time() - last_command_time > 120: slow_mode = 15
         else: slow_mode = 1
 
         try:
-            # –– Main processing block (recoverable) ––
             if app_cmd_id:
                 test = gh_api_safe(f"repos/{REPO}/issues/comments/{app_cmd_id}", "--jq", ".id")
                 if test is None:
@@ -741,7 +734,7 @@ def main():
 
             capture = False
             new_cmds = []
-            for line in lines:
+            for line_idx, line in enumerate(lines, start=1):
                 m = re.match(r'^\[(\d+)\]: app commands:', line)
                 if m: capture = True; continue
                 if capture:
@@ -749,11 +742,14 @@ def main():
                     parts = line.split(';', 1)
                     if len(parts) == 2:
                         cid = parts[0].strip(); ctext = parts[1].strip()
-                        if ctext: new_cmds.append((cid, ctext))
+                        if ctext: new_cmds.append((cid, ctext, line_idx))
 
-            for cid, ctext in new_cmds:
+            for cid, ctext, line_num in new_cmds:
                 if cid in executed_cache:
                     continue
+
+                # ── Log the command before execution ──────────────────
+                log(f"Executing [{cid}] from line {line_num}: {ctext}")
 
                 cmd_type, arg = parse_single_command(ctext)
                 result = execute_one_command(
