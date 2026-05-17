@@ -90,3 +90,13 @@
 [22:03:23] Taking screenshot: screenshots/022_220323_auto.png
 [22:03:23] Pushing screenshot to repo...
 [22:03:23] Pushed screenshots/022_220323_auto.png + log
+[22:03:28] Taking screenshot: screenshots/023_220328_auto.png
+[22:03:28] Pushing screenshot to repo...
+[22:03:28] Pushed screenshots/023_220328_auto.png + log
+[22:03:30] Executing [APP-51765-20260517220218] from line 3: tabs
+[22:03:30] Main loop exception: Traceback (most recent call last):
+  File "/home/runner/work/download_to_repo_from_link/download_to_repo_from_link/python/command_mouse_keyboard.py", line 631, in main
+    result = execute_one_command(
+             ^^^^^^^^^^^^^^^^^^^^
+TypeError: execute_one_command() got an unexpected keyword argument 'gh'
+
