@@ -1,22 +1,15 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_handlers.py – Version 1.15.0
-# ------------------------------------------------------------------------------
-# Translates a parsed command (type + arguments) into actual browser or system
-# actions.  It receives all the state it needs (driver, cursor, secrets, etc.)
-# as parameters and returns a result string that the main loop will publish as
-# a response.
-#
-# Changelog since 1.14.1:
-#   - The "save" and "savestate" commands now capture the (success, message)
-#     tuple returned by save_profile() and report "OK save" or "ERR save: …"
-#     accordingly.
+# command_handlers.py – Version 1.15.1
+#   - Removed redundant autonomous reports for 'tabs' and 'dir' commands.
+#     The command response already contains the full information; sending an
+#     additional autonomous report caused double log lines on the client side.
 # ==============================================================================
 import os, time, subprocess, glob, shutil, re, tempfile, random
 from uploader import reassemble
 from upload_handler import perform_upload
 from upload_injector import upload_to_youtube
-import agent_state          # <-- now we can use agent_state.ensure_active_tab etc.
+import agent_state
 
 def _ensure_selection(_file_registry, _upload_file_paths):
     if not _upload_file_paths and _file_registry:
@@ -319,6 +312,7 @@ def execute_one_command(
             driver.switch_to.window(handles[0])
         result = "Tabs: " + " | ".join(lines)
         refresh_known_handles()
+        # No autonomous report – the response line is enough
     elif cmd == "dir":
         refresh_file_registry()
         _ensure_selection(_file_registry, _upload_file_paths)
@@ -326,6 +320,7 @@ def execute_one_command(
         else:
             lines = [f"{fid}: {fname}" for fid, fname in sorted(_file_registry.items())]
             result = "Files: " + " | ".join(lines)
+        # No autonomous report – the response line is enough
     elif cmd == "tabnumber":
         try:
             idx = int(arg) - 1
