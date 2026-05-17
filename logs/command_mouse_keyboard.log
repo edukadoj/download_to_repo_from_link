@@ -119,3 +119,4 @@
 [22:35:08] Taking screenshot: screenshots/028_223508_auto.png
 [22:35:08] Pushing screenshot to repo...
 [22:35:08] Pushed screenshots/028_223508_auto.png + log
+[22:35:10] Error publishing reports: RepoWrapper call timed out after 30s
