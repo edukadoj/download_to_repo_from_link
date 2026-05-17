@@ -62,3 +62,6 @@
 [22:33:54] Executing [APP-51778-20260517223240] from line 3: humanclick(1596, 640)
 [22:33:56] Executed: APP-51778-20260517223240 → Human click at (1596,640)
 [22:33:56] Agent alive
+[22:33:58] Taking screenshot: screenshots/014_223358_auto.png
+[22:33:58] Pushing screenshot to repo...
+[22:33:58] Pushed screenshots/014_223358_auto.png + log
