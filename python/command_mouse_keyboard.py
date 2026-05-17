@@ -1,34 +1,11 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.20.10
-# ------------------------------------------------------------------------------
-# Issues solved in this version:
-#
-#   1. Missing command acknowledgements due to duplicate timestamps.
-#      - The timestamp in each response is now in **microseconds**
-#        (`int(time.time() * 1_000_000)`) so no two commands ever share
-#        the same value.  The WPF monitor (updated separately) uses `>=`
-#        comparison and a short cache to display every response exactly once.
-#
-#   2. Agent crashes that left the log file incomplete.
-#      - Every critical section (startup, main loop, screenshot worker) is
-#        now wrapped in broad `try/except` blocks.  On any fatal error the
-#        agent **immediately** pushes the log file before exiting, so you
-#        can see what went wrong even if the workflow is cancelled later.
-#      - The main polling loop now survives transient exceptions (e.g. a
-#        temporary GitHub API failure) and continues processing commands.
-#
-#   3. Cache load / save now uses the same proven reassembly logic as the
-#      file‑upload command (`uploader.reassemble_flat`).  No more fixed
-#      file‑name assumptions – any `.part` files in `.profile_cache/` are
-#      reassembled automatically.
-#
-#   4. The agent reports the new response comment ID via an autonomous
-#      report whenever it creates a fresh comment, so the WPF monitor can
-#      follow it and stop reading a stale one.
-#
-# All other functionality (screenshots, tabs, files, typing, etc.) is
-# unchanged from v39.20.9.
+# command_mouse_keyboard.py – Version 39.21.0
+#   - Robust main loop: recovers from any exception without exiting.
+#   - Screenshot worker & main loop survive driver crashes; auto‑restart browser.
+#   - Background log pusher (every 30 s) prevents log loss.
+#   - All git sequences release the GIT_SEQUENCE_LOCK even on error.
+#   - Removed duplicate autonomous reports for tabs/dir (done in command_handlers).
 # ==============================================================================
 
 import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile
@@ -101,7 +78,7 @@ def log(msg: str) -> None:
     now = datetime.now().strftime("%H:%M:%S")
     echo(f"[{now}] {msg}")
 
-echo(f"{'='*60}\n  Remote Control v39.20.10 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.21.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -262,12 +239,8 @@ def save_profile():
 DOWNLOAD_DIR = "/home/runner/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-load_profile()
-
-try:
-    display = Display(visible=False, size=(1920,1080))
-    display.start()
-    log("Virtual display started.")
+def create_driver():
+    """Create a new Chrome driver instance, reuse existing profile."""
     opts = Options()
     opts.add_argument("--no-sandbox"); opts.add_argument("--disable-gpu")
     opts.add_argument("--disable-blink-features=AutomationControlled")
@@ -286,27 +259,34 @@ try:
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
     opts.add_experimental_option('useAutomationExtension', False)
 
-    driver = webdriver.Chrome(options=opts)
-    driver.set_page_load_timeout(30)
-    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-    driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]})")
-    driver.execute_script("Object.defineProperty(navigator, 'languages', {get: () => ['en-US','en']})")
-    driver.execute_script("window.chrome = { runtime: {} };")
-    driver.execute_script("Object.defineProperty(navigator, 'permissions', {get: () => ({ query: () => Promise.resolve({ state: 'granted' }) })})")
-    driver.execute_script("Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4})")
-    log("Stealth JS injected.")
+    drv = webdriver.Chrome(options=opts)
+    drv.set_page_load_timeout(30)
+    drv.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    drv.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]})")
+    drv.execute_script("Object.defineProperty(navigator, 'languages', {get: () => ['en-US','en']})")
+    drv.execute_script("window.chrome = { runtime: {} };")
+    drv.execute_script("Object.defineProperty(navigator, 'permissions', {get: () => ({ query: () => Promise.resolve({ state: 'granted' }) })})")
+    drv.execute_script("Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4})")
+    return drv
 
+display = Display(visible=False, size=(1920,1080))
+display.start()
+log("Virtual display started.")
+
+load_profile()
+driver = None
+try:
+    driver = create_driver()
+    log("Stealth JS injected.")
     try:
         from upload_injector import _init_cdp
         if _init_cdp(driver, log):
             log("CDP interception active.")
     except Exception as e_cdp:
         log(f"CDP not available ({e_cdp}) – using send_keys fallback.")
-
     log("Browser launched.")
 except Exception as e:
     log(f"BROWSER ERROR: {e}\n{traceback.format_exc()}")
-    # Push the log now, because the workflow will die
     push_logs()
     raise
 
@@ -322,6 +302,30 @@ if agent_state:
     agent_state.pyperclip = pyperclip
     agent_state.log = log
 
+# ---------- Background log pusher ----------
+def log_pusher():
+    while not _log_pusher_stop.is_set():
+        _log_pusher_stop.wait(30)
+        if not _log_pusher_stop.is_set():
+            push_logs()
+
+_log_pusher_stop = threading.Event()
+threading.Thread(target=log_pusher, daemon=True).start()
+
+def push_logs():
+    acquired = GIT_SEQUENCE_LOCK.acquire(timeout=5)
+    if not acquired: return
+    try:
+        git_run(["git","add",LOG_FILENAME], check=True, capture_output=True)
+        try: git_run(["git","diff","--cached","--quiet"], check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            git_run(["git","commit","-m","Log update"], check=True, capture_output=True)
+            git_push_with_retry()
+    except Exception: pass
+    finally:
+        GIT_SEQUENCE_LOCK.release()
+
+# ---------- Download watcher ----------
 _download_watcher_stop = threading.Event()
 _known_downloads = {}
 
@@ -360,6 +364,7 @@ def download_watcher():
 
 threading.Thread(target=download_watcher, daemon=True).start()
 
+# ---------- Screenshot logic ----------
 counter = [0]
 
 def ss(desc="screenshot", push=True, response_suffix=""):
@@ -367,9 +372,9 @@ def ss(desc="screenshot", push=True, response_suffix=""):
     now = datetime.now().strftime("%H%M%S")
     fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
     log(f"Taking screenshot: {fname}")
-    ensure_active_tab()
-    driver.save_screenshot(fname)
     try:
+        ensure_active_tab()
+        driver.save_screenshot(fname)
         img = Image.open(fname); draw = ImageDraw.Draw(img)
         x, y = agent_state.cursor_x if agent_state else 960, agent_state.cursor_y if agent_state else 540
         r = 12
@@ -377,7 +382,9 @@ def ss(desc="screenshot", push=True, response_suffix=""):
         draw.line([(x-15,y),(x+15,y)], fill='red', width=3)
         draw.line([(x,y-15),(x,y+15)], fill='red', width=3)
         img.save(fname)
-    except Exception: pass
+    except Exception as e:
+        log(f"Screenshot image processing error: {e}")
+        # still try to push whatever we have
     if not push: return fname
 
     with _retry_queue_lock:
@@ -487,19 +494,6 @@ ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER","4").strip()
 START_URL = os.environ.get("START_URL") or "https://studio.youtube.com"
 REPO = os.environ['GITHUB_REPOSITORY']
 
-def push_logs():
-    acquired = GIT_SEQUENCE_LOCK.acquire(timeout=5)
-    if not acquired: return
-    try:
-        git_run(["git","add",LOG_FILENAME], check=True, capture_output=True)
-        try: git_run(["git","diff","--cached","--quiet"], check=True, capture_output=True)
-        except subprocess.CalledProcessError:
-            git_run(["git","commit","-m","Log update"], check=True, capture_output=True)
-            git_push_with_retry()
-    except Exception: pass
-    finally:
-        GIT_SEQUENCE_LOCK.release()
-
 KEY_SECRET = os.environ["KEY"]
 
 def smart_edit_comment(comment_id, new_body):
@@ -515,9 +509,33 @@ def smart_edit_comment(comment_id, new_body):
                 log("Edit failed after retry.")
     return False
 
+# ---------- Browser recovery ----------
+def restart_browser():
+    global driver
+    log("Attempting browser restart...")
+    try:
+        driver.quit()
+    except Exception:
+        pass
+    time.sleep(2)
+    try:
+        driver = create_driver()
+        if agent_state:
+            agent_state.driver = driver
+            agent_state.cursor_x = 960
+            agent_state.cursor_y = 540
+        log("Browser restarted successfully.")
+        start_screenshot_worker()
+        return True
+    except Exception as e:
+        log(f"Browser restart failed: {e}")
+        return False
+
+# ---------- Main loop ----------
 def main():
     global slow_mode, last_command_time
 
+    # Initial navigation
     try:
         log("Loading start URL...")
         driver.get(START_URL)
@@ -624,6 +642,7 @@ def main():
         else: slow_mode = 1
 
         try:
+            # –– Main processing block (recoverable) ––
             if app_cmd_id:
                 test = gh_api_safe(f"repos/{REPO}/issues/comments/{app_cmd_id}", "--jq", ".id")
                 if test is None:
@@ -710,7 +729,6 @@ def main():
                     smart_edit_comment=smart_edit_comment, git_push_with_retry=git_push_with_retry,
                     comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
                 )
-                # ---------- MICROSECOND TIMESTAMP ----------
                 ts = int(time.time() * 1_000_000)
                 seq_num = 0
                 if cid.startswith("APP-"):
@@ -735,16 +753,27 @@ def main():
                     _screenshot_stop.set()
                     _url_monitor_stop.set()
                     _download_watcher_stop.set()
+                    _log_pusher_stop.set()
                     driver.quit(); display.stop()
                     push_logs()
                     echo("\n🎉 Remote session ended.")
                     sys.exit(0)
 
             response_comment_id = publish_reports(response_comment_id)
+
+        except KeyboardInterrupt:
+            raise
+        except SystemExit:
+            raise
         except Exception as e:
-            log(f"Polling error: {traceback.format_exc()}")
+            log(f"Main loop exception: {traceback.format_exc()}")
+            # If driver is dead, try to restart it
+            if driver is None or not hasattr(driver, 'session_id'):
+                restart_browser()
+            else:
+                # just wait and continue
+                time.sleep(5)
             push_logs()
-            time.sleep(COMM_INTERVAL * slow_mode)
 
 if __name__ == "__main__":
     try:
@@ -758,6 +787,7 @@ if __name__ == "__main__":
         _screenshot_stop.set()
         _url_monitor_stop.set()
         _download_watcher_stop.set()
+        _log_pusher_stop.set()
         ok, msg = save_profile()
         log(f"Final profile save: {msg}")
         push_logs()
