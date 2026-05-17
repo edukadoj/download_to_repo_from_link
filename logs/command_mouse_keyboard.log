@@ -26,3 +26,6 @@
 [22:15:36] STEP 8: Start URL monitor
 [22:15:36] STEP 9: URL monitor started
 [22:15:36] STEP 10: Fetching comments via sync_repo.get_all_comments()
+[22:15:41] Taking screenshot: screenshots/004_221541_auto.png
+[22:15:41] Pushing screenshot to repo...
+[22:15:41] Pushed screenshots/004_221541_auto.png + log
