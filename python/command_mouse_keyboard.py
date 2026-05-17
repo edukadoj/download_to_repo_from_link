@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.27.1
-#   - KEY_SECRET is defined at module level, fixing the NameError.
-#   - Memory reports throttled to once every 2 minutes.
+# command_mouse_keyboard.py – Version 39.27.2
+#   - Removed the unsupported 'gh' argument from the call to execute_one_command.
+#   - KEY_SECRET is defined at module level.
+#   - Memory reports are throttled to every 120 seconds.
+#   - Synchronous logging for full traceability.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -88,7 +90,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.27.1 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.27.2 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -143,9 +145,8 @@ ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER","4").strip()
 START_URL = os.environ.get("START_URL") or "https://studio.youtube.com"
 REPO = os.environ['GITHUB_REPOSITORY']
 
-# ── THIS WAS MISSING ────────────────────────────────────────
+# CRITICAL: this must be defined at module level
 KEY_SECRET = os.environ["KEY"]
-# ────────────────────────────────────────────────────────────
 
 repo_wrapper = RepoWrapper(REPO, int(ISSUE_NUMBER), LOG_FILENAME)
 repo_wrapper.error_log = safe_log
@@ -655,7 +656,7 @@ def main():
                     pyperclip=pyperclip if HAS_PYPERCLIP else None,
                     upload_reassemble=None,
                     HAS_PYPERCLIP_local=HAS_PYPERCLIP,
-                    encrypt_string=encrypt_string, gh=None,
+                    encrypt_string=encrypt_string,
                     get_all_comments=lambda: sync_repo.get_all_comments(),
                     delete_comment=lambda cid: sync_repo.delete_comment(cid),
                     issue_comment=lambda body: sync_repo.create_comment(body),
