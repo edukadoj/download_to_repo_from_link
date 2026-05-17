@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.22.0
-#   - Queue‑based logging (no blocking, survives IO errors).
-#   - Heartbeat thread (logs + pushes every 30 s).
-#   - Robust main loop and screenshot worker – recover from all exceptions.
-#   - Browser auto‑restart on WebDriver failure.
-#   - Exit command honoured immediately; no further commands processed.
+# command_mouse_keyboard.py – Version 39.23.0
+#   - Trap SIGTERM/SIGINT → push logs + save profile → graceful exit.
+#   - Log writer thread auto‑restarted if it dies.
+#   - Main loop survives any exception (browser restarts, infinite retries).
+#   - Screenshot worker monitor with self‑healing.
+#   - Heartbeat every 30 s + log push.
+#   - All git locks released even on error.
 # ==============================================================================
 
-import os, time, subprocess, hashlib, sys, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, queue as queue_module
+import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal, queue as queue_module
 from datetime import datetime
 from pyvirtualdisplay import Display
 from cryptography.fernet import Fernet
@@ -52,16 +53,27 @@ from agent_state import (
     ensure_active_tab, ACTIVE_TAB_INDEX
 )
 
-# ---------- Logging queue ----------
+# ---------- Signal handlers ----------
+def _signal_handler(signum, frame):
+    log("Received signal, performing emergency save...")
+    push_logs()
+    save_profile()
+    stop_log_thread()
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, _signal_handler)
+signal.signal(signal.SIGINT, _signal_handler)
+
+# ---------- Logging (queue‑based, auto‑restarting) ----------
 LOG_FILENAME = "logs/command_mouse_keyboard.log"
 os.makedirs("logs", exist_ok=True)
 
 _log_queue = queue_module.Queue()
 _log_thread = None
 _log_thread_stop = threading.Event()
+_log_thread_lock = threading.Lock()
 
 def _log_writer():
-    """Dedicated thread that writes log entries to file and stdout."""
     with open(LOG_FILENAME, "a", encoding="utf-8") as f:
         while not _log_thread_stop.is_set() or not _log_queue.empty():
             try:
@@ -76,40 +88,46 @@ def _log_writer():
 
 def start_log_thread():
     global _log_thread
-    if _log_thread and _log_thread.is_alive():
-        return
-    _log_thread_stop.clear()
-    _log_thread = threading.Thread(target=_log_writer, daemon=True)
-    _log_thread.start()
+    with _log_thread_lock:
+        if _log_thread and _log_thread.is_alive():
+            return
+        _log_thread_stop.clear()
+        _log_thread = threading.Thread(target=_log_writer, daemon=True)
+        _log_thread.start()
 
 def stop_log_thread():
     _log_thread_stop.set()
     if _log_thread:
         _log_thread.join(timeout=5)
 
+def monitor_log_thread():
+    while not _log_thread_stop.is_set():
+        time.sleep(10)
+        with _log_thread_lock:
+            if not _log_thread or not _log_thread.is_alive():
+                log("Log writer thread died – restarting...")
+                start_log_thread()
+
 def echo(msg: str) -> None:
-    # Direct print for initial boot messages before log thread starts
     print(msg, flush=True)
-    # Also queue for file writing
     try:
         _log_queue.put(msg)
     except Exception:
         pass
 
 def log(msg: str) -> None:
-    """Queue a log line with timestamp."""
     now = datetime.now().strftime("%H:%M:%S")
     line = f"[{now}] {msg}"
     try:
         _log_queue.put(line)
     except Exception:
-        # Last resort if queue broken
         print(line, flush=True)
 
-# Start log thread early
+# Start log thread and its monitor
 start_log_thread()
+threading.Thread(target=monitor_log_thread, daemon=True).start()
 
-echo(f"{'='*60}\n  Remote Control v39.22.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.23.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -162,7 +180,7 @@ def gh_api_safe(*args, max_retries=3, **kwargs):
                 return None
     return None
 
-# ---------- Profile cache (chunked, git‑based save/load) ----------
+# ---------- Profile cache ----------
 PROFILE_DIR = "/tmp/chrome_profile"
 CACHE_DIR = ".profile_cache"
 CHUNK_SIZE_MB = 20
@@ -177,7 +195,6 @@ except Exception as e:
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 def load_profile():
-    """Restore the Chrome profile from .profile_cache/ chunks."""
     if not glob.glob(os.path.join(CACHE_DIR, "*.part*")):
         log("⚠️ No profile cache chunks found – starting with fresh browser profile.")
         return False
@@ -213,7 +230,6 @@ def load_profile():
         shutil.rmtree(tmp_reassemble, ignore_errors=True)
 
 def save_profile():
-    """Encrypt profile, split with chunker.py, push to repo."""
     try:
         if not os.path.isdir(PROFILE_DIR):
             return (False, f"Profile directory not found: {PROFILE_DIR}")
@@ -271,7 +287,6 @@ DOWNLOAD_DIR = "/home/runner/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 def create_driver():
-    """Create a new Chrome driver instance, reuse existing profile."""
     opts = Options()
     opts.add_argument("--no-sandbox"); opts.add_argument("--disable-gpu")
     opts.add_argument("--disable-blink-features=AutomationControlled")
@@ -426,7 +441,6 @@ def ss(desc="screenshot", push=True, response_suffix=""):
         img.save(fname)
     except BaseException as e:
         log(f"Screenshot image processing error: {e}")
-        # still try to push whatever we have
     if not push: return fname
 
     with _retry_queue_lock:
@@ -560,7 +574,7 @@ def restart_browser():
     except Exception:
         pass
     time.sleep(2)
-    for attempt in range(3):
+    for attempt in range(5):
         try:
             driver = create_driver()
             if agent_state:
@@ -597,7 +611,9 @@ def main():
     except Exception as e:
         log(f"FATAL STARTUP: {e}\n{traceback.format_exc()}")
         push_logs()
-        raise
+        # Even after fatal startup, try to restart browser and continue
+        if not restart_browser():
+            return
 
     RESPONSE_MARKER = "## Remote Agent Responses"
     APP_COMMAND_MARKER = "## App Commands"
