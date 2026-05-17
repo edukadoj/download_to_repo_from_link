@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_handlers.py – Version 1.15.1
-#   - Removed redundant autonomous reports for 'tabs' and 'dir' commands.
-#     The command response already contains the full information; sending an
-#     additional autonomous report caused double log lines on the client side.
+# command_handlers.py – Version 1.16.0
+#   - Fixed move/click response coordinates to show the actual new cursor
+#     position (from agent_state) instead of the old one.
+#   - All GitHub operations (comment create/delete/edit, git push) now use
+#     the callables injected from the main loop, never the raw `gh` function.
 # ==============================================================================
 import os, time, subprocess, glob, shutil, re, tempfile, random
 from uploader import reassemble
@@ -63,13 +64,13 @@ def execute_one_command(
     get_upload_paths, save_profile,
     _file_registry, _upload_file_paths,
     pyperclip, upload_reassemble,
-    HAS_PYPERCLIP_local, encrypt_string, gh,
+    HAS_PYPERCLIP_local, encrypt_string,
     get_all_comments, delete_comment, issue_comment,
     smart_edit_comment, git_push_with_retry,
     comm_interval=5.0,
     inject_file=None
 ):
-    # Enforce the user‑selected tab before any action that touches the page
+    # Enforce active tab except for commands that don't need it
     if cmd not in ("exit", "screenshot", "tabs", "dir", "download", "upload", "injectfile",
                    "uploadtoyoutube", "paste", "tabnumber", "closetab", "lastdownload",
                    "uploadnumber", "savestate", "save", "setinterval", "filedrop",
@@ -78,25 +79,22 @@ def execute_one_command(
 
     result = ""
 
-    if cmd == "exit": 
-        result = "OK exit"
-    elif cmd == "screenshot":
-        if callable(ss):
-            result = f"OK screenshot at ({cursor_x},{cursor_y})"
-            ss("manual_screenshot", push=True, response_suffix=result)
-        else: result = "ERR screenshot not available"
-    elif cmd == "move":
+    # ── Move commands ──
+    if cmd == "move":
         agent_state.ensure_active_tab()
         x, y = arg; move_cursor_absolute(x, y)
-        result = f"OK move({cursor_x},{cursor_y})"
+        # Use actual updated coordinates
+        result = f"OK move({agent_state.cursor_x},{agent_state.cursor_y})"
     elif cmd == "moveby":
         agent_state.ensure_active_tab()
         dx, dy = arg; move_cursor_relative(dx, dy)
-        result = f"OK moveby({dx},{dy})->({cursor_x},{cursor_y})"
+        result = f"OK moveby({dx},{dy})->({agent_state.cursor_x},{agent_state.cursor_y})"
+
+    # ── Click commands ──
     elif cmd == "click_at":
         agent_state.ensure_active_tab()
         x, y = arg; move_cursor_absolute(x, y); left_click()
-        result = f"OK click({cursor_x},{cursor_y})"
+        result = f"OK click({agent_state.cursor_x},{agent_state.cursor_y})"
     elif cmd == "humanclick":
         agent_state.ensure_active_tab()
         result = human_click_callable()
@@ -121,12 +119,21 @@ def execute_one_command(
     elif cmd == "middleup":
         agent_state.ensure_active_tab()
         middle_button_up();  result = "OK middleup"
+
+    # ── Other basic commands ──
+    elif cmd == "exit": 
+        result = "OK exit"
+    elif cmd == "screenshot":
+        if callable(ss):
+            result = f"OK screenshot at ({agent_state.cursor_x},{agent_state.cursor_y})"
+            ss("manual_screenshot", push=True, response_suffix=result)
+        else: result = "ERR screenshot not available"
     elif cmd == "refresh":
         agent_state.ensure_active_tab()
         driver.refresh(); time.sleep(3); result = "OK refresh"
     elif cmd == "shoot":
         agent_state.ensure_active_tab()
-        left_click(); result = f"OK click({cursor_x},{cursor_y})"
+        left_click(); result = f"OK click({agent_state.cursor_x},{agent_state.cursor_y})"
     elif cmd == "doubleshoot":
         agent_state.ensure_active_tab()
         double_click(); result = "OK doubleclick"
@@ -137,7 +144,7 @@ def execute_one_command(
         agent_state.ensure_active_tab()
         middle_click(); result = "OK middleclick"
     elif cmd == "scroll":
-        result = _scroll_element_or_window(driver, int(arg), cursor_x, cursor_y)
+        result = _scroll_element_or_window(driver, int(arg), agent_state.cursor_x, agent_state.cursor_y)
     elif cmd == "wait":
         time.sleep(arg / 1000.0); result = f"OK wait({arg}ms)"
     elif cmd == "key":
@@ -194,10 +201,12 @@ def execute_one_command(
             result = "ERR filedrop: no file selected"
         else:
             file_path = paths[0]
-            if agent_state.drag_file_to_target(driver, file_path, cursor_x, cursor_y):
+            if agent_state.drag_file_to_target(driver, file_path, agent_state.cursor_x, agent_state.cursor_y):
                 result = f"OK filedrop ({os.path.basename(file_path)})"
             else:
                 result = "ERR filedrop: injection failed"
+
+    # ── File commands ──
     elif cmd == "downselected":
         selected = [os.path.join(DOWNLOAD_DIR, f) for f in _upload_file_paths if os.path.isfile(os.path.join(DOWNLOAD_DIR, f))]
         if not selected:
@@ -214,7 +223,7 @@ def execute_one_command(
             try: subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
             except subprocess.CalledProcessError:
                 subprocess.run(["git", "commit", "-m", "Downloaded selected files chunked"], check=True)
-                git_push_with_retry()
+                if git_push_with_retry: git_push_with_retry()
             result = f"OK downselected({count} files chunked)"
         refresh_file_registry()
     elif cmd == "deleteselected":
@@ -245,7 +254,7 @@ def execute_one_command(
             try: subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
             except subprocess.CalledProcessError:
                 subprocess.run(["git", "commit", "-m", "Downloaded files chunked"], check=True)
-                git_push_with_retry()
+                if git_push_with_retry: git_push_with_retry()
             result = f"OK download({count} files chunked)"
         refresh_file_registry()
         _ensure_selection(_file_registry, _upload_file_paths)
@@ -285,12 +294,15 @@ def execute_one_command(
                 else:
                     encoded = encrypt_string(clip_text, KEY_SECRET)
                     paste_body = "## Paste Data\n" + encoded
-                    allc = get_all_comments(REPO, ISSUE_NUMBER)
+                    allc = get_all_comments()
                     for c in allc:
-                        if c.get("body", "").startswith("## Paste Data"): delete_comment(REPO, c["id"])
-                    issue_comment(REPO, ISSUE_NUMBER, paste_body)
+                        if c.get("body", "").startswith("## Paste Data"):
+                            delete_comment(c["id"])
+                    issue_comment(paste_body)
                     result = f"OK paste ({len(clip_text)} chars)"
             except Exception as e: result = f"ERR paste: {e}"
+
+    # ── Tab / dir commands ──
     elif cmd == "tabs":
         for _ in range(20):
             if driver.window_handles: break
@@ -312,7 +324,6 @@ def execute_one_command(
             driver.switch_to.window(handles[0])
         result = "Tabs: " + " | ".join(lines)
         refresh_known_handles()
-        # No autonomous report – the response line is enough
     elif cmd == "dir":
         refresh_file_registry()
         _ensure_selection(_file_registry, _upload_file_paths)
@@ -320,7 +331,6 @@ def execute_one_command(
         else:
             lines = [f"{fid}: {fname}" for fid, fname in sorted(_file_registry.items())]
             result = "Files: " + " | ".join(lines)
-        # No autonomous report – the response line is enough
     elif cmd == "tabnumber":
         try:
             idx = int(arg) - 1
