@@ -1,9 +1,9 @@
 === Installing Dependencies ===
 Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
-Hit:6 https://pkg.cloudflareclient.com noble InRelease
-Hit:7 https://dl.google.com/linux/chrome-stable/deb stable InRelease
-Hit:8 https://packages.microsoft.com/repos/azure-cli noble InRelease
-Hit:9 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease
+Hit:6 https://packages.microsoft.com/repos/azure-cli noble InRelease
+Hit:7 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease
+Hit:8 https://pkg.cloudflareclient.com noble InRelease
+Hit:9 https://dl.google.com/linux/chrome-stable/deb stable InRelease
 Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
 Hit:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease
 Hit:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease
@@ -136,7 +136,7 @@ Get:80 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 i965-
 Get:81 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 va-driver-all amd64 2.20.0-2ubuntu0.1 [4946 B]
 Get:82 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 vdpau-driver-all amd64 1.5-2build1 [4414 B]
 Get:83 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 pocketsphinx-en-us all 0.8.0+real5prealpha+1-15ubuntu5 [27.4 MB]
-Fetched 91.0 MB in 5s (19.2 MB/s)
+Fetched 91.0 MB in 8s (11.6 MB/s)
 Selecting previously unselected package libva2:amd64.
 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 203625 files and directories currently installed.)
 Preparing to unpack .../00-libva2_2.20.0-2ubuntu0.1_amd64.deb ...
@@ -514,7 +514,7 @@ Collecting pycparser (from cffi>=1.12.0->curl-cffi!=0.6.*,!=0.7.*,!=0.8.*,!=0.9.
 Using cached yt_dlp-2026.3.17-py3-none-any.whl (3.3 MB)
 Using cached yt_dlp_ejs-0.8.0-py3-none-any.whl (53 kB)
 Downloading requests-2.34.2-py3-none-any.whl (73 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.1/73.1 kB 4.5 MB/s eta 0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.1/73.1 kB 3.0 MB/s eta 0:00:00
 Using cached charset_normalizer-3.4.7-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (216 kB)
 Using cached curl_cffi-0.14.0-cp39-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (8.7 MB)
 Using cached certifi-2026.4.22-py3-none-any.whl (135 kB)
@@ -528,7 +528,7 @@ Installing collected packages: brotli, yt-dlp-ejs, yt-dlp, websockets, pycryptod
 Successfully installed brotli-1.2.0 certifi-2026.4.22 cffi-2.0.0 charset_normalizer-3.4.7 curl-cffi-0.14.0 mutagen-1.47.0 pycparser-3.0 pycryptodomex-3.23.0 requests-2.34.2 websockets-16.0 yt-dlp-2026.3.17 yt-dlp-ejs-0.8.0
 Defaulting to user installation because normal site-packages is not writeable
 Requirement already satisfied: cryptography in /usr/lib/python3/dist-packages (41.0.7)
-🚀 Processing 1 URL(s) through Cloudflare WARP
+🚀 Processing 3 URL(s) through Cloudflare WARP
    Quality: 720p
    Subtitles: en (English)
    Burn subtitles: True
@@ -537,40 +537,250 @@ Requirement already satisfied: cryptography in /usr/lib/python3/dist-packages (4
 ╔══════════════════════════════════════════════════════════╗
 ║               DOWNLOAD  STAGE  —  #1               ║
 ╚══════════════════════════════════════════════════════════╝
-📥 URL: https://www.youtube.com/watch?v=YPfJ-QTFsuc
+📥 URL: https://www.youtube.com/watch?v=Af28NEcW-t4&pp=ugUEEgJmYQ%3D%3D
    🔍 Fetching video metadata ...
-   📝 Title: رسانه‌ها می‌گویند حمله نزدیک است
+   📝 Title: عبدالله مهتدی در عمق میدان
    📅 Upload date: 2026-05-16
    🌐 Trying WARP with Android client (no cookies)
    ▶️ Starting WARP_Android download...
-   🔧 Command: yt-dlp --no-playlist --format bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720] --merge-output-format mp4 --output 2026-05-16 رسانه‌ها می‌گویند حمله نزدیک است [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=YPfJ-QTFsuc
-   ❌ WARP_Android download FAILED (exit code 1). Last output lines:
-[download]  40.9% of  147.57MiB at    5.03MiB/s ETA 00:17
-[download]  42.2% of  147.57MiB at    6.23MiB/s ETA 00:13
-[download]  45.0% of  147.57MiB at    5.84MiB/s ETA 00:13
-[download]  46.0% of  147.57MiB at    6.51MiB/s ETA 00:12
-[download]  46.0% of  147.57MiB at  738.04KiB/s ETA 01:53
-[download]  46.0% of  147.57MiB at    1.38MiB/s ETA 00:57
-[download]  46.0% of  147.57MiB at    2.64MiB/s ETA 00:30
-[download]  46.0% of  147.57MiB at    4.91MiB/s ETA 00:16
-[download]  46.0% of  147.57MiB at    8.96MiB/s ETA 00:08
-[download]  46.1% of  147.57MiB at    2.70MiB/s ETA 00:29
-[download]  46.1% of  147.57MiB at   34.81KiB/s ETA 38:59
-[download]  46.1% of  147.57MiB at   43.44KiB/s ETA 31:13
-[download]  46.2% of  147.57MiB at   60.58KiB/s ETA 22:22
-[download]  46.3% of  147.57MiB at   94.27KiB/s ETA 14:21
-[download]  46.4% of  147.57MiB at  159.28KiB/s ETA 08:28
-[download]  46.8% of  147.57MiB at  289.28KiB/s ETA 04:38
-[download]  47.4% of  147.57MiB at  549.34KiB/s ETA 02:24
-[download]  48.8% of  147.57MiB at  952.95KiB/s ETA 01:21
-[download]  51.5% of  147.57MiB at    1.64MiB/s ETA 00:43
-[download]  52.5% of  147.57MiB at    1.88MiB/s ETA 00:37ERROR: unable to download video data: HTTP Error 403: Forbidden
-   ❌ WARP+Android download failed. Skipping.
+   🔧 Command: yt-dlp --no-playlist --format bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720] --merge-output-format mp4 --output 2026-05-16 عبدالله مهتدی در عمق میدان [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=Af28NEcW-t4&pp=ugUEEgJmYQ%3D%3D
+   ✅ WARP_Android download finished successfully
+   📦 Video file: 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4 (155.6 MB)
+   📝 Attempting subtitle download for 'en' ...
+   ▶️ Starting Sub (en) download...
+   🔧 Command: yt-dlp --no-playlist --skip-download --write-auto-subs --sub-lang en --convert-subs srt --output 2026-05-16 عبدالله مهتدی در عمق میدان [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=Af28NEcW-t4&pp=ugUEEgJmYQ%3D%3D
+   ❌ Sub (en) download FAILED (exit code 1). Last output lines:
+[youtube] Extracting URL: https://www.youtube.com/watch?v=Af28NEcW-t4&pp=ugUEEgJmYQ%3D%3D
+[youtube] Af28NEcW-t4: Downloading webpage
+[youtube] Sleeping 1.0 seconds ...
+[youtube] Af28NEcW-t4: Downloading android player API JSON
+WARNING: [youtube] Af28NEcW-t4: android client https formats require a GVS PO Token which was not provided. They will be skipped as they may yield HTTP Error 403. You can manually pass a GVS PO Token for this client with --extractor-args "youtube:po_token=android.gvs+XXX". For more information, refer to  https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide
+[info] Af28NEcW-t4: Downloading subtitles: en
+[info] Af28NEcW-t4: Downloading 1 format(s): 18
+[info] Writing video subtitles to: 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].en.vtt
+ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests
+   ⚠️ Subtitle for 'en' not available.
+   📝 Attempting fallback subtitle language 'fa' ...
+   ▶️ Starting Sub (fa) download...
+   🔧 Command: yt-dlp --no-playlist --skip-download --write-auto-subs --sub-lang fa --convert-subs srt --output 2026-05-16 عبدالله مهتدی در عمق میدان [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=Af28NEcW-t4&pp=ugUEEgJmYQ%3D%3D
+   ✅ Sub (fa) download finished successfully
+   ✅ Fallback subtitle downloaded: 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].fa.srt
 
-📄 No large files – no chunking needed.
+╔══════════════════════════════════════════════════════════╗
+║              CONVERSION  STAGE  —  #1              ║
+╚══════════════════════════════════════════════════════════╝
+   🔥 Burning subtitles into video...
+   🔧 Running: ffmpeg -y -i 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4 -vf subtitles='/home/runner/work/download_to_repo_from_link/download_to_repo_from_link/2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].fa.srt':force_style='FontName=Arial,FontSize=18,BackColour=&H66000000&,BorderStyle=4,Outline=1,Shadow=1' -c:v copy -c:a copy normalized_2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4
+   ⚠️ Conversion failed (video kept unchanged): ed. Filtering and streamcopy cannot be used together.
+Error opening output file normalized_2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.
+Error opening output files: Function not implemented
+
+╔══════════════════════════════════════════════════════════╗
+║               UPLOAD  STAGE  —  #1                ║
+╚══════════════════════════════════════════════════════════╝
+   📦 File larger than 20 MB, will be chunked later.
+   ⬆️  Uploading subtitle file ...
+   ⬆️  Uploading 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].fa.srt ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+
+╔══════════════════════════════════════════════════════════╗
+║               DOWNLOAD  STAGE  —  #2               ║
+╚══════════════════════════════════════════════════════════╝
+📥 URL: https://www.youtube.com/watch?v=combndoxtyo&pp=ugUHEgVmYS1JUg%3D%3D
+   🔍 Fetching video metadata ...
+   📝 Title: علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود!
+   📅 Upload date: 2026-05-17
+   🌐 Trying WARP with Android client (no cookies)
+   ▶️ Starting WARP_Android download...
+   🔧 Command: yt-dlp --no-playlist --format bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720] --merge-output-format mp4 --output 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=combndoxtyo&pp=ugUHEgVmYS1JUg%3D%3D
+   ✅ WARP_Android download finished successfully
+   📦 Video file: 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].mp4 (24.4 MB)
+   📝 Attempting subtitle download for 'en' ...
+   ▶️ Starting Sub (en) download...
+   🔧 Command: yt-dlp --no-playlist --skip-download --write-auto-subs --sub-lang en --convert-subs srt --output 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=combndoxtyo&pp=ugUHEgVmYS1JUg%3D%3D
+   ❌ Sub (en) download FAILED (exit code 1). Last output lines:
+[youtube] Extracting URL: https://www.youtube.com/watch?v=combndoxtyo&pp=ugUHEgVmYS1JUg%3D%3D
+[youtube] combndoxtyo: Downloading webpage
+[youtube] Sleeping 1.0 seconds ...
+[youtube] combndoxtyo: Downloading android player API JSON
+WARNING: [youtube] combndoxtyo: android client https formats require a GVS PO Token which was not provided. They will be skipped as they may yield HTTP Error 403. You can manually pass a GVS PO Token for this client with --extractor-args "youtube:po_token=android.gvs+XXX". For more information, refer to  https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide
+[info] combndoxtyo: Downloading subtitles: en
+[info] combndoxtyo: Downloading 1 format(s): 18
+[info] Writing video subtitles to: 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].en.vtt
+ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests
+   ⚠️ Subtitle for 'en' not available.
+   📝 Attempting fallback subtitle language 'fa' ...
+   ▶️ Starting Sub (fa) download...
+   🔧 Command: yt-dlp --no-playlist --skip-download --write-auto-subs --sub-lang fa --convert-subs srt --output 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=combndoxtyo&pp=ugUHEgVmYS1JUg%3D%3D
+   ✅ Sub (fa) download finished successfully
+   ✅ Fallback subtitle downloaded: 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].fa.srt
+
+╔══════════════════════════════════════════════════════════╗
+║              CONVERSION  STAGE  —  #2              ║
+╚══════════════════════════════════════════════════════════╝
+   🔥 Burning subtitles into video...
+   🔧 Running: ffmpeg -y -i 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].mp4 -vf subtitles='/home/runner/work/download_to_repo_from_link/download_to_repo_from_link/2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].fa.srt':force_style='FontName=Arial,FontSize=18,BackColour=&H66000000&,BorderStyle=4,Outline=1,Shadow=1' -c:v copy -c:a copy normalized_2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].mp4
+   ⚠️ Conversion failed (video kept unchanged): together.
+Error opening output file normalized_2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].mp4.
+Error opening output files: Function not implemented
+
+╔══════════════════════════════════════════════════════════╗
+║               UPLOAD  STAGE  —  #2                ║
+╚══════════════════════════════════════════════════════════╝
+   📦 File larger than 20 MB, will be chunked later.
+   ⬆️  Uploading subtitle file ...
+   ⬆️  Uploading 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].fa.srt ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+
+╔══════════════════════════════════════════════════════════╗
+║               DOWNLOAD  STAGE  —  #3               ║
+╚══════════════════════════════════════════════════════════╝
+📥 URL: https://www.youtube.com/watch?v=pBNw6EsRsc0
+   🔍 Fetching video metadata ...
+   📝 Title: بوی جنگ
+   📅 Upload date: 2026-05-17
+   🌐 Trying WARP with Android client (no cookies)
+   ▶️ Starting WARP_Android download...
+   🔧 Command: yt-dlp --no-playlist --format bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720] --merge-output-format mp4 --output 2026-05-17 بوی جنگ [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=pBNw6EsRsc0
+   ✅ WARP_Android download finished successfully
+   📦 Video file: 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4 (146.8 MB)
+   📝 Attempting subtitle download for 'en' ...
+   ▶️ Starting Sub (en) download...
+   🔧 Command: yt-dlp --no-playlist --skip-download --write-auto-subs --sub-lang en --convert-subs srt --output 2026-05-17 بوی جنگ [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=pBNw6EsRsc0
+   ❌ Sub (en) download FAILED (exit code 1). Last output lines:
+[youtube] Extracting URL: https://www.youtube.com/watch?v=pBNw6EsRsc0
+[youtube] pBNw6EsRsc0: Downloading webpage
+[youtube] Sleeping 1.0 seconds ...
+[youtube] pBNw6EsRsc0: Downloading android player API JSON
+WARNING: [youtube] pBNw6EsRsc0: android client https formats require a GVS PO Token which was not provided. They will be skipped as they may yield HTTP Error 403. You can manually pass a GVS PO Token for this client with --extractor-args "youtube:po_token=android.gvs+XXX". For more information, refer to  https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide
+[info] pBNw6EsRsc0: Downloading subtitles: en
+[info] pBNw6EsRsc0: Downloading 1 format(s): 18
+[info] Writing video subtitles to: 2026-05-17 بوی جنگ [pBNw6EsRsc0].en.vtt
+ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests
+   ⚠️ Subtitle for 'en' not available.
+   📝 Attempting fallback subtitle language 'fa' ...
+   ▶️ Starting Sub (fa) download...
+   🔧 Command: yt-dlp --no-playlist --skip-download --write-auto-subs --sub-lang fa --convert-subs srt --output 2026-05-17 بوی جنگ [%(id)s].%(ext)s --restrict-filenames --windows-filenames --extractor-args youtube:player_client=android --geo-bypass --geo-bypass-country US --user-agent Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 --remote-components ejs:github --retries 10 --fragment-retries 10 --sleep-requests 1 --sleep-interval 5 --max-sleep-interval 15 https://www.youtube.com/watch?v=pBNw6EsRsc0
+   ✅ Sub (fa) download finished successfully
+   ✅ Fallback subtitle downloaded: 2026-05-17 بوی جنگ [pBNw6EsRsc0].fa.srt
+
+╔══════════════════════════════════════════════════════════╗
+║              CONVERSION  STAGE  —  #3              ║
+╚══════════════════════════════════════════════════════════╝
+   🔥 Burning subtitles into video...
+   🔧 Running: ffmpeg -y -i 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4 -vf subtitles='/home/runner/work/download_to_repo_from_link/download_to_repo_from_link/2026-05-17 بوی جنگ [pBNw6EsRsc0].fa.srt':force_style='FontName=Arial,FontSize=18,BackColour=&H66000000&,BorderStyle=4,Outline=1,Shadow=1' -c:v copy -c:a copy normalized_2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4
+   ⚠️ Conversion failed (video kept unchanged): dec copy was selected. Filtering and streamcopy cannot be used together.
+Error opening output file normalized_2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.
+Error opening output files: Function not implemented
+
+╔══════════════════════════════════════════════════════════╗
+║               UPLOAD  STAGE  —  #3                ║
+╚══════════════════════════════════════════════════════════╝
+   📦 File larger than 20 MB, will be chunked later.
+   ⬆️  Uploading subtitle file ...
+   ⬆️  Uploading 2026-05-17 بوی جنگ [pBNw6EsRsc0].fa.srt ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+
+📦 Splitting large files into 20 MB chunks using chunker.py ...
+🔧 Running: python3 python/chunker.py --files 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].mp4 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4 --output-dir YouTube Download --chunk-size 20
+Splitting 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4 (163180802 bytes) into 8 chunk(s)
+  Created 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0000 (20971520 bytes)
+  Created 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0001 (20971520 bytes)
+  Created 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0002 (20971520 bytes)
+  Created 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0003 (20971520 bytes)
+  Created 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0004 (20971520 bytes)
+  Created 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0005 (20971520 bytes)
+  Created 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0006 (20971520 bytes)
+  Created 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0007 (16380162 bytes)
+Splitting 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].mp4 (25612424 bytes) into 2 chunk(s)
+  Created 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].mp4.part0000 (20971520 bytes)
+  Created 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].mp4.part0001 (4640904 bytes)
+Splitting 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4 (153899666 bytes) into 8 chunk(s)
+  Created 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0000 (20971520 bytes)
+  Created 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0001 (20971520 bytes)
+  Created 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0002 (20971520 bytes)
+  Created 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0003 (20971520 bytes)
+  Created 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0004 (20971520 bytes)
+  Created 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0005 (20971520 bytes)
+  Created 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0006 (20971520 bytes)
+  Created 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0007 (7099026 bytes)
+Generated reassembly script: YouTube Download/reassemble.bat
+Done.
+
+
+⬆️  Uploading chunks and reassembly batch script ...
+   ⬆️  Uploading 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0004 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0006 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0005 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0000 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ⚠️  Upload attempt 1 returned HTTP 403: {"message":"Unable to validate Restricts updates to workflow files: Rule was unable to be completed in 10 seconds","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"403"}
+   🔄 Retrying in 5 seconds ...
+      [attempt 2] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0006 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0003 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0007 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0002 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].mp4.part0000 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ⚠️  Upload attempt 1 returned HTTP 403: {"message":"Unable to validate Restricts updates to workflow files: Rule was unable to be completed in 10 seconds","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"403"}
+   🔄 Retrying in 5 seconds ...
+      [attempt 2] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0001 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-17 علیرضا فیروزجا وآنیش گیری!! نتیجه بازی شوکه کننده ترین اتفاق ممکن بود! [combndoxtyo].mp4.part0001 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0003 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0004 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0007 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-17 بوی جنگ [pBNw6EsRsc0].mp4.part0001 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0005 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ⚠️  Upload attempt 1 returned HTTP 403: {"message":"Unable to validate Restricts updates to workflow files: Rule was unable to be completed in 10 seconds","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"403"}
+   🔄 Retrying in 5 seconds ...
+      [attempt 2] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0000 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading 2026-05-16 عبدالله مهتدی در عمق میدان [Af28NEcW-t4].mp4.part0002 ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
+   ⬆️  Uploading reassemble.bat ...
+      [attempt 1] File does not exist yet (HTTP 404) – will create.
+   ✅ Upload successful (HTTP 201)
 
 📊 Summary
-   Total URLs: 1
-   Successfully uploaded items: 0
+   Total URLs: 3
+   Successfully uploaded items: 19
 
-❌ No videos were uploaded. The workflow will be marked as failed.
+✅ Uploaded 19 item(s).
