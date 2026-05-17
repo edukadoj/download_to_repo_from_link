@@ -32,3 +32,6 @@
 [22:01:52] STEP 13: App command comment id = 4377752559
 [22:01:52] STEP 14: Blanked app command comment
 [22:01:52] STEP 15: Entering main command loop...
+[22:01:53] Taking screenshot: screenshots/004_220153_auto.png
+[22:01:53] Pushing screenshot to repo...
+[22:01:53] Pushed screenshots/004_220153_auto.png + log
