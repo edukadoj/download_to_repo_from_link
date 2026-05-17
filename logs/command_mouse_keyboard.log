@@ -26,3 +26,9 @@
 [22:01:48] STEP 8: Start URL monitor
 [22:01:48] STEP 9: URL monitor started
 [22:01:48] STEP 10: Fetching comments via sync_repo.get_all_comments()
+[22:01:52] STEP 11: Comments fetched – 3 entries
+[22:01:52] STEP 12: Locating markers in comments
+[22:01:52] Found response comment: 4377972232
+[22:01:52] STEP 13: App command comment id = 4377752559
+[22:01:52] STEP 14: Blanked app command comment
+[22:01:52] STEP 15: Entering main command loop...
