@@ -100,3 +100,6 @@
 [22:34:35] Executed: APP-51785-20260517223251 → OK move(1855,225)
 [22:34:35] Executing [APP-51786-20260517223251] from line 10: (1855, 231)
 [22:34:40] Executed: APP-51805-20260517223252 → OK move(1752,617)
+[22:34:43] Taking screenshot: screenshots/023_223443_auto.png
+[22:34:43] Pushing screenshot to repo...
+[22:34:43] Pushed screenshots/023_223443_auto.png + log
