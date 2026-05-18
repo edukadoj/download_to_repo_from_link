@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_handlers.py – Version 1.16.1
-#   - No functional changes.  The zoom command is handled by the executor
-#     loop itself; duplicate save/upload rejection is done in the fetcher
-#     loop.  All other handlers remain as before.
+# command_handlers.py – Version 1.16.2
+#   - Move commands now check the return value of move_cursor_absolute and
+#     report an error if the move failed.
+#   - All other handlers remain unchanged.
 # ==============================================================================
 import os, time, subprocess, glob, shutil, re, tempfile, random
 from uploader import reassemble
@@ -81,12 +81,20 @@ def execute_one_command(
     # ── Move commands ──
     if cmd == "move":
         agent_state.ensure_active_tab()
-        x, y = arg; move_cursor_absolute(x, y)
-        result = f"OK move({agent_state.cursor_x},{agent_state.cursor_y})"
+        x, y = arg
+        ok = move_cursor_absolute(x, y)
+        if ok:
+            result = f"OK move({agent_state.cursor_x},{agent_state.cursor_y})"
+        else:
+            result = f"ERR move to ({x},{y}) failed"
     elif cmd == "moveby":
         agent_state.ensure_active_tab()
-        dx, dy = arg; move_cursor_relative(dx, dy)
-        result = f"OK moveby({dx},{dy})->({agent_state.cursor_x},{agent_state.cursor_y})"
+        dx, dy = arg
+        ok = move_cursor_relative(dx, dy)
+        if ok:
+            result = f"OK moveby({dx},{dy})->({agent_state.cursor_x},{agent_state.cursor_y})"
+        else:
+            result = f"ERR moveby({dx},{dy}) failed"
 
     # ── Click commands ──
     elif cmd == "click_at":
