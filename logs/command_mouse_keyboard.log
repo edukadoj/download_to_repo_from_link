@@ -14,3 +14,8 @@
 [10:38:06] Taking screenshot: screenshots/001_103806_auto.png
 [10:38:06] Enqueuing screenshot for push...
 [10:38:06] Enqueued screenshots/001_103806_auto.png + log
+[10:38:12] STEP 12: Locating markers in comments
+[10:38:12] Found response comment: 4377972232
+[10:38:12] STEP 13: App command comment id = 4377752559
+[10:38:12] STEP 14: Blanked app command comment
+[10:38:12] STEP 15: Entering main command loop...
