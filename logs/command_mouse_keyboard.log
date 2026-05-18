@@ -124,3 +124,5 @@
 [12:01:29] Taking screenshot: screenshots/030_120129_auto.png
 [12:01:29] Enqueuing screenshot for push...
 [12:01:29] Enqueued screenshots/030_120129_auto.png + log
+[12:01:30] Executing [APP-52001-20260518120014] from line 3: humanclick(933, 404)
+[12:01:30] Cursor moved to (933, 404)
