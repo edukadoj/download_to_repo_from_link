@@ -144,3 +144,6 @@
 [16:16:08] Executed APP-52047-20260518161419 -> ERR timeout: command exceeded 15 seconds
 [16:16:08] Execution loop: processing APP-52048-20260518161433: tabs
 [16:16:12] Sender published response comment.
+[16:16:14] push_screenshots_now timed out
+[16:16:14] Screenshot push failed or timed out for screenshots/0026_161604_179_auto.png.
+[16:16:14] Taking screenshot: screenshots/0027_161614_442_auto.png
