@@ -483,3 +483,75 @@
 [17:59:28] Sender published response comment.
 [17:59:28] New autonomous report: AUT-13-1779127168 -> navigate(https://accounts.google.com/gsi/transform)
 [17:59:30] Screenshot screenshots/0107_175925_521_auto.png pushed successfully.
+[17:59:30] Taking screenshot: screenshots/0108_175930_521_auto.png
+[17:59:30] Screenshot save timed out or failed: screenshots/0108_175930_521_auto.png
+[17:59:30] Screenshot capture failed – will retry after interval.
+[17:59:30] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x560409d1122a <unknown>
+#1 0x56040970fab9 <unknown>
+#2 0x5604096e2c68 <unknown>
+#3 0x560409791d28 <unknown>
+#4 0x5604097abab8 <unknown>
+#5 0x560409757662 <unknown>
+#6 0x560409758451 <unknown>
+#7 0x560409cd4d8b <unknown>
+#8 0x560409cd7c65 <unknown>
+#9 0x560409cc1458 <unknown>
+#10 0x560409cd87f0 <unknown>
+#11 0x560409ca81c0 <unknown>
+#12 0x560409cfe168 <unknown>
+#13 0x560409cfe305 <unknown>
+#14 0x560409d0fc5e <unknown>
+#15 0x7f3e1d49caa4 <unknown>
+#16 0x7f3e1d529c6c <unknown>
+
+[17:59:32] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x560409d1122a <unknown>
+#1 0x56040970fab9 <unknown>
+#2 0x5604096e2c68 <unknown>
+#3 0x560409791d28 <unknown>
+#4 0x5604097abab8 <unknown>
+#5 0x560409757662 <unknown>
+#6 0x560409758451 <unknown>
+#7 0x560409cd4d8b <unknown>
+#8 0x560409cd7c65 <unknown>
+#9 0x560409cc1458 <unknown>
+#10 0x560409cd87f0 <unknown>
+#11 0x560409ca81c0 <unknown>
+#12 0x560409cfe168 <unknown>
+#13 0x560409cfe305 <unknown>
+#14 0x560409d0fc5e <unknown>
+#15 0x7f3e1d49caa4 <unknown>
+#16 0x7f3e1d529c6c <unknown>
+
+[17:59:34] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x560409d1122a <unknown>
+#1 0x56040970fab9 <unknown>
+#2 0x5604096e2c68 <unknown>
+#3 0x560409791d28 <unknown>
+#4 0x5604097abab8 <unknown>
+#5 0x560409757662 <unknown>
+#6 0x560409758451 <unknown>
+#7 0x560409cd4d8b <unknown>
+#8 0x560409cd7c65 <unknown>
+#9 0x560409cc1458 <unknown>
+#10 0x560409cd87f0 <unknown>
+#11 0x560409ca81c0 <unknown>
+#12 0x560409cfe168 <unknown>
+#13 0x560409cfe305 <unknown>
+#14 0x560409d0fc5e <unknown>
+#15 0x7f3e1d49caa4 <unknown>
+#16 0x7f3e1d529c6c <unknown>
+
+[17:59:35] Taking screenshot: screenshots/0109_175935_521_auto.png
+[17:59:35] Screenshot save timed out or failed: screenshots/0109_175935_521_auto.png
+[17:59:35] Screenshot capture failed – will retry after interval.
