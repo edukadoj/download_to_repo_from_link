@@ -13,6 +13,7 @@
 [01:08:57] STEP 2: Start URL loaded – sleeping 5s
 [01:08:58] Taking screenshot: screenshots/001_010858_auto.png
 [01:08:58] Pushing screenshot to repo (synchronous)...
+<<<<<<< Updated upstream
 [01:09:03] Pushing screenshot to repo (synchronous)...
 [01:09:03] FATAL STARTUP: first screenshot failed: Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
 [01:09:03] Attempting browser restart...
@@ -51,4 +52,10 @@
 [01:09:31] Taking screenshot: screenshots/008_010931_auto.png
 [01:09:31] Pushing screenshot to repo (synchronous)...
 [01:09:31] RepoWrapper slow error (push_log_file): Command '['git', 'commit', '-m', 'Log update']' returned non-zero exit status 128.
-[01:09:31] RepoWrapper slow error (push_log_file): Command '['git', 'commit', '-m', 'Log update']' returned non-zero exit status 128.
+=======
+[01:09:02] Pushed screenshots/001_010858_auto.png + log
+[01:09:02] STEP 3: Scrolling to top
+[01:09:02] STEP 4: Taking first screenshot
+[01:09:02] Taking screenshot: screenshots/002_010902_01_start_page.png
+[01:09:03] Pushing screenshot to repo (synchronous)...
+>>>>>>> Stashed changes
