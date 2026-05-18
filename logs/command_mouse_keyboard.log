@@ -13,3 +13,6 @@
 [01:32:01] STEP 2: Start URL loaded – sleeping 5s
 [01:32:01] Taking screenshot: screenshots/001_013201_auto.png
 [01:32:02] Pushing screenshot to repo (synchronous)...
+[01:32:07] FATAL STARTUP: first screenshot failed: Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
+[01:32:07] Attempting browser restart...
+[01:32:07] RepoWrapper slow error (push_log_file): Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
