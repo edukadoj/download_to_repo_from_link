@@ -132,3 +132,4 @@
 [16:15:56] Screenshot screenshots/0024_161552_453_auto.png pushed successfully.
 [16:15:57] Taking screenshot: screenshots/0025_161557_453_auto.png
 [16:15:57] Pushing screenshot screenshots/0025_161557_453_auto.png with 10s timeout...
+[16:16:03] Running chunker: python3 python/chunker.py --file /tmp/profile_1evqf4v0.dat --output-dir .profile_cache --chunk-size 20
