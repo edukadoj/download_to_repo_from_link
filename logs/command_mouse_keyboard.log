@@ -239,3 +239,8 @@
 [11:06:26] Cursor moved to (1857, 382)
 [11:06:26] Executed: APP-51988-20260518110508 → Human click at (1855,383)
 [11:06:28] Taking screenshot: screenshots/028_110628_auto.png
+[11:06:28] Enqueuing screenshot for push...
+[11:06:28] Enqueued screenshots/028_110628_auto.png + log
+[11:06:33] Taking screenshot: screenshots/029_110633_auto.png
+[11:06:33] Enqueuing screenshot for push...
+[11:06:33] Enqueued screenshots/029_110633_auto.png + log
