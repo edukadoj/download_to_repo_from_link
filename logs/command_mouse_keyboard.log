@@ -39,3 +39,6 @@
 [22:40:45] Taking screenshot: screenshots/0001_224045_785_auto.png
 [22:40:46] Pushing screenshot screenshots/0001_224045_785_auto.png with 10s timeout...
 [22:40:48] Screenshot screenshots/0001_224045_785_auto.png pushed successfully.
+[22:40:49] Sender published response comment.
+[22:40:50] Taking screenshot: screenshots/0002_224050_785_auto.png
+[22:40:51] Pushing screenshot screenshots/0002_224050_785_auto.png with 10s timeout...
