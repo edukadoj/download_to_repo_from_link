@@ -28,3 +28,15 @@
 [00:53:16] New autonomous report: AUT-1-1779065596 -> Browser was restarted after a crash.
 [00:53:16] STEP 5: First screenshot saved – pushing logs
 [00:53:16] STEP 6: refresh_known_handles()
+[00:53:16] New autonomous report: AUT-2-1779065596 -> New tab/window handle: 288718BD831311BAE48745A2E0E5EF9F
+[00:53:16] STEP 7: Set last known URL
+[00:53:16] STEP 8: Start URL monitor
+[00:53:16] STEP 9: URL monitor started
+[00:53:16] STEP 10: Fetching comments via sync_repo.get_all_comments()
+[00:53:16] STEP 11: Comments fetched – 3 entries
+[00:53:16] STEP 12: Locating markers in comments
+[00:53:16] Found response comment: 4377972232
+[00:53:16] STEP 13: App command comment id = 4377752559
+[00:53:16] STEP 14: Blanked app command comment
+[00:53:16] STEP 15: Entering main command loop...
+[00:53:17] Taking screenshot: screenshots/004_005317_auto.png
