@@ -51,3 +51,6 @@
 [19:39:05] Taking screenshot: screenshots/0004_193905_878_auto.png
 [19:39:08] Browser health check failed – skipping screenshot.
 [19:39:08] Screenshot capture failed – will retry after interval.
+[19:39:11] push_screenshots_now failed: Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
+[19:39:11] Screenshot push failed or timed out for screenshots/0005_193910_878_auto.png.
+[19:39:11] RepoWrapper slow error (push_log_file): Command '['git', 'commit', '-m', 'Log update']' returned non-zero exit status 128.
