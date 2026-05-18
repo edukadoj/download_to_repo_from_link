@@ -1,0 +1,22 @@
+============================================================
+  Remote Control v39.28.0 started at 2026-05-18 00:53:00 UTC
+============================================================
+[00:53:00] Virtual display started.
+[00:53:00] ♻️  Reassembling profile cache chunks …
+[00:53:00]    Reassembled: profile_6z9ali32.dat (127126628 bytes)
+[00:53:02] Profile cache loaded successfully.
+[00:53:04] Stealth JS injected.
+[00:53:04] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[00:53:04] Browser launched.
+[00:53:05] Screenshot worker started.
+[00:53:05] STEP 1: Loading start URL...
+[00:53:06] STEP 2: Start URL loaded – sleeping 5s
+[00:53:07] Taking screenshot: screenshots/001_005307_auto.png
+[00:53:07] Pushing screenshot to repo (synchronous)...
+[00:53:07] Screenshot worker error: 'RepoWrapper' object has no attribute 'push_screenshots_now'
+[00:53:11] STEP 3: Scrolling to top
+[00:53:11] STEP 4: Taking first screenshot
+[00:53:11] Taking screenshot: screenshots/002_005311_01_start_page.png
+[00:53:11] Pushing screenshot to repo (synchronous)...
+[00:53:11] FATAL STARTUP: first screenshot failed: 'RepoWrapper' object has no attribute 'push_screenshots_now'
+[00:53:11] Attempting browser restart...
