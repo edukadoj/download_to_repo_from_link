@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# repo_wrapper.py – Version 1.1.0
-#   - Dual worker threads: fast queue for comment operations, slow queue for
-#     screenshot/log pushes.
-#   - Rate‑limited comment edits are retried automatically after a short delay.
+# repo_wrapper.py – Version 1.2.0
+#   - Dual worker: fast queue for comments, slow queue for screenshots / logs.
+#   - Synchronous push_screenshots_now() for immediate screenshot upload.
 # ==============================================================================
 
 import os, time, subprocess, json, re, glob, threading, queue as queue_module, urllib.request
@@ -65,7 +64,12 @@ class RepoWrapper:
         self._slow_queue.put(("push_log_file", (), None))
 
     def push_screenshots(self, screenshot_paths: List[str]) -> None:
-        self._slow_queue.put(("push_screenshots", (screenshot_paths,), None))
+        self._slow_queue.put(("push_screenshots_impl", (screenshot_paths,), None))
+
+    # ── Synchronous screenshot push (bypasses queues) ───────────
+    def push_screenshots_now(self, paths: List[str]) -> None:
+        """Synchronously push screenshots – blocks until complete."""
+        self._push_screenshots_impl(paths)
 
     def list_screenshot_files(self, callback: Callable[[List[str]], None]) -> None:
         self._fast_queue.put(("list_screenshot_files", (), callback))
@@ -76,7 +80,6 @@ class RepoWrapper:
     def delete_file(self, path: str, sha: str) -> None:
         self._slow_queue.put(("delete_file", (path, sha), None))
 
-    # ── Stop ──────────────────────────────────────────────────────
     def stop(self) -> None:
         self._fast_stop.set()
         self._slow_stop.set()
@@ -142,8 +145,8 @@ class RepoWrapper:
             try:
                 if action == "push_log_file":
                     self._push_log_file()
-                elif action == "push_screenshots":
-                    self._push_screenshots(*args)
+                elif action == "push_screenshots_impl":
+                    self._push_screenshots_impl(*args)
                 elif action == "delete_file":
                     self._delete_file(*args)
             except Exception as e:
@@ -151,7 +154,7 @@ class RepoWrapper:
                 if self.error_log:
                     self.error_log(err_msg)
 
-    # ── Internal implementations (unchanged from previous) ──────
+    # ── Internal implementations ─────────────────────────────────
     def _gh(self, *args: str, input_data: Optional[str] = None, **kwargs: Any) -> str:
         env = os.environ.copy()
         if self._pat:
@@ -189,7 +192,7 @@ class RepoWrapper:
                 return
             except subprocess.CalledProcessError:
                 if attempt < max_retries - 1:
-                    time.sleep(1)   # retry after 1 second
+                    time.sleep(1)
 
     def _create_comment(self, body: str) -> str:
         return self._gh(f"repos/{self.repo}/issues/{self.issue_number}/comments",
@@ -231,7 +234,7 @@ class RepoWrapper:
     def _push_log_file(self) -> None:
         self._push_file_to_repo(self.log_filename, "Log update")
 
-    def _push_screenshots(self, paths: List[str]) -> None:
+    def _push_screenshots_impl(self, paths: List[str]) -> None:
         self._git("stash", "--include-untracked", capture_output=True)
         try:
             self._git("pull", "--rebase", check=True, capture_output=True)
