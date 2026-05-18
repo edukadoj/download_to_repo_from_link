@@ -17,3 +17,17 @@
 [20:46:05] STEP 4: Taking first screenshot
 [20:46:05] STEP 5: First screenshot saved – pushing logs
 [20:46:05] STEP 6: refresh_known_handles()
+[20:46:05] New autonomous report: AUT-1-1779137165 -> New tab/window handle: B2A2612118503F55C461D0564A5E5053
+[20:46:05] New autonomous report: AUT-2-1779137165 -> Tabs: 1: YouTube
+[20:46:05] STEP 7: Set last known URL
+[20:46:05] STEP 8: Start URL monitor
+[20:46:05] STEP 9: URL monitor started
+[20:46:05] FATAL in main: ScreenshotWorker.__init__() missing 1 required positional argument: 'encryption_key'
+Traceback (most recent call last):
+  File "/home/runner/work/download_to_repo_from_link/download_to_repo_from_link/python/command_mouse_keyboard.py", line 801, in <module>
+    main()
+  File "/home/runner/work/download_to_repo_from_link/download_to_repo_from_link/python/command_mouse_keyboard.py", line 760, in main
+    screenshot_worker = ScreenshotWorker(
+                        ^^^^^^^^^^^^^^^^^
+TypeError: ScreenshotWorker.__init__() missing 1 required positional argument: 'encryption_key'
+
