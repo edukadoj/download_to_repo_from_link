@@ -1105,3 +1105,4 @@ Stacktrace:
 [18:02:37] Enqueued for execution: APP-52079-20260518180112
 [18:02:43] Screenshot screenshots/0144_180236_663_auto.png pushed successfully.
 [18:02:43] Taking screenshot: screenshots/0145_180243_274_auto.png
+[18:02:43] Pushing screenshot screenshots/0145_180243_274_auto.png with 10s timeout...
