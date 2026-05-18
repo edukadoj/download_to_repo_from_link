@@ -69,3 +69,6 @@
 [21:42:50] Taking screenshot: screenshots/0009_214250_599_auto.png
 [21:42:50] Sender published response comment.
 [21:42:50] Pushing screenshot screenshots/0009_214250_599_auto.png with 10s timeout...
+[21:42:56] push_screenshots_now failed: Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
+[21:42:56] Screenshot push failed or timed out for screenshots/0010_214255_600_auto.png.
+[21:42:56] RepoWrapper slow error (push_log_file): Command '['git', 'commit', '-m', 'Log update']' returned non-zero exit status 128.
