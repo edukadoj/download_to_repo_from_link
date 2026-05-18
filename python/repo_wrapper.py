@@ -1,19 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# repo_wrapper.py – Version 1.2.3
+# repo_wrapper.py – Version 1.3.0
 # ==============================================================================
-# This module encapsulates all direct interaction with the GitHub repository
-# (via `gh` CLI and `git`) and exposes them through internal queues, keeping
-# the rest of the agent completely asynchronous.
-#
-# Role in the communication system:
-#   - Comment operations (create, edit, delete, fetch) are placed on a “fast”
-#     queue and processed by a dedicated thread to avoid blocking the main loops.
-#   - File pushes (logs, screenshots) are placed on a “slow” queue and processed
-#     serially so that Git operations are never concurrent.
-#   - Screenshot retention: only the most recent N screenshots are kept;
-#     older ones are automatically purged.
-#   - All GitHub authentication uses the PAT environment variable exclusively.
+# Asynchronous GitHub API & git operations via internal queues.
+# Added timeout for screenshot pushes (push_screenshots_now with 10s default).
+# All errors are logged via the error_log callback.
 # ==============================================================================
 
 import os, time, subprocess, json, re, glob, threading, queue as queue_module, urllib.request
@@ -31,7 +22,6 @@ class RepoWrapper:
         self.screenshots_dir = screenshots_dir
         self.max_screenshots = max_screenshots
 
-        # Only PAT – no fallback to GITHUB_TOKEN
         self._pat = os.environ.get("PAT", "")
 
         # ── Fast queue for comment operations ──
@@ -79,11 +69,36 @@ class RepoWrapper:
         self._slow_queue.put(("push_log_file", (), None))
 
     def push_screenshots(self, screenshot_paths: List[str]) -> None:
+        """Asynchronously queue screenshot push."""
         self._slow_queue.put(("push_screenshots_impl", (screenshot_paths,), None))
 
-    def push_screenshots_now(self, paths: List[str]) -> None:
-        """Synchronously push screenshots – blocks until complete."""
-        self._push_screenshots_impl(paths)
+    def push_screenshots_now(self, paths: List[str], timeout: int = 10) -> bool:
+        """
+        Synchronously push screenshots with a timeout.
+        Returns True on success, False on failure/timeout.
+        """
+        result = [False]
+        event = threading.Event()
+
+        def task():
+            try:
+                self._push_screenshots_impl(paths)
+                result[0] = True
+            except Exception as e:
+                if self.error_log:
+                    self.error_log(f"push_screenshots_now failed: {e}")
+                result[0] = False
+            finally:
+                event.set()
+
+        thread = threading.Thread(target=task, daemon=True)
+        thread.start()
+        thread.join(timeout)
+        if thread.is_alive():
+            if self.error_log:
+                self.error_log("push_screenshots_now timed out")
+            return False
+        return result[0]
 
     def list_screenshot_files(self, callback: Callable[[List[str]], None]) -> None:
         self._fast_queue.put(("list_screenshot_files", (), callback))
@@ -172,7 +187,7 @@ class RepoWrapper:
     def _gh(self, *args: str, input_data: Optional[str] = None, **kwargs: Any) -> str:
         env = os.environ.copy()
         if self._pat:
-            env["GITHUB_TOKEN"] = self._pat   # gh CLI uses GITHUB_TOKEN
+            env["GITHUB_TOKEN"] = self._pat
         cmd = ["gh", "api"] + list(args)
         res = subprocess.run(cmd, capture_output=True, text=True, check=True,
                              input=input_data, env=env, **kwargs)
@@ -181,10 +196,8 @@ class RepoWrapper:
     def _git(self, *args: str, **kwargs: Any) -> subprocess.CompletedProcess:
         lock = ".git/index.lock"
         if os.path.exists(lock):
-            try:
-                os.remove(lock)
-            except Exception:
-                pass
+            try: os.remove(lock)
+            except Exception: pass
         return subprocess.run(["git"] + list(args), **kwargs)
 
     def _git_push_with_retry(self) -> bool:
@@ -197,8 +210,7 @@ class RepoWrapper:
                     time.sleep(2)
                     try:
                         self._git("pull", "--rebase", check=True, capture_output=True)
-                    except Exception:
-                        pass
+                    except Exception: pass
         return False
 
     def _edit_comment(self, comment_id: str, new_body: str, max_retries: int = 5) -> None:
@@ -255,7 +267,6 @@ class RepoWrapper:
         self._push_file_to_repo(self.log_filename, "Log update")
 
     def _push_screenshots_impl(self, paths: List[str]) -> None:
-        # Stash any local changes to avoid conflicts
         self._git("stash", "--include-untracked", capture_output=True)
         try:
             self._git("pull", "--rebase", check=True, capture_output=True)
@@ -332,11 +343,6 @@ class RepoWrapper:
             pass
 
     def _purge_old_screenshots(self) -> None:
-        """
-        Keep only the last `max_screenshots` screenshots (sorted by name,
-        which is chronological because they include a timestamp).
-        Delete any extras to prevent the repository from growing indefinitely.
-        """
         try:
             files = self._list_screenshot_files()
             files.sort()
