@@ -1091,3 +1091,12 @@ Stacktrace:
 [18:02:26] Screenshot screenshots/0142_180220_525_auto.png pushed successfully.
 [18:02:26] Taking screenshot: screenshots/0143_180226_442_auto.png
 [18:02:26] Executed APP-52078-20260518180103 -> OK upload(1 files) (ready – use 'uploadtoyoutube')
+[18:02:30] Sender published response comment.
+[18:02:31] Fetcher detected new App Commands comment.
+[18:02:31] Re‑enqueued existing report for APP-52078-20260518180103
+[18:02:31] Execution loop: processing APP-52079-20260518180112: save
+[18:02:31] Enqueued for execution: APP-52079-20260518180112
+[18:02:36] Sender published response comment.
+[18:02:36] push_screenshots_now timed out
+[18:02:36] Screenshot push failed or timed out for screenshots/0143_180226_442_auto.png.
+[18:02:36] Taking screenshot: screenshots/0144_180236_663_auto.png
