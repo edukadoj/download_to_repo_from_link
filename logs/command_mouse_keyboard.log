@@ -363,3 +363,8 @@
 [10:48:03] Executed: APP-51920-20260518104648 → Files: (empty)
 [10:48:04] Agent alive
 [10:48:06] Taking screenshot: screenshots/108_104806_auto.png
+[10:48:06] Enqueuing screenshot for push...
+[10:48:06] Enqueued screenshots/108_104806_auto.png + log
+[10:48:11] Taking screenshot: screenshots/109_104811_auto.png
+[10:48:11] Enqueuing screenshot for push...
+[10:48:11] Enqueued screenshots/109_104811_auto.png + log
