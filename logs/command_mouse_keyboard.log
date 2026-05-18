@@ -1,0 +1,24 @@
+============================================================
+  Remote Control v39.34.0 started at 2026-05-18 23:27:39 UTC
+============================================================
+[23:27:39] Virtual display started.
+[23:27:39] ♻️  Reassembling profile cache chunks …
+[23:27:39]    Reassembled: profile_6z9ali32.dat (127126628 bytes)
+[23:27:40] Profile cache loaded successfully.
+[23:27:42] Stealth JS injected.
+[23:27:42] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[23:27:42] Browser launched.
+[23:27:42] STEP 1: Loading start URL...
+[23:27:43] STEP 2: Start URL loaded – sleeping 5s
+[23:27:48] Detecting actual viewport size...
+[23:27:48] Viewport CSS size updated to 1919x992
+[23:27:48] Probing clickable bounds...
+[23:27:49] Max clickable X = 1914
+[23:27:49] Max clickable Y = 987
+[23:27:49] Clickable bounds set to 1914x987
+[23:27:49] New autonomous report: AUT-1-1779146869 -> viewsize:1914x987
+[23:27:49] Clickable dimensions set to 1914x987
+[23:27:49] STEP 3: Scrolling to top
+[23:27:49] STEP 4: Taking first screenshot
+[23:27:49] STEP 5: First screenshot saved – pushing logs
+[23:27:49] STEP 6: refresh_known_handles()
