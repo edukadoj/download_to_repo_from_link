@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.27.2
-#   - Removed the unsupported 'gh' argument from the call to execute_one_command.
-#   - KEY_SECRET is defined at module level.
-#   - Memory reports are throttled to every 120 seconds.
-#   - Synchronous logging for full traceability.
+# command_mouse_keyboard.py – Version 39.28.0
+#   - Removed ensure_active_tab() from ss() to avoid interfering with cursor
+#     movements during the main loop.
+#   - Uses push_screenshots_now() for immediate screenshot upload.
+#   - KEY_SECRET defined at module level.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -90,7 +90,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.27.2 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.28.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -145,8 +145,7 @@ ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER","4").strip()
 START_URL = os.environ.get("START_URL") or "https://studio.youtube.com"
 REPO = os.environ['GITHUB_REPOSITORY']
 
-# CRITICAL: this must be defined at module level
-KEY_SECRET = os.environ["KEY"]
+KEY_SECRET = os.environ["KEY"]   # must be at module level
 
 repo_wrapper = RepoWrapper(REPO, int(ISSUE_NUMBER), LOG_FILENAME)
 repo_wrapper.error_log = safe_log
@@ -311,7 +310,6 @@ def log_pusher():
 _log_pusher_stop = threading.Event()
 threading.Thread(target=log_pusher, daemon=True).start()
 
-# Memory throttle
 _last_memory_report = 0
 def heartbeat_worker():
     global _last_memory_report
@@ -337,7 +335,7 @@ def ss(desc="screenshot", push=True, response_suffix=""):
     fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
     safe_log(f"Taking screenshot: {fname}")
     try:
-        ensure_active_tab()
+        # ensure_active_tab() REMOVED – it interferes with cursor movements
         driver.save_screenshot(fname)
         img = Image.open(fname); draw = ImageDraw.Draw(img)
         x, y = agent_state.cursor_x if agent_state else 960, agent_state.cursor_y if agent_state else 540
@@ -350,8 +348,8 @@ def ss(desc="screenshot", push=True, response_suffix=""):
         safe_log(f"Screenshot image processing error: {e}")
     if not push: return fname
 
-    safe_log("Pushing screenshot to repo...")
-    sync_repo.push_screenshots([fname])
+    safe_log("Pushing screenshot to repo (synchronous)...")
+    repo_wrapper.push_screenshots_now([fname])
     safe_log(f"Pushed {fname} + log")
     return fname
 
