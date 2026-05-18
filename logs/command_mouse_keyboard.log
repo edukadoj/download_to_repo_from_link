@@ -200,3 +200,6 @@ Stacktrace:
 [19:42:15] Screenshot screenshots/0041_194211_452_auto.png pushed successfully.
 [19:42:16] Taking screenshot: screenshots/0042_194216_452_auto.png
 [19:42:16] Pushing screenshot screenshots/0042_194216_452_auto.png with 10s timeout...
+[19:42:19] Screenshot screenshots/0042_194216_452_auto.png pushed successfully.
+[19:42:21] Taking screenshot: screenshots/0043_194221_453_auto.png
+[19:42:21] Pushing screenshot screenshots/0043_194221_453_auto.png with 10s timeout...
