@@ -95,3 +95,12 @@
 [02:09:15] Taking screenshot: screenshots/021_020915_auto.png
 [02:09:15] Enqueuing screenshot for push...
 [02:09:15] Enqueued screenshots/021_020915_auto.png + log
+[02:09:18] Executing [APP-51898-20260518020803] from line 3: humanclick(1730, 267)
+[02:09:18] Cursor moved to (1730, 267)
+[02:09:19] Cursor moved to (1730, 267)
+[02:09:19] Cursor moved to (1732, 269)
+[02:09:19] Cursor moved to (1734, 266)
+[02:09:19] Executed: APP-51898-20260518020803 → Human click at (1730,267)
+[02:09:20] Taking screenshot: screenshots/022_020920_auto.png
+[02:09:20] Enqueuing screenshot for push...
+[02:09:20] Enqueued screenshots/022_020920_auto.png + log
