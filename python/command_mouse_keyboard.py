@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.30.0
+# command_mouse_keyboard.py – Version 39.31.0
 # ==============================================================================
 # Agent main script that runs inside GitHub Actions.
 # Implements the communication logic with four independent loops:
@@ -110,7 +110,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.30.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.31.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -152,12 +152,9 @@ class SyncRepo:
         self._rw.push_log_file()
 
     def push_screenshots(self, paths):
-        # This queues the push; we need a way to know when it's done.
-        # We'll wrap it to wait with a timeout.
         self._rw.push_screenshots(paths)
 
     def push_screenshots_now(self, paths, timeout=10):
-        """Synchronously push screenshots with a timeout."""
         return self._rw.push_screenshots_now(paths, timeout=timeout)
 
     def comment_exists(self, comment_id):
@@ -356,11 +353,27 @@ threading.Thread(target=heartbeat_worker, daemon=True).start()
 
 # ---------- Screenshot logic ----------
 counter = [0]
-# watermark font
-try:
-    watermark_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
-except:
-    watermark_font = ImageFont.load_default()
+# Try to load a reasonable font for the watermark
+watermark_font = None
+font_candidates = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+]
+for path in font_candidates:
+    if os.path.exists(path):
+        try:
+            watermark_font = ImageFont.truetype(path, 32)
+            safe_log(f"Watermark font loaded: {path}")
+            break
+        except Exception:
+            pass
+if watermark_font is None:
+    try:
+        watermark_font = ImageFont.load_default()
+        safe_log("Using PIL default font (watermark may be tiny).")
+    except Exception:
+        safe_log("No font available, watermark disabled.")
 
 def ss(desc="screenshot", push=True):
     """
@@ -376,7 +389,6 @@ def ss(desc="screenshot", push=True):
     try:
         with driver_lock:
             driver.save_screenshot(filename)
-        # Check if the file was actually created
         if not os.path.exists(filename):
             safe_log(f"Screenshot file not created: {filename}")
             return None
@@ -387,20 +399,20 @@ def ss(desc="screenshot", push=True):
         draw.ellipse([(x-r,y-r),(x+r,y+r)], outline='red', width=3)
         draw.line([(x-15,y),(x+15,y)], fill='red', width=3)
         draw.line([(x,y-15),(x,y+15)], fill='red', width=3)
-        # human‑readable watermark at 50% opacity
-        overlay = Image.new('RGBA', img.size, (0,0,0,0))
-        overlay_draw = ImageDraw.Draw(overlay)
-        text_bbox = overlay_draw.textbbox((0,0), timestamp_str, font=watermark_font)
-        text_pos = (img.width - text_bbox[2] - 20, img.height - text_bbox[3] - 20)
-        overlay_draw.text(text_pos, timestamp_str, font=watermark_font, fill=(255,255,255,128))
-        img = Image.alpha_composite(img, overlay)
+        # watermark at 50% opacity
+        if watermark_font:
+            overlay = Image.new('RGBA', img.size, (0,0,0,0))
+            overlay_draw = ImageDraw.Draw(overlay)
+            text_bbox = overlay_draw.textbbox((0,0), timestamp_str, font=watermark_font)
+            text_pos = (img.width - text_bbox[2] - 20, img.height - text_bbox[3] - 20)
+            overlay_draw.text(text_pos, timestamp_str, font=watermark_font, fill=(255,255,255,128))
+            img = Image.alpha_composite(img, overlay)
         img.save(filename)
     except BaseException as e:
         safe_log(f"Screenshot image processing error: {e}")
         return None
     if not push:
         return filename
-    # Push asynchronously; the caller (screenshot_worker) will wait for completion
     safe_log("Enqueuing screenshot for push...")
     sync_repo.push_screenshots([filename])
     safe_log(f"Enqueued {filename} + log")
@@ -417,24 +429,19 @@ def screenshot_worker():
     """
     while not _screenshot_stop.is_set():
         try:
-            # Wait a bit before first capture
             _screenshot_stop.wait(2)
             while not _screenshot_stop.is_set():
-                # Take screenshot
                 start = time.time()
-                filename = ss("auto", push=False)  # take without push, we will push manually
+                filename = ss("auto", push=False)
                 if filename is None:
                     safe_log("Screenshot capture failed – will retry after interval.")
-                    # Push log so we can see the failure
                     push_logs()
                     _screenshot_stop.wait(max(0, COMM_INTERVAL * slow_mode - (time.time() - start)))
                     continue
 
-                # Now push with timeout
                 safe_log(f"Pushing screenshot {filename} with 10s timeout...")
                 push_ok = False
                 try:
-                    # Use the synchronous push method that has a timeout
                     push_ok = sync_repo.push_screenshots_now([filename], timeout=10)
                 except Exception as e:
                     safe_log(f"Screenshot push exception: {e}")
@@ -445,17 +452,14 @@ def screenshot_worker():
                 else:
                     safe_log(f"Screenshot push failed or timed out for {filename}.")
 
-                # Push log after every screenshot attempt
-                push_logs()
+                push_logs()  # always push logs after a screenshot attempt
 
-                # Wait before next capture, respecting the interval
                 elapsed = time.time() - start
                 _screenshot_stop.wait(max(0, COMM_INTERVAL * slow_mode - elapsed))
         except BaseException as outer_e:
             safe_log(f"Screenshot worker crashed: {outer_e}\n{traceback.format_exc()}")
             push_logs()
             _screenshot_stop.wait(5)
-            # Continue loop – never die
 
 def start_screenshot_worker():
     global _screenshot_thread
@@ -852,6 +856,9 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         safe_log("Keyboard interrupt, shutting down...")
+    except Exception as e:
+        safe_log(f"Main thread exception: {e}\n{traceback.format_exc()}")
+        push_logs()
     finally:
         _fetcher_stop.set()
         _executor_stop.set()
@@ -864,8 +871,11 @@ def main():
         ok, msg = save_profile()
         safe_log(f"Final profile save: {msg}")
         push_logs()
-        with driver_lock:
-            driver.quit()
+        try:
+            with driver_lock:
+                driver.quit()
+        except Exception:
+            pass
         display.stop()
 
 if __name__ == "__main__":
@@ -887,10 +897,10 @@ if __name__ == "__main__":
             _url_monitor_stop.set()
             _log_pusher_stop.set()
             _heartbeat_stop.set()
-            # Try to quit driver if still alive
             try:
                 if driver:
-                    driver.quit()
-            except:
+                    with driver_lock:
+                        driver.quit()
+            except Exception:
                 pass
             display.stop()
