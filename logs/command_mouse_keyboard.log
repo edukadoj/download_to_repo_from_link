@@ -14,3 +14,15 @@
 [11:04:18] STEP 2: Start URL loaded – sleeping 5s
 [11:04:19] Enqueuing screenshot for push...
 [11:04:19] Enqueued screenshots/001_110418_auto.png + log
+[11:04:23] STEP 3: Scrolling to top
+[11:04:23] STEP 4: Taking first screenshot
+[11:04:23] Taking screenshot: screenshots/003_110423_01_start_page.png
+[11:04:24] Enqueuing screenshot for push...
+[11:04:24] Enqueued screenshots/003_110423_01_start_page.png + log
+[11:04:24] STEP 5: First screenshot saved – pushing logs
+[11:04:24] STEP 6: refresh_known_handles()
+[11:04:24] New autonomous report: AUT-1-1779102264 -> New tab/window handle: 637864736584EF44591BA12E3FD8AEE2
+[11:04:24] STEP 7: Set last known URL
+[11:04:24] STEP 8: Start URL monitor
+[11:04:24] STEP 9: URL monitor started
+[11:04:24] STEP 10: Fetching comments via sync_repo.get_all_comments()
