@@ -52,5 +52,3 @@
 [17:50:43] Screenshot screenshots/0004_175040_402_auto.png pushed successfully.
 [17:50:44] Agent alive
 [17:50:44] New autonomous report: AUT-3-1779126644 -> Available memory: 14374 MB
-[17:50:45] Taking screenshot: screenshots/0005_175045_402_auto.png
-[17:50:45] Pushing screenshot screenshots/0005_175045_402_auto.png with 10s timeout...
