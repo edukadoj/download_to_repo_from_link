@@ -694,3 +694,72 @@ Stacktrace:
 #15 0x7f3e1d49caa4 <unknown>
 #16 0x7f3e1d529c6c <unknown>
 
+[17:59:48] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x560409d1122a <unknown>
+#1 0x56040970fab9 <unknown>
+#2 0x5604096e2c68 <unknown>
+#3 0x560409791d28 <unknown>
+#4 0x5604097abab8 <unknown>
+#5 0x560409757662 <unknown>
+#6 0x560409758451 <unknown>
+#7 0x560409cd4d8b <unknown>
+#8 0x560409cd7c65 <unknown>
+#9 0x560409cc1458 <unknown>
+#10 0x560409cd87f0 <unknown>
+#11 0x560409ca81c0 <unknown>
+#12 0x560409cfe168 <unknown>
+#13 0x560409cfe305 <unknown>
+#14 0x560409d0fc5e <unknown>
+#15 0x7f3e1d49caa4 <unknown>
+#16 0x7f3e1d529c6c <unknown>
+
+[17:59:50] Taking screenshot: screenshots/0112_175950_522_auto.png
+[17:59:50] Screenshot save timed out or failed: screenshots/0112_175950_522_auto.png
+[17:59:50] Screenshot capture failed – will retry after interval.
+[17:59:50] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x560409d1122a <unknown>
+#1 0x56040970fab9 <unknown>
+#2 0x5604096e2c68 <unknown>
+#3 0x560409791d28 <unknown>
+#4 0x5604097abab8 <unknown>
+#5 0x560409757662 <unknown>
+#6 0x560409758451 <unknown>
+#7 0x560409cd4d8b <unknown>
+#8 0x560409cd7c65 <unknown>
+#9 0x560409cc1458 <unknown>
+#10 0x560409cd87f0 <unknown>
+#11 0x560409ca81c0 <unknown>
+#12 0x560409cfe168 <unknown>
+#13 0x560409cfe305 <unknown>
+#14 0x560409d0fc5e <unknown>
+#15 0x7f3e1d49caa4 <unknown>
+#16 0x7f3e1d529c6c <unknown>
+
+[17:59:52] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x560409d1122a <unknown>
+#1 0x56040970fab9 <unknown>
+#2 0x5604096e2c68 <unknown>
+#3 0x560409791d28 <unknown>
+#4 0x5604097abab8 <unknown>
+#5 0x560409757662 <unknown>
+#6 0x560409758451 <unknown>
+#7 0x560409cd4d8b <unknown>
+#8 0x560409cd7c65 <unknown>
+#9 0x560409cc1458 <unknown>
+#10 0x560409cd87f0 <unknown>
+#11 0x560409ca81c0 <unknown>
+#12 0x560409cfe168 <unknown>
+#13 0x560409cfe305 <unknown>
+#14 0x560409d0fc5e <unknown>
+#15 0x7f3e1d49caa4 <unknown>
+#16 0x7f3e1d529c6c <unknown>
+
