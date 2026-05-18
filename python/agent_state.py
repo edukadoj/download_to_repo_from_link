@@ -1,10 +1,23 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.3.0
+# agent_state.py – Version 2.4.0
 # ==============================================================================
-# Added a global driver_lock to make all browser interactions thread‑safe.
-# The screenshot loop and execution loop both use the driver, and the lock
-# prevents concurrent access that could crash the process.
+# This module holds all mutable state and low‑level browser interaction
+# functions for the remote‑control agent.
+#
+# Role in the communication system:
+#   - Provides a global driver object and viewport dimensions.
+#   - Stores the current cursor position.
+#   - Implements atomic movement, click, scroll, drag, and keyboard actions.
+#   - Contains the command parser (parse_single_command).
+#   - Manages the file registry and upload file selections.
+#   - Handles tab tracking and autonomous report generation.
+#   - Provides the human‑click helper with optional Gemini AI fallback.
+#
+# Every function that touches the driver uses a shared threading.Lock to
+# prevent concurrent access, and catches WebDriver exceptions so that no
+# thread ever dies because of a browser glitch.  If an operation fails, the
+# error is logged and the caller receives a safe fallback.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -14,6 +27,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
 from selenium.webdriver.common.actions.pointer_input import PointerInput
+from selenium.common.exceptions import WebDriverException, InvalidSessionIdException
 
 # ---------- Log helper (will be overridden by main) ----------
 def log(msg: str) -> None:
@@ -24,7 +38,7 @@ driver = None
 W, H = 1920, 1080
 cursor_x, cursor_y = 0, 0
 
-# Thread‑safety lock – must be acquired before any driver call
+# Thread‑safety lock – set by main script to a common lock
 driver_lock = threading.Lock()
 
 # ---------- Optional modules ----------
@@ -39,6 +53,10 @@ allowed_secrets = []
 ACTIVE_TAB_INDEX = 1
 
 def ensure_active_tab():
+    """
+    Make sure the browser is pointing to the expected tab.
+    Never raises – all driver exceptions are caught and logged.
+    """
     global ACTIVE_TAB_INDEX
     if driver is None:
         return
@@ -49,10 +67,12 @@ def ensure_active_tab():
                 return
             idx = ACTIVE_TAB_INDEX - 1
             if idx < 0 or idx >= len(handles):
+                # Current active tab index is out of bounds – try to stay on the current one
                 current = driver.current_window_handle
                 if current in handles:
                     ACTIVE_TAB_INDEX = handles.index(current) + 1
                 else:
+                    # Current handle gone, fall back to first tab
                     ACTIVE_TAB_INDEX = 1
                     idx = 0
             else:
@@ -62,21 +82,24 @@ def ensure_active_tab():
                         driver.set_window_size(W, H)
                     except Exception:
                         pass
-    except Exception:
-        pass
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"ensure_active_tab driver error: {e}")
+    except Exception as e:
+        log(f"ensure_active_tab unexpected error: {e}")
 
 # ---------- Improved drag‑and‑drop file injection ----------
-def drag_file_to_target(driver, file_path, x, y):
+def drag_file_to_target(driver_ref, file_path, x, y):
+    """Try to inject a file into a file input near (x,y)."""
     try:
         with driver_lock:
-            elements = driver.execute_script(
+            elements = driver_ref.execute_script(
                 "return document.elementsFromPoint(arguments[0], arguments[1]);",
                 x, y
             )
             if elements:
                 for el in elements:
-                    tag = driver.execute_script("return arguments[0].tagName.toLowerCase();", el)
-                    type_attr = driver.execute_script("return arguments[0].type;", el)
+                    tag = driver_ref.execute_script("return arguments[0].tagName.toLowerCase();", el)
+                    type_attr = driver_ref.execute_script("return arguments[0].type;", el)
                     if tag == "input" and type_attr == "file":
                         el.send_keys(file_path)
                         return True
@@ -84,17 +107,20 @@ def drag_file_to_target(driver, file_path, x, y):
                 for _ in range(10):
                     if parent_el is None:
                         break
-                    file_inputs = driver.execute_script(
+                    file_inputs = driver_ref.execute_script(
                         "return arguments[0].querySelectorAll('input[type=file]');",
                         parent_el
                     )
                     if file_inputs and len(file_inputs) > 0:
                         file_inputs[0].send_keys(file_path)
                         return True
-                    parent_el = driver.execute_script("return arguments[0].parentElement;", parent_el)
+                    parent_el = driver_ref.execute_script("return arguments[0].parentElement;", parent_el)
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"drag_file_to_target: driver error: {e}")
     except Exception as e:
-        log(f"drag_file_to_target: file input search failed: {e}")
+        log(f"drag_file_to_target: unexpected error: {e}")
 
+    # Fallback: create a file input via JavaScript
     script = """
     var x = arguments[0], y = arguments[1], filePath = arguments[2];
     var elements = document.elementsFromPoint(x, y);
@@ -132,20 +158,23 @@ def drag_file_to_target(driver, file_path, x, y):
     """
     try:
         with driver_lock:
-            result = driver.execute_script(script, x, y, file_path)
-            if result and isinstance(result, bool) == False:
+            result = driver_ref.execute_script(script, x, y, file_path)
+            if result and not isinstance(result, bool):
                 result.send_keys(file_path)
                 return True
         return False
-    except Exception:
+    except Exception as e:
+        log(f"drag_file_to_target fallback error: {e}")
         return False
 
-# ---------- EXISTING UTILITY FUNCTIONS (original logic) ----------
+# ---------- EXISTING UTILITY FUNCTIONS (with driver_lock) ----------
 
 def _try_gemini_click(prompt: str) -> bool:
-    if not HAS_GEMINI: return False
+    if not HAS_GEMINI:
+        return False
     api_key = os.environ.get("GOOGLE_API_KEY", "")
-    if not api_key: return False
+    if not api_key:
+        return False
     try:
         from google import genai
         from google.genai.types import Tool, GenerateContentConfig
@@ -161,14 +190,18 @@ def _try_gemini_click(prompt: str) -> bool:
             model="gemini-2.5-computer-use-preview-10-2025",
             contents=[{"role":"user","parts":[{"text":prompt},{"inline_data":{"mime_type":"image/png","data":img_data}}]}],
             config=config)
-        if not resp.candidates: return False
+        if not resp.candidates:
+            return False
         fc = resp.candidates[0].content.parts[0].function_call
         if fc.name == "click_at":
-            ax = int(fc.args["x"]/1000*W); ay = int(fc.args["y"]/1000*H)
+            ax = int(fc.args["x"]/1000*W)
+            ay = int(fc.args["y"]/1000*H)
             _perform_human_click_at(ax, ay)
             return True
         return False
-    except Exception: return False
+    except Exception as e:
+        log(f"Gemini click error: {e}")
+        return False
 
 # ── Original absolute move ─────────────────────────────────────
 def move_cursor_absolute(x: int, y: int) -> None:
@@ -176,12 +209,17 @@ def move_cursor_absolute(x: int, y: int) -> None:
     global cursor_x, cursor_y
     x = max(0, min(W-1, x))
     y = max(0, min(H-1, y))
-    with driver_lock:
-        action = ActionBuilder(driver)
-        action.pointer_action.move_to_location(x, y)
-        action.perform()
-    cursor_x, cursor_y = x, y
-    log(f"Cursor moved to ({x}, {y})")
+    try:
+        with driver_lock:
+            action = ActionBuilder(driver)
+            action.pointer_action.move_to_location(x, y)
+            action.perform()
+        cursor_x, cursor_y = x, y
+        log(f"Cursor moved to ({x}, {y})")
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"move_cursor_absolute driver error: {e}")
+    except Exception as e:
+        log(f"move_cursor_absolute unexpected error: {e}")
 
 def move_cursor_relative(dx: int, dy: int) -> None:
     ensure_active_tab()
@@ -190,71 +228,85 @@ def move_cursor_relative(dx: int, dy: int) -> None:
     new_y = max(0, min(H-1, cursor_y + dy))
     move_cursor_absolute(new_x, new_y)
 
-# ── Other interaction functions (unchanged) ────────────────────
+# ── Other interaction functions ────────────────────
+def _driver_action(func, *args, **kwargs):
+    """Wrapper to execute a driver action safely."""
+    try:
+        with driver_lock:
+            func(*args, **kwargs)
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"Driver action error: {e}")
+    except Exception as e:
+        log(f"Driver action unexpected error: {e}")
+
 def left_click() -> None:
     ensure_active_tab()
-    with driver_lock:
-        ActionChains(driver).click().perform()
+    _driver_action(lambda: ActionChains(driver).click().perform())
 
 def left_button_down() -> None:
     ensure_active_tab()
-    with driver_lock:
+    def _do():
         action = ActionBuilder(driver)
         action.pointer_action.click_and_hold()
         action.perform()
+    _driver_action(_do)
 
 def left_button_up() -> None:
     ensure_active_tab()
-    with driver_lock:
+    def _do():
         action = ActionBuilder(driver)
         action.pointer_action.release()
         action.perform()
+    _driver_action(_do)
 
 def right_button_down() -> None:
     ensure_active_tab()
-    with driver_lock:
+    def _do():
         action = ActionBuilder(driver)
         action.pointer_action.pointer_down(PointerInput.Button.RIGHT)
         action.perform()
+    _driver_action(_do)
 
 def right_button_up() -> None:
     ensure_active_tab()
-    with driver_lock:
+    def _do():
         action = ActionBuilder(driver)
         action.pointer_action.pointer_up(PointerInput.Button.RIGHT)
         action.perform()
+    _driver_action(_do)
 
 def middle_button_down() -> None:
     ensure_active_tab()
-    with driver_lock:
+    def _do():
         action = ActionBuilder(driver)
         action.pointer_action.pointer_down(PointerInput.Button.MIDDLE)
         action.perform()
+    _driver_action(_do)
 
 def middle_button_up() -> None:
     ensure_active_tab()
-    with driver_lock:
+    def _do():
         action = ActionBuilder(driver)
         action.pointer_action.pointer_up(PointerInput.Button.MIDDLE)
         action.perform()
+    _driver_action(_do)
 
 def double_click() -> None:
     ensure_active_tab()
-    with driver_lock:
-        ActionChains(driver).double_click().perform()
+    _driver_action(lambda: ActionChains(driver).double_click().perform())
 
 def right_click() -> None:
     ensure_active_tab()
-    with driver_lock:
-        ActionChains(driver).context_click().perform()
+    _driver_action(lambda: ActionChains(driver).context_click().perform())
 
 def middle_click() -> None:
     ensure_active_tab()
-    with driver_lock:
+    def _do():
         action = ActionBuilder(driver)
         action.pointer_action.pointer_down(PointerInput.Button.MIDDLE)
         action.pointer_action.pointer_up(PointerInput.Button.MIDDLE)
         action.perform()
+    _driver_action(_do)
 
 def scroll_by(amount: int) -> None:
     ensure_active_tab()
@@ -277,16 +329,17 @@ def scroll_by(amount: int) -> None:
                 driver.execute_script("arguments[0].scrollBy(0, arguments[1]);", scrollable, amount)
             else:
                 driver.execute_script(f"window.scrollBy(0, {amount});")
-    except Exception:
-        with driver_lock:
-            driver.execute_script(f"window.scrollBy(0, {amount});")
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"scroll_by driver error: {e}")
+    except Exception as e:
+        log(f"scroll_by unexpected error: {e}")
 
-def drag_from_to(x1,y1,x2,y2) -> None:
+def drag_from_to(x1, y1, x2, y2) -> None:
     ensure_active_tab()
-    move_cursor_absolute(x1,y1)
+    move_cursor_absolute(x1, y1)
     left_button_down()
     time.sleep(0.1)
-    move_cursor_absolute(x2,y2)
+    move_cursor_absolute(x2, y2)
     time.sleep(0.1)
     left_button_up()
 
@@ -294,17 +347,17 @@ def _perform_human_click_at(x: int, y: int) -> None:
     ensure_active_tab()
     move_cursor_absolute(x, y)
     time.sleep(0.1)
-    for _ in range(random.randint(1,3)):
-        dx=random.randint(-2,2)
-        dy=random.randint(-2,2)
+    for _ in range(random.randint(1, 3)):
+        dx = random.randint(-2, 2)
+        dy = random.randint(-2, 2)
         move_cursor_relative(dx, dy)
-        time.sleep(random.uniform(0.015,0.040))
+        time.sleep(random.uniform(0.015, 0.040))
     left_button_down()
-    time.sleep(random.uniform(0.030,0.080))
-    dx=random.randint(1,3)*(1 if random.random()>0.5 else -1)
-    dy=random.randint(1,3)*(1 if random.random()>0.5 else -1)
+    time.sleep(random.uniform(0.030, 0.080))
+    dx = random.randint(1, 3) * (1 if random.random() > 0.5 else -1)
+    dy = random.randint(1, 3) * (1 if random.random() > 0.5 else -1)
     move_cursor_relative(dx, dy)
-    time.sleep(random.uniform(0.010,0.040))
+    time.sleep(random.uniform(0.010, 0.040))
     left_button_up()
 
 def human_click(prompt: str = "Click the verify button") -> str:
@@ -324,26 +377,30 @@ def human_click_at(x: int, y: int) -> str:
     return f"Human click at ({x},{y})"
 
 KEY_MAP = {
-    "enter":Keys.ENTER,"tab":Keys.TAB,"escape":Keys.ESCAPE,"esc":Keys.ESCAPE,
-    "backspace":Keys.BACKSPACE,"delete":Keys.DELETE,"del":Keys.DELETE,
-    "home":Keys.HOME,"end":Keys.END,"pageup":Keys.PAGE_UP,"pagedown":Keys.PAGE_DOWN,
-    "arrowup":Keys.ARROW_UP,"arrowdown":Keys.ARROW_DOWN,"arrowleft":Keys.ARROW_LEFT,"arrowright":Keys.ARROW_RIGHT,
-    "space":Keys.SPACE,"insert":Keys.INSERT,"f1":Keys.F1,"f2":Keys.F2,"f3":Keys.F3,"f4":Keys.F4,"f5":Keys.F5,"f6":Keys.F6,
-    "f7":Keys.F7,"f8":Keys.F8,"f9":Keys.F9,"f10":Keys.F10,"f11":Keys.F11,"f12":Keys.F12,
-    "ctrl":Keys.CONTROL,"shift":Keys.SHIFT,"alt":Keys.ALT,"meta":Keys.META,"command":Keys.META
+    "enter": Keys.ENTER, "tab": Keys.TAB, "escape": Keys.ESCAPE, "esc": Keys.ESCAPE,
+    "backspace": Keys.BACKSPACE, "delete": Keys.DELETE, "del": Keys.DELETE,
+    "home": Keys.HOME, "end": Keys.END, "pageup": Keys.PAGE_UP, "pagedown": Keys.PAGE_DOWN,
+    "arrowup": Keys.ARROW_UP, "arrowdown": Keys.ARROW_DOWN, "arrowleft": Keys.ARROW_LEFT, "arrowright": Keys.ARROW_RIGHT,
+    "space": Keys.SPACE, "insert": Keys.INSERT, "f1": Keys.F1, "f2": Keys.F2, "f3": Keys.F3, "f4": Keys.F4, "f5": Keys.F5, "f6": Keys.F6,
+    "f7": Keys.F7, "f8": Keys.F8, "f9": Keys.F9, "f10": Keys.F10, "f11": Keys.F11, "f12": Keys.F12,
+    "ctrl": Keys.CONTROL, "shift": Keys.SHIFT, "alt": Keys.ALT, "meta": Keys.META, "command": Keys.META
 }
+
 def press_key(key_name: str) -> None:
     ensure_active_tab()
     kn = key_name.strip().lower()
-    if kn in KEY_MAP:
+    try:
         with driver_lock:
-            ActionChains(driver).send_keys(KEY_MAP[kn]).perform()
-    elif len(kn)==1:
-        with driver_lock:
-            ActionChains(driver).send_keys(kn).perform()
-    else:
-        with driver_lock:
-            ActionChains(driver).send_keys(key_name).perform()
+            if kn in KEY_MAP:
+                ActionChains(driver).send_keys(KEY_MAP[kn]).perform()
+            elif len(kn) == 1:
+                ActionChains(driver).send_keys(kn).perform()
+            else:
+                ActionChains(driver).send_keys(key_name).perform()
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"press_key driver error: {e}")
+    except Exception as e:
+        log(f"press_key unexpected error: {e}")
 
 def press_combo(combo_str: str) -> None:
     ensure_active_tab()
@@ -353,26 +410,31 @@ def press_combo(combo_str: str) -> None:
         return
     mods = parts[:-1]
     main = parts[-1]
-    with driver_lock:
-        actions = ActionChains(driver)
-        for m in mods:
-            mk = m.lower()
-            if mk in KEY_MAP:
-                actions = actions.key_down(KEY_MAP[mk])
+    try:
+        with driver_lock:
+            actions = ActionChains(driver)
+            for m in mods:
+                mk = m.lower()
+                if mk in KEY_MAP:
+                    actions = actions.key_down(KEY_MAP[mk])
+                else:
+                    actions = actions.key_down(m)
+            mk_main = main.lower()
+            if mk_main in KEY_MAP:
+                actions = actions.send_keys(KEY_MAP[mk_main])
             else:
-                actions = actions.key_down(m)
-        mk_main = main.lower()
-        if mk_main in KEY_MAP:
-            actions = actions.send_keys(KEY_MAP[mk_main])
-        else:
-            actions = actions.send_keys(main)
-        for m in reversed(mods):
-            mk = m.lower()
-            if mk in KEY_MAP:
-                actions = actions.key_up(KEY_MAP[mk])
-            else:
-                actions = actions.key_up(m)
-        actions.perform()
+                actions = actions.send_keys(main)
+            for m in reversed(mods):
+                mk = m.lower()
+                if mk in KEY_MAP:
+                    actions = actions.key_up(KEY_MAP[mk])
+                else:
+                    actions = actions.key_up(m)
+            actions.perform()
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"press_combo driver error: {e}")
+    except Exception as e:
+        log(f"press_combo unexpected error: {e}")
 
 def type_secret(name: str) -> bool:
     ensure_active_tab()
@@ -381,9 +443,16 @@ def type_secret(name: str) -> bool:
     val = os.environ.get(name, "")
     if not val:
         return False
-    with driver_lock:
-        ActionChains(driver).send_keys(val).perform()
-    return True
+    try:
+        with driver_lock:
+            ActionChains(driver).send_keys(val).perform()
+        return True
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"type_secret driver error: {e}")
+        return False
+    except Exception as e:
+        log(f"type_secret unexpected error: {e}")
+        return False
 
 # ---------- COMMAND PARSER (unchanged) ----------
 def parse_single_command(raw: str):
@@ -508,8 +577,10 @@ def refresh_known_handles():
             for h in new_handles:
                 add_autonomous_report("tabopened", f"New tab/window handle: {h}")
             _known_handles = handles
-    except Exception:
-        pass
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"refresh_known_handles driver error: {e}")
+    except Exception as e:
+        log(f"refresh_known_handles unexpected error: {e}")
 
 # ---------- URL MONITOR ----------
 _last_known_url = ""
@@ -525,8 +596,10 @@ def url_monitor_worker():
             if cur and cur != _last_known_url:
                 _last_known_url = cur
                 add_autonomous_report("navigate", f"navigate({cur})")
-        except Exception:
-            pass
+        except (WebDriverException, InvalidSessionIdException) as e:
+            log(f"url_monitor driver error: {e}")
+        except Exception as e:
+            log(f"url_monitor unexpected error: {e}")
         _url_monitor_stop.wait(2)
 
 # ---------- AUTONOMOUS REPORTS ----------
