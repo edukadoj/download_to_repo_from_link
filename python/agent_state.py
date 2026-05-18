@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.0.0
-#   - move_cursor_absolute now uses ActionChains for reliable cursor movement.
-#   - After moving, the global cursor_x / cursor_y are immediately updated.
-#   - ensure_active_tab is called inside the function but the main loop’s
-#     tab‑switching logic no longer interferes because ss() no longer calls it.
+# agent_state.py – Version 2.1.0
+#   - Restores the original move_cursor_absolute that uses ActionBuilder
+#     with absolute move_to_location (as in the first two posts).
+#   - All other functions unchanged.
 # ==============================================================================
 import os, time, re, glob, threading, traceback, random, base64
 from datetime import datetime
@@ -62,13 +61,7 @@ def ensure_active_tab():
 
 # ---------- Improved drag‑and‑drop file injection ----------
 def drag_file_to_target(driver, file_path, x, y):
-    """
-    Simulate dropping a file onto the element at (x, y).
-    Strategy:
-    1. Look for a file input at the cursor position; send_keys directly (most reliable).
-    2. Walk up the DOM from the cursor to find any file input; send_keys if found.
-    3. Fallback: JavaScript drag‑and‑drop event simulation (less reliable).
-    """
+    """(unchanged)"""
     try:
         elements = driver.execute_script(
             "return document.elementsFromPoint(arguments[0], arguments[1]);",
@@ -81,7 +74,6 @@ def drag_file_to_target(driver, file_path, x, y):
                 if tag == "input" and type_attr == "file":
                     el.send_keys(file_path)
                     return True
-
             parent_el = elements[0]
             for _ in range(10):
                 if parent_el is None:
@@ -102,7 +94,6 @@ def drag_file_to_target(driver, file_path, x, y):
     var elements = document.elementsFromPoint(x, y);
     if (!elements || elements.length === 0) return false;
     var target = null;
-
     for (var i = 0; i < elements.length; i++) {
         var el = elements[i];
         if (el.tagName === 'INPUT' && el.type === 'file') {
@@ -110,13 +101,8 @@ def drag_file_to_target(driver, file_path, x, y):
             break;
         }
     }
-    if (!target) {
-        target = elements[0];
-    }
-
-    if (target.tagName === 'INPUT' && target.type === 'file') {
-        return false;
-    }
+    if (!target) target = elements[0];
+    if (target.tagName === 'INPUT' && target.type === 'file') return false;
 
     var fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -127,21 +113,15 @@ def drag_file_to_target(driver, file_path, x, y):
         var file = fileInput.files[0];
         var dt = new DataTransfer();
         dt.items.add(file);
-
         var dragEnter = new DragEvent('dragenter', {bubbles: true, cancelable: true, dataTransfer: dt});
         var dragOver = new DragEvent('dragover', {bubbles: true, cancelable: true, dataTransfer: dt});
         var drop = new DragEvent('drop', {bubbles: true, cancelable: true, dataTransfer: dt});
-
         target.dispatchEvent(dragEnter);
         target.dispatchEvent(dragOver);
         target.dispatchEvent(drop);
-
-        setTimeout(function() {
-            document.body.removeChild(fileInput);
-        }, 500);
+        setTimeout(function() { document.body.removeChild(fileInput); }, 500);
     };
     document.body.appendChild(fileInput);
-
     return fileInput;
     """
     try:
@@ -153,7 +133,8 @@ def drag_file_to_target(driver, file_path, x, y):
     except Exception:
         return False
 
-# ---------- Existing utility functions (unchanged) ----------
+# ---------- EXISTING UTILITY FUNCTIONS (original logic) ----------
+
 def _try_gemini_click(prompt: str) -> bool:
     if not HAS_GEMINI: return False
     api_key = os.environ.get("GOOGLE_API_KEY", "")
@@ -181,28 +162,17 @@ def _try_gemini_click(prompt: str) -> bool:
         return False
     except Exception: return False
 
+# ── Original absolute move ─────────────────────────────────────
 def move_cursor_absolute(x: int, y: int) -> None:
-    """Reliably move the cursor to absolute coordinates (x, y)."""
-    global cursor_x, cursor_y
     ensure_active_tab()
-
+    global cursor_x, cursor_y
     x = max(0, min(W-1, x))
     y = max(0, min(H-1, y))
-
-    # Use ActionChains for reliable movement
-    try:
-        actions = ActionChains(driver)
-        actions.move_by_offset(x - cursor_x, y - cursor_y)  # relative move
-        actions.perform()
-    except Exception:
-        # fallback to direct move_to_location
-        from selenium.webdriver.common.actions.action_builder import ActionBuilder
-        from selenium.webdriver.common.actions.pointer_input import PointerInput
-        action = ActionBuilder(driver)
-        action.pointer_action.move_to_location(x, y)
-        action.perform()
-
+    action = ActionBuilder(driver)
+    action.pointer_action.move_to_location(x, y)
+    action.perform()
     cursor_x, cursor_y = x, y
+    log(f"Cursor moved to ({x}, {y})")   # added logging
 
 def move_cursor_relative(dx: int, dy: int) -> None:
     ensure_active_tab()
@@ -211,6 +181,7 @@ def move_cursor_relative(dx: int, dy: int) -> None:
     new_y = max(0, min(H-1, cursor_y + dy))
     move_cursor_absolute(new_x, new_y)
 
+# ── Other interaction functions (unchanged) ────────────────────
 def left_click() -> None:
     ensure_active_tab()
     ActionChains(driver).click().perform()
@@ -349,7 +320,7 @@ def type_secret(name: str) -> bool:
     ActionChains(driver).send_keys(val).perform()
     return True
 
-# ---------- COMMAND PARSER ----------
+# ---------- COMMAND PARSER (unchanged) ----------
 def parse_single_command(raw: str):
     raw = raw.strip(); lo = raw.lower()
     if lo == "exit": return ("exit", None)
