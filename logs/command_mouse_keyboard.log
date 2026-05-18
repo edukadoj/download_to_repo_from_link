@@ -14,3 +14,15 @@
 [19:38:48] STEP 4: Taking first screenshot
 [19:38:48] STEP 5: First screenshot saved – pushing logs
 [19:38:48] STEP 6: refresh_known_handles()
+[19:38:48] New autonomous report: AUT-1-1779133128 -> New tab/window handle: 1B0627ADDC8FC20C947390676B5F4B5A
+[19:38:48] refresh_known_handles unexpected error: 'set' object is not subscriptable
+[19:38:48] STEP 7: Set last known URL
+[19:38:48] STEP 8: Start URL monitor
+[19:38:48] STEP 9: URL monitor started
+[19:38:48] Fetcher loop started.
+[19:38:48] Screenshot worker started.
+[19:38:48] Execution loop started.
+[19:38:48] Sender loop started.
+[19:38:49] Fetcher detected new App Commands comment.
+[19:38:49] Execution loop: processing APP-52087-20260518180728: (20, 20)
+[19:38:49] Enqueued for execution: APP-52087-20260518180728
