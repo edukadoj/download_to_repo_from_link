@@ -114,3 +114,9 @@
 [12:01:20] Executing [APP-52000-20260518120001] from line 3: humanclick(805, 30)
 [12:01:20] Cursor moved to (805, 30)
 [12:01:21] Cursor moved to (805, 30)
+[12:01:21] Cursor moved to (806, 31)
+[12:01:21] Cursor moved to (809, 34)
+[12:01:21] Executed: APP-52000-20260518120001 → Human click at (805,30)
+[12:01:24] Taking screenshot: screenshots/029_120124_auto.png
+[12:01:24] Enqueuing screenshot for push...
+[12:01:24] Enqueued screenshots/029_120124_auto.png + log
