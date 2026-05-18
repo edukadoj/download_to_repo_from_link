@@ -96,3 +96,8 @@
 [21:43:10] Taking screenshot: screenshots/0013_214310_600_auto.png
 [21:43:10] Pushing screenshot screenshots/0013_214310_600_auto.png with 10s timeout...
 [21:43:10] RepoWrapper slow error (push_log_file): Command '['git', 'commit', '-m', 'Log update']' returned non-zero exit status 128.
+[21:43:15] Command APP-52126-20260518214113 timed out.
+[21:43:15] Executed APP-52126-20260518214113 -> ERR timeout: command exceeded 15 seconds
+[21:43:15] Execution loop: processing APP-52127-20260518214137: humanclick(752, 715)
+[21:43:16] Screenshot screenshots/0013_214310_600_auto.png pushed successfully.
+[21:43:16] Taking screenshot: screenshots/0014_214316_601_auto.png
