@@ -1156,3 +1156,10 @@ Stacktrace:
 [18:04:01] Pushing screenshot screenshots/0156_180401_599_auto.png with 10s timeout...
 [18:04:09] Screenshot screenshots/0156_180401_599_auto.png pushed successfully.
 [18:04:09] Taking screenshot: screenshots/0157_180409_422_auto.png
+[18:04:11] Fetcher detected new App Commands comment.
+[18:04:11] Enqueued for execution: APP-52081-20260518180256
+[18:04:11] Execution loop: processing APP-52081-20260518180256: tabs
+[18:04:11] Enqueued for execution: APP-52082-20260518180256
+[18:04:11] Executed APP-52081-20260518180256 -> Tabs: 1: Notifications / X
+[18:04:11] Execution loop: processing APP-52082-20260518180256: dir
+[18:04:11] Executed APP-52082-20260518180256 -> Files: 1: اثری ازم مونده باشه.mp4
