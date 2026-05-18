@@ -193,3 +193,6 @@
 [00:57:12] Taking screenshot: screenshots/049_005712_auto.png
 [00:57:12] Executed: APP-51859-20260518005556 → Tabs: 1: Channel dashboard - YouTube Studio
 [00:57:12] Executing [APP-51860-20260518005556] from line 4: dir
+[00:57:12] Executed: APP-51860-20260518005556 → Files: (empty)
+[00:57:12] Pushing screenshot to repo (synchronous)...
+[00:57:12] Screenshot worker error: 'RepoWrapper' object has no attribute 'push_screenshots_now'
