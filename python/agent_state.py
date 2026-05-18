@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.6.1
-#   - ensure_active_tab now automatically updates viewport dimensions after
-#     switching tabs or setting the window size, guaranteeing that W and H
-#     always reflect the real browser viewport.
-#   - Fixed 'set' object is not subscriptable in refresh_known_handles.
+# agent_state.py – Version 2.6.2
+#   - Removed update_viewport() call from ensure_active_tab() to prevent
+#     driver deadlock during page loads or dialogs. Viewport detection now
+#     happens only at startup and after explicit navigation.
+#   - All other improvements (move return bool, 'set' indexing fix, etc.)
+#     remain intact.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -43,6 +44,8 @@ def update_viewport():
     """
     Read the actual viewport size from the browser and update W, H.
     Should be called after a page load or tab switch.
+    This function must ONLY be called when the driver is idle (not during
+    page loads) to avoid blocking the command loop.
     """
     global W, H
     if driver is None:
@@ -61,6 +64,8 @@ def ensure_active_tab():
     """
     Make sure the browser is pointing to the expected tab.
     Never raises – all driver exceptions are caught and logged.
+    IMPORTANT: No JavaScript execution is performed here, so the call
+    will never block the driver thread.
     """
     global ACTIVE_TAB_INDEX
     if driver is None:
@@ -85,8 +90,7 @@ def ensure_active_tab():
                         driver.set_window_size(W, H)
                     except Exception:
                         pass
-            # After possibly switching window, update the viewport size
-            update_viewport()
+            # Viewport detection is intentionally NOT called here.
     except (WebDriverException, InvalidSessionIdException) as e:
         log(f"ensure_active_tab driver error: {e}")
     except Exception as e:
