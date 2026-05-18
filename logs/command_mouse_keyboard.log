@@ -1187,3 +1187,5 @@ Stacktrace:
 [18:05:12] push_screenshots_now timed out
 [18:05:12] Screenshot push failed or timed out for screenshots/0162_180501_266_auto.png.
 [18:05:12] Taking screenshot: screenshots/0163_180512_963_auto.png
+[18:05:14] Agent alive
+[18:05:15] Pushing screenshot screenshots/0163_180512_963_auto.png with 10s timeout...
