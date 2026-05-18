@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# screenshot_manager.py – Version 1.0.0
-# ==============================================================================
-# Agent screenshot subsystem.
-# Takes screenshots, draws a red crosshair, adds a human‑readable watermark,
-# and pushes the image to the repository with a 10‑second timeout.
-# The capture itself is protected against a hanging browser by a timeout,
-# and a lightweight health check is performed before each shot.
+# screenshot_manager.py – Version 1.1.0
+#   - Screenshot data is now encrypted before being pushed to the repository.
+#     Uses the same XOR‑with‑SHA256 keystream as crypto_utils, then Base64.
+#     The client will decrypt after download.
 # ==============================================================================
 
-import os, time, threading, traceback
+import os, time, threading, traceback, base64, hashlib
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 
@@ -32,6 +29,15 @@ def _find_watermark_font():
 
 # Module‑level font
 _watermark_font = _find_watermark_font()
+
+def _encrypt_bytes(data: bytes, key: str) -> bytes:
+    """Encrypt binary data with XOR keystream, then Base64‑encode."""
+    key_bytes = key.encode("utf-8")
+    result = bytearray()
+    for i, b in enumerate(data):
+        h = hashlib.sha256(key_bytes + str(i).encode()).digest()
+        result.append(b ^ h[0])
+    return base64.b64encode(bytes(result))
 
 def _driver_health_check(driver, driver_lock, timeout=3):
     """Return True if the browser responds within *timeout* seconds."""
@@ -68,7 +74,8 @@ class ScreenshotWorker:
     """
     def __init__(self, stop_event, driver, driver_lock, agent_state,
                  sync_repo, log_func, push_logs_func,
-                 comm_interval_getter, slow_mode_getter):
+                 comm_interval_getter, slow_mode_getter,
+                 encryption_key: str):
         self._stop = stop_event
         self._driver = driver
         self._driver_lock = driver_lock
@@ -78,12 +85,13 @@ class ScreenshotWorker:
         self._push_logs = push_logs_func
         self._get_comm_interval = comm_interval_getter
         self._get_slow_mode = slow_mode_getter
+        self._encryption_key = encryption_key
         self._counter = 0
         self._font = _watermark_font
         self._thread = None
 
     def _take_screenshot(self, desc="auto", push=False):
-        """Capture, draw, watermark. Returns filename or None."""
+        """Capture, draw, watermark, encrypt. Returns filename or None."""
         self._counter += 1
         now = datetime.now()
         ms = now.microsecond // 1000
@@ -125,6 +133,17 @@ class ScreenshotWorker:
             img.save(filename)
         except Exception as e:
             self._log(f"Screenshot image processing error: {e}")
+            return None
+
+        # Encrypt the final PNG before push
+        try:
+            with open(filename, "rb") as f:
+                raw = f.read()
+            encrypted = _encrypt_bytes(raw, self._encryption_key)
+            with open(filename, "wb") as f:
+                f.write(encrypted)
+        except Exception as e:
+            self._log(f"Screenshot encryption error: {e}")
             return None
 
         if push:
