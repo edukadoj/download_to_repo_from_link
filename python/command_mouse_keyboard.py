@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.33.2
-#   - Fixed missing encryption_key argument when creating ScreenshotWorker.
-#   - Screenshots will now be encrypted before push and decrypted by the client.
+# command_mouse_keyboard.py – Version 39.33.3
+#   - The entire main() function is now wrapped in a catch‑all try/except
+#     that logs the traceback, pushes the log file, and then exits cleanly.
+#     This guarantees we always see why the agent died.
+#   - All other logic unchanged (viewport detection, screenshot encryption,
+#     four independent crash‑proof loops).
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -89,7 +92,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.33.2 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.33.3 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -710,7 +713,7 @@ def main():
         safe_log(f"Warning: scrollTo failed: {e}")
     safe_log("STEP 4: Taking first screenshot")
     try:
-        pass
+        pass  # The screenshot worker will take the first shot
     except Exception as e:
         safe_log(f"Warning: first screenshot push failed: {e}")
     push_logs()
@@ -739,11 +742,12 @@ def main():
     if not app_cmd_id:
         safe_log("No app command comment found – creating one? Not typical.")
 
+    # Start loops
     fetcher_thread = threading.Thread(target=fetcher_loop, daemon=True)
     executor_thread = threading.Thread(target=executor_loop, daemon=True)
     sender_thread = threading.Thread(target=sender_loop, daemon=True)
 
-    # Pass the encryption key (KEY_SECRET) to the screenshot worker
+    # Screenshot worker with encryption key
     screenshot_worker = ScreenshotWorker(
         _screenshot_stop, driver, driver_lock, agent_state,
         sync_repo, safe_log, push_logs,
@@ -786,12 +790,18 @@ def main():
 if __name__ == "__main__":
     while True:
         try:
-            main()
+            # Crash‑proof wrapper: log any unhandled exception and push the log
+            try:
+                main()
+            except BaseException as ex:
+                safe_log(f"FATAL UNHANDLED EXCEPTION: {ex}\n{traceback.format_exc()}")
+                push_logs()
+                raise SystemExit(1)
             break
         except SystemExit:
             break
         except Exception as ex:
-            safe_log(f"FATAL in main: {ex}\n{traceback.format_exc()}")
+            safe_log(f"Outer loop exception: {ex}\n{traceback.format_exc()}")
             push_logs()
             time.sleep(10)
         finally:
