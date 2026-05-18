@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.33.1
-#   - Added update_viewport() call after the start page loads so that the
-#     real browser viewport dimensions are used immediately.
-#   - All other logic unchanged from v39.33.0.
+# command_mouse_keyboard.py – Version 39.33.2
+#   - Fixed missing encryption_key argument when creating ScreenshotWorker.
+#   - Screenshots will now be encrypted before push and decrypted by the client.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -46,7 +45,7 @@ from agent_state import (
     KEY_MAP, human_click, human_click_at,
     _perform_human_click_at, _try_gemini_click,
     ensure_active_tab, ACTIVE_TAB_INDEX,
-    update_viewport   # <-- new import
+    update_viewport
 )
 
 # ---------- Signal handlers ----------
@@ -90,7 +89,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.33.1 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.33.2 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -238,7 +237,6 @@ def save_profile():
 DOWNLOAD_DIR = "/home/runner/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Thread‑safety lock for all driver operations
 driver_lock = threading.Lock()
 
 def create_driver():
@@ -359,7 +357,7 @@ load_report_history()
 
 # ---------- Report Queue (duplicate‑safe) ----------
 _report_queue_lock = threading.Lock()
-report_queue = {}   # key: command ID or AUT ID -> (timestamp, seq_num, result_string)
+report_queue = {}
 
 def add_to_report_queue(key, timestamp, seq_num, result):
     with _report_queue_lock:
@@ -388,11 +386,9 @@ def cull_timed_out_reports(timeout_seconds=60):
 # ---------- Execution Queue ----------
 execution_queue = queue_module.Queue()
 
-# ---------- Serialisation locks for long commands ----------
 save_lock = threading.Lock()
 upload_lock = threading.Lock()
 
-# ---------- Thread stop events ----------
 _fetcher_stop = threading.Event()
 _executor_stop = threading.Event()
 _sender_stop = threading.Event()
@@ -440,14 +436,12 @@ def fetcher_loop():
                     if not ctext:
                         continue
 
-                    # Ack command?
                     if ctext.startswith("ack:"):
                         aut_id = ctext.split(":",1)[1].strip()
                         remove_from_report_queue(aut_id)
-                        safe_log(f"Acknowledged autonomous report {aut_id}, removed from queue.")
+                        safe_log(f"Acknowledged autonomous report {aut_id}")
                         continue
 
-                    # Reject duplicate save/upload if already running
                     cmd_type, _ = parse_single_command(ctext)
                     if cmd_type == "save" and save_lock.locked():
                         ts = int(time.time() * 1_000_000)
@@ -480,7 +474,6 @@ def fetcher_loop():
                         safe_log(f"Rejected duplicate upload command {cid}")
                         continue
 
-                    # Normal command
                     with _report_history_lock:
                         existing = report_history.get(cid)
                     if existing:
@@ -532,15 +525,12 @@ def executor_loop():
         timeout = 120 if (is_save or is_upload) else 15
 
         def run_command():
-            # Acquire serialisation locks for save/upload to prevent concurrent runs
             if is_save:
                 save_lock.acquire()
             elif is_upload:
                 upload_lock.acquire()
             try:
-                # Handle zoom command locally (without going through command_handlers)
                 if is_zoom:
-                    # arg is the zoom factor string, e.g. "1.25"
                     try:
                         factor = float(ctext.split(":",1)[1].strip())
                     except:
@@ -554,7 +544,6 @@ def executor_loop():
                     except Exception as e:
                         return f"ERR zoom: {e}"
 
-                # Otherwise use the standard command handler
                 cmd_type_final, arg = parse_single_command(ctext)
                 return execute_one_command(
                     cmd_type_final, arg,
@@ -575,7 +564,7 @@ def executor_loop():
                     scroll_by=scroll_by, drag_from_to=drag_from_to,
                     press_key=press_key, press_combo=press_combo,
                     type_secret=type_secret, decode_string=decode_string,
-                    ss=None,   # screenshot function not needed here
+                    ss=None,
                     refresh_file_registry=refresh_file_registry,
                     add_autonomous_report=add_autonomous_report,
                     refresh_known_handles=refresh_known_handles,
@@ -661,7 +650,6 @@ def sender_loop():
                 continue
 
             lines = ["## Remote Agent Responses"]
-            # Command responses first, then autonomous reports
             for key, (ts, seq, res) in snapshot.items():
                 if key.startswith("AUT-"):
                     lines.append(f"{key}; {res}")
@@ -709,7 +697,7 @@ def main():
             return
     time.sleep(5)
 
-    # ***** NEW: Detect real viewport size after the page has settled *****
+    # Detect real viewport size
     safe_log("Detecting actual viewport size...")
     update_viewport()
     safe_log(f"Viewport dimensions set to {agent_state.W}x{agent_state.H}")
@@ -722,7 +710,7 @@ def main():
         safe_log(f"Warning: scrollTo failed: {e}")
     safe_log("STEP 4: Taking first screenshot")
     try:
-        pass  # The screenshot worker will take the first shot
+        pass
     except Exception as e:
         safe_log(f"Warning: first screenshot push failed: {e}")
     push_logs()
@@ -751,16 +739,16 @@ def main():
     if not app_cmd_id:
         safe_log("No app command comment found – creating one? Not typical.")
 
-    # Start loops
     fetcher_thread = threading.Thread(target=fetcher_loop, daemon=True)
     executor_thread = threading.Thread(target=executor_loop, daemon=True)
     sender_thread = threading.Thread(target=sender_loop, daemon=True)
 
-    # Start screenshot worker (using the new module)
+    # Pass the encryption key (KEY_SECRET) to the screenshot worker
     screenshot_worker = ScreenshotWorker(
         _screenshot_stop, driver, driver_lock, agent_state,
         sync_repo, safe_log, push_logs,
-        lambda: COMM_INTERVAL, lambda: slow_mode
+        lambda: COMM_INTERVAL, lambda: slow_mode,
+        encryption_key=KEY_SECRET
     )
     screenshot_worker.start()
 
