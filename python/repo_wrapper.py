@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
 # ==============================================================================
 # repo_wrapper.py – Version 1.2.3
-#   - Keep last 5 screenshots to avoid losing them before the client fetches.
-#   - Safer git stash/pull/pop sequence during screenshot push.
+# ==============================================================================
+# This module encapsulates all direct interaction with the GitHub repository
+# (via `gh` CLI and `git`) and exposes them through internal queues, keeping
+# the rest of the agent completely asynchronous.
+#
+# Role in the communication system:
+#   - Comment operations (create, edit, delete, fetch) are placed on a “fast”
+#     queue and processed by a dedicated thread to avoid blocking the main loops.
+#   - File pushes (logs, screenshots) are placed on a “slow” queue and processed
+#     serially so that Git operations are never concurrent.
+#   - Screenshot retention: only the most recent N screenshots are kept;
+#     older ones are automatically purged.
+#   - All GitHub authentication uses the PAT environment variable exclusively.
 # ==============================================================================
 
 import os, time, subprocess, json, re, glob, threading, queue as queue_module, urllib.request
@@ -244,17 +255,12 @@ class RepoWrapper:
         self._push_file_to_repo(self.log_filename, "Log update")
 
     def _push_screenshots_impl(self, paths: List[str]) -> None:
-        """
-        Push screenshots while preserving the last N screenshots and keeping the
-        repository in a consistent state even if concurrent pushes occur.
-        """
-        # Stash any local changes (e.g., log file) to avoid conflicts
+        # Stash any local changes to avoid conflicts
         self._git("stash", "--include-untracked", capture_output=True)
         try:
             self._git("pull", "--rebase", check=True, capture_output=True)
         except Exception:
             pass
-        # Restore stashed changes (if any)
         self._git("stash", "pop", capture_output=True)
 
         for p in paths:
@@ -267,7 +273,6 @@ class RepoWrapper:
         if diff.returncode != 0:
             self._git("commit", "-m", "Screenshots & log", check=True, capture_output=True)
             if self._git_push_with_retry():
-                # Cleanup old screenshots, keeping the last max_screenshots files
                 self._purge_old_screenshots()
 
     def _push_file_to_repo(self, path: str, commit_msg: str) -> None:
@@ -334,11 +339,9 @@ class RepoWrapper:
         """
         try:
             files = self._list_screenshot_files()
-            # Sort by name (which includes a timestamp, thus chronological)
             files.sort()
             if len(files) <= self.max_screenshots:
                 return
-            # Delete oldest files beyond the limit
             to_delete = files[:-self.max_screenshots]
             for path in to_delete:
                 sha_raw = self._gh(f"repos/{self.repo}/contents/{path}", "--jq", ".sha")
