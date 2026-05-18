@@ -31,3 +31,5 @@ Traceback (most recent call last):
                         ^^^^^^^^^^^^^^^^^
 TypeError: ScreenshotWorker.__init__() missing 1 required positional argument: 'encryption_key'
 
+[20:46:16] STEP 1: Loading start URL...
+[20:46:16] FATAL STARTUP: driver.get failed: HTTPConnectionPool(host='localhost', port=36075): Max retries exceeded with url: /session/69f9ef58ace4904d08e25b3861da489c/url (Caused by NewConnectionError("HTTPConnection(host='localhost', port=36075): Failed to establish a new connection: [Errno 111] Connection refused"))
