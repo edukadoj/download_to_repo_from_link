@@ -14,3 +14,11 @@
 [17:50:22] STEP 4: Taking first screenshot
 [17:50:22] STEP 5: First screenshot saved – pushing logs
 [17:50:22] STEP 6: refresh_known_handles()
+[17:50:22] New autonomous report: AUT-1-1779126622 -> New tab/window handle: 2298D6DE2ED1BC994AE2EA724E33893D
+[17:50:22] STEP 7: Set last known URL
+[17:50:22] STEP 8: Start URL monitor
+[17:50:22] STEP 9: URL monitor started
+[17:50:23] Screenshot worker started.
+[17:50:23] Fetcher loop started.
+[17:50:23] Execution loop started.
+[17:50:23] Sender loop started.
