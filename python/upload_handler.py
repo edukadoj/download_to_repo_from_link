@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# upload_handler.py – Version 2.0.8 (safe git_push_with_retry, no rename)
+# upload_handler.py – Version 2.0.8
 # ==============================================================================
+# Handles reassembly of chunked files and injection into the browser’s file
+# chooser dialog for upload.
+#
+# Role in the communication system:
+#   - Called by the executor when an “upload” command is received.
+#   - Pulls the latest chunks from the repository via git pull, reassembles
+#     them into the download directory, and refreshes the file registry.
+#   - Auto‑selects the newly assembled files so they are ready for upload.
+#   - Optionally triggers a CDP‑based injection into a pending file dialog.
+#   - The git_push_with_retry callback is safely handled (if None, the upload
+#     still succeeds locally).
+# ==============================================================================
+
 import os, re, shutil, tempfile, time, json, threading, subprocess
 from urllib.request import urlopen, Request
 from uploader import reassemble_flat
