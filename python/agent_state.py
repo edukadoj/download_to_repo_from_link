@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.6.0
-#   - Real viewport size detection (window.innerWidth/innerHeight).
-#   - All coordinate clamping now uses the detected size.
-#   - move_cursor_absolute returns a bool signalling success.
+# agent_state.py – Version 2.6.1
+#   - ensure_active_tab now automatically updates viewport dimensions after
+#     switching tabs or setting the window size, guaranteeing that W and H
+#     always reflect the real browser viewport.
 #   - Fixed 'set' object is not subscriptable in refresh_known_handles.
 # ==============================================================================
 
@@ -22,7 +22,7 @@ def log(msg: str) -> None:
 
 # ---------- Global driver & viewport ----------
 driver = None
-W, H = 1920, 1080          # default; will be overwritten by update_viewport()
+W, H = 1920, 1080          # default; overwritten by update_viewport()
 cursor_x, cursor_y = 0, 0
 
 # Thread‑safety lock – set by main script to a common lock
@@ -42,8 +42,7 @@ ACTIVE_TAB_INDEX = 1
 def update_viewport():
     """
     Read the actual viewport size from the browser and update W, H.
-    Should be called once after the initial page load and whenever a new tab
-    might have a different size.
+    Should be called after a page load or tab switch.
     """
     global W, H
     if driver is None:
@@ -68,7 +67,7 @@ def ensure_active_tab():
         return
     try:
         with driver_lock:
-            handles = list(driver.window_handles)
+            handles = list(driver.window_handles)   # convert to list immediately
             if not handles:
                 return
             idx = ACTIVE_TAB_INDEX - 1
@@ -86,6 +85,8 @@ def ensure_active_tab():
                         driver.set_window_size(W, H)
                     except Exception:
                         pass
+            # After possibly switching window, update the viewport size
+            update_viewport()
     except (WebDriverException, InvalidSessionIdException) as e:
         log(f"ensure_active_tab driver error: {e}")
     except Exception as e:
@@ -205,12 +206,12 @@ def _try_gemini_click(prompt: str) -> bool:
         log(f"Gemini click error: {e}")
         return False
 
-# ── move_cursor_absolute – now returns bool ─────────────────
+# ── move_cursor_absolute – returns bool ─────────────────
 def move_cursor_absolute(x: int, y: int) -> bool:
     """
     Move the cursor to (x, y), clamped to the current viewport.
     Returns True if the driver operation succeeded, False otherwise.
-    On success, the global cursor_x/cursor_y are updated.
+    On success, global cursor_x/cursor_y are updated.
     """
     ensure_active_tab()
     global cursor_x, cursor_y
@@ -587,7 +588,7 @@ def refresh_known_handles():
     global _known_handles
     try:
         with driver_lock:
-            handles = list(driver.window_handles)   # <-- convert to list first
+            handles = list(driver.window_handles)   # convert to list immediately
             new_handles = set(handles) - _known_handles
             for h in new_handles:
                 add_autonomous_report("tabopened", f"New tab/window handle: {h}")
