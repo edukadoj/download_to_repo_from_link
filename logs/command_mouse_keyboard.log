@@ -132,3 +132,6 @@
 [00:55:33] Screenshot worker error: 'RepoWrapper' object has no attribute 'push_screenshots_now'
 [00:55:35] Agent alive
 [00:55:35] New autonomous report: AUT-5-1779065735 -> Available memory: 14554 MB
+[00:55:38] Taking screenshot: screenshots/031_005538_auto.png
+[00:55:38] Pushing screenshot to repo (synchronous)...
+[00:55:38] Screenshot worker error: 'RepoWrapper' object has no attribute 'push_screenshots_now'
