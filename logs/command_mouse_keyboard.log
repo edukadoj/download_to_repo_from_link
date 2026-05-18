@@ -1,0 +1,16 @@
+============================================================
+  Remote Control v39.33.0 started at 2026-05-18 19:38:36 UTC
+============================================================
+[19:38:37] Virtual display started.
+[19:38:37] ♻️  Reassembling profile cache chunks …
+[19:38:37]    Reassembled: profile_6z9ali32.dat (127126628 bytes)
+[19:38:38] Profile cache loaded successfully.
+[19:38:41] Stealth JS injected.
+[19:38:41] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[19:38:41] Browser launched.
+[19:38:41] STEP 1: Loading start URL...
+[19:38:43] STEP 2: Start URL loaded – sleeping 5s
+[19:38:48] STEP 3: Scrolling to top
+[19:38:48] STEP 4: Taking first screenshot
+[19:38:48] STEP 5: First screenshot saved – pushing logs
+[19:38:48] STEP 6: refresh_known_handles()
