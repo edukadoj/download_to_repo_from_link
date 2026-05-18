@@ -16,3 +16,8 @@
 [01:32:07] FATAL STARTUP: first screenshot failed: Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
 [01:32:07] Attempting browser restart...
 [01:32:07] RepoWrapper slow error (push_log_file): Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
+[01:32:09] Pushed screenshots/003_013206_auto.png + log
+[01:32:10] Browser restarted and navigated to START_URL.
+[01:32:11] New autonomous report: AUT-1-1779067931 -> Browser was restarted after a crash.
+[01:32:11] STEP 5: First screenshot saved – pushing logs
+[01:32:11] STEP 6: refresh_known_handles()
