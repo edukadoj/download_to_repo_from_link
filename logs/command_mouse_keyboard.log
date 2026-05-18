@@ -68,3 +68,5 @@
 [01:09:46] Pushed screenshots/010_010943_auto.png + log
 [01:09:48] Taking screenshot: screenshots/011_010948_auto.png
 [01:09:48] Pushing screenshot to repo (synchronous)...
+[01:09:53] Screenshot worker error: Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
+[01:09:53] RepoWrapper slow error (push_log_file): Command '['git', 'commit', '-m', 'Log update']' returned non-zero exit status 128.
