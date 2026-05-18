@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.31.0
+# command_mouse_keyboard.py – Version 39.32.0
 # ==============================================================================
 # Agent main script that runs inside GitHub Actions.
 # Implements the communication logic with four independent loops:
@@ -9,22 +9,17 @@
 #    content, routes commands to Report Queue (if already executed) or
 #    Execution Queue (if new).  Also handles acknowledgment commands.
 # 2. Execution Loop        – takes commands from the Execution Queue,
-#    executes them (with a 15‑second timeout), saves the result to
-#    Report History (disk) and enqueues it into the Report Queue.
+#    executes them (with a 15‑second timeout for most, extended for save/upload),
+#    saves the result to Report History (disk) and enqueues it into the Report Queue.
+#    Save and upload commands are serialised to prevent concurrent runs.
 # 3. Comment Sender Loop   – periodically publishes the Report Queue to the
 #    Remote Agent Responses comment.  Culls timed‑out reports, removes
 #    command reports after successful publish, keeps autonomous reports
 #    until acknowledged or timed out.
-# 4. Screenshot Loop       – continuously captures the virtual display,
-#    draws a red crosshair, adds a human‑readable timestamp watermark
-#    (50 % opacity), and pushes the image to the repository.  Push has
-#    a 10‑second timeout; the loop waits for success or timeout before
-#    taking the next screenshot.  After every attempt the log file is
-#    pushed immediately to help diagnose problems.
+# 4. Screenshot Loop       – (moved to screenshot_manager.py)
 #
-# All loops are crash‑proof – unhandled exceptions are logged and the loop
-# continues.  The main process also logs any fatal exception and forces a
-# log push before terminating.
+# All loops are crash‑proof.  The main process logs any fatal exception and
+# forces a log push before terminating.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -34,7 +29,6 @@ from cryptography.fernet import Fernet
 from selenium import webdriver
 from selenium.common.exceptions import WebDriverException, InvalidSessionIdException
 from selenium.webdriver.chrome.options import Options
-from PIL import Image, ImageDraw, ImageFont
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 import queue as queue_module
 
@@ -43,6 +37,7 @@ from comments import find_marker_comment
 from uploader import reassemble_flat
 from command_handlers import execute_one_command
 from repo_wrapper import RepoWrapper
+from screenshot_manager import ScreenshotWorker
 
 from agent_state import (
     driver as state_driver, W as state_W, H as state_H,
@@ -110,7 +105,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.31.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.32.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -351,158 +346,6 @@ def heartbeat_worker():
 _heartbeat_stop = threading.Event()
 threading.Thread(target=heartbeat_worker, daemon=True).start()
 
-# ---------- Screenshot logic ----------
-counter = [0]
-# Try to load a reasonable font for the watermark
-watermark_font = None
-font_candidates = [
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-    "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-]
-for path in font_candidates:
-    if os.path.exists(path):
-        try:
-            watermark_font = ImageFont.truetype(path, 32)
-            safe_log(f"Watermark font loaded: {path}")
-            break
-        except Exception:
-            pass
-if watermark_font is None:
-    try:
-        watermark_font = ImageFont.load_default()
-        safe_log("Using PIL default font (watermark may be tiny).")
-    except Exception:
-        safe_log("No font available, watermark disabled.")
-
-def ss(desc="screenshot", push=True):
-    """
-    Take a screenshot, overlay cursor and timestamp, and push to repo.
-    Returns the filename if successful, None otherwise.
-    """
-    counter[0] += 1
-    now = datetime.now()
-    ms = now.microsecond // 1000
-    timestamp_str = now.strftime("%H:%M:%S") + f".{ms:03d}"
-    filename = f"screenshots/{counter[0]:04d}_{now.strftime('%H%M%S')}_{ms:03d}_{desc}.png"
-    safe_log(f"Taking screenshot: {filename}")
-    try:
-        with driver_lock:
-            driver.save_screenshot(filename)
-        if not os.path.exists(filename):
-            safe_log(f"Screenshot file not created: {filename}")
-            return None
-        img = Image.open(filename).convert("RGBA")
-        draw = ImageDraw.Draw(img)
-        x, y = agent_state.cursor_x if agent_state else 960, agent_state.cursor_y if agent_state else 540
-        r = 12
-        draw.ellipse([(x-r,y-r),(x+r,y+r)], outline='red', width=3)
-        draw.line([(x-15,y),(x+15,y)], fill='red', width=3)
-        draw.line([(x,y-15),(x,y+15)], fill='red', width=3)
-        # watermark at 50% opacity
-        if watermark_font:
-            overlay = Image.new('RGBA', img.size, (0,0,0,0))
-            overlay_draw = ImageDraw.Draw(overlay)
-            text_bbox = overlay_draw.textbbox((0,0), timestamp_str, font=watermark_font)
-            text_pos = (img.width - text_bbox[2] - 20, img.height - text_bbox[3] - 20)
-            overlay_draw.text(text_pos, timestamp_str, font=watermark_font, fill=(255,255,255,128))
-            img = Image.alpha_composite(img, overlay)
-        img.save(filename)
-    except BaseException as e:
-        safe_log(f"Screenshot image processing error: {e}")
-        return None
-    if not push:
-        return filename
-    safe_log("Enqueuing screenshot for push...")
-    sync_repo.push_screenshots([filename])
-    safe_log(f"Enqueued {filename} + log")
-    return filename
-
-# ---------- Screenshot worker ----------
-_screenshot_stop = threading.Event()
-_screenshot_thread = None
-
-def screenshot_worker():
-    """
-    Continuously take screenshots, push them with a 10‑second timeout,
-    and push the log file after every attempt.  Never dies.
-    """
-    while not _screenshot_stop.is_set():
-        try:
-            _screenshot_stop.wait(2)
-            while not _screenshot_stop.is_set():
-                start = time.time()
-                filename = ss("auto", push=False)
-                if filename is None:
-                    safe_log("Screenshot capture failed – will retry after interval.")
-                    push_logs()
-                    _screenshot_stop.wait(max(0, COMM_INTERVAL * slow_mode - (time.time() - start)))
-                    continue
-
-                safe_log(f"Pushing screenshot {filename} with 10s timeout...")
-                push_ok = False
-                try:
-                    push_ok = sync_repo.push_screenshots_now([filename], timeout=10)
-                except Exception as e:
-                    safe_log(f"Screenshot push exception: {e}")
-                    push_ok = False
-
-                if push_ok:
-                    safe_log(f"Screenshot {filename} pushed successfully.")
-                else:
-                    safe_log(f"Screenshot push failed or timed out for {filename}.")
-
-                push_logs()  # always push logs after a screenshot attempt
-
-                elapsed = time.time() - start
-                _screenshot_stop.wait(max(0, COMM_INTERVAL * slow_mode - elapsed))
-        except BaseException as outer_e:
-            safe_log(f"Screenshot worker crashed: {outer_e}\n{traceback.format_exc()}")
-            push_logs()
-            _screenshot_stop.wait(5)
-
-def start_screenshot_worker():
-    global _screenshot_thread
-    if _screenshot_thread and _screenshot_thread.is_alive():
-        return
-    _screenshot_stop.clear()
-    _screenshot_thread = threading.Thread(target=screenshot_worker, daemon=True)
-    _screenshot_thread.start()
-    safe_log("Screenshot worker started.")
-
-# ---------- Browser recovery ----------
-_calibration_in_progress = False
-
-def restart_browser():
-    global driver
-    safe_log("Attempting browser restart...")
-    if _calibration_in_progress:
-        safe_log("Calibration in progress – cancelling instead of restarting browser.")
-        add_autonomous_report("calibration_error", "Browser crashed during calibration – calibration cancelled.")
-        return False
-    try:
-        with driver_lock:
-            driver.quit()
-    except Exception:
-        pass
-    time.sleep(2)
-    for attempt in range(5):
-        try:
-            driver = create_driver()
-            if agent_state:
-                agent_state.driver = driver
-                agent_state.cursor_x = 960
-                agent_state.cursor_y = 540
-            driver.get(START_URL)
-            safe_log("Browser restarted and navigated to START_URL.")
-            add_autonomous_report("browser_restarted", "Browser was restarted after a crash.")
-            start_screenshot_worker()
-            return True
-        except Exception as e:
-            safe_log(f"Browser restart attempt {attempt+1} failed: {e}")
-            time.sleep(5)
-    return False
-
 # ---------- Report History ----------
 HISTORY_FILE = "logs/report_history.json"
 _report_history_lock = threading.Lock()
@@ -560,10 +403,15 @@ def cull_timed_out_reports(timeout_seconds=60):
 # ---------- Execution Queue ----------
 execution_queue = queue_module.Queue()
 
+# ---------- Serialisation locks for long commands ----------
+save_lock = threading.Lock()
+upload_lock = threading.Lock()
+
 # ---------- Thread stop events ----------
 _fetcher_stop = threading.Event()
 _executor_stop = threading.Event()
 _sender_stop = threading.Event()
+_screenshot_stop = threading.Event()
 
 # ---------- Fetcher Loop ----------
 def fetcher_loop():
@@ -658,49 +506,69 @@ def executor_loop():
 
         safe_log(f"Execution loop: processing {cid}: {ctext}")
 
+        # Determine command type for timeout and locking
+        cmd_type, _ = parse_single_command(ctext)
+        is_save = (cmd_type == "save")
+        is_upload = (cmd_type == "upload" or cmd_type == "uploadtoyoutube")  # uploadtoyoutube also heavy? we can treat like upload
+
+        # Timeout: 15s normally, 120s for save/upload
+        timeout = 120 if (is_save or is_upload) else 15
+
         def run_command():
-            cmd_type, arg = parse_single_command(ctext)
-            return execute_one_command(
-                cmd_type, arg,
-                driver=driver, cursor_x=agent_state.cursor_x, cursor_y=agent_state.cursor_y,
-                W=agent_state.W, H=agent_state.H, DOWNLOAD_DIR=DOWNLOAD_DIR, LOG_FILENAME=LOG_FILENAME,
-                KEY_SECRET=KEY_SECRET, REPO=REPO, ISSUE_NUMBER=ISSUE_NUMBER,
-                HAS_GEMINI=HAS_GEMINI, HAS_PYPERCLIP=HAS_PYPERCLIP,
-                allowed_secrets=allowed_secrets, ENCRYPTION_KEY=ENCRYPTION_KEY,
-                human_click_callable=human_click, human_click_at_callable=human_click_at,
-                _try_gemini_click=_try_gemini_click,
-                move_cursor_absolute=move_cursor_absolute,
-                move_cursor_relative=move_cursor_relative,
-                left_click=left_click, left_button_down=left_button_down,
-                left_button_up=left_button_up, right_button_down=right_button_down,
-                right_button_up=right_button_up, middle_button_down=middle_button_down,
-                middle_button_up=middle_button_up, double_click=double_click,
-                right_click=right_click, middle_click=middle_click,
-                scroll_by=scroll_by, drag_from_to=drag_from_to,
-                press_key=press_key, press_combo=press_combo,
-                type_secret=type_secret, decode_string=decode_string,
-                ss=ss, refresh_file_registry=refresh_file_registry,
-                add_autonomous_report=add_autonomous_report,
-                refresh_known_handles=refresh_known_handles,
-                get_upload_paths=get_upload_paths, save_profile=save_profile,
-                _file_registry=_file_registry, _upload_file_paths=_upload_file_paths,
-                pyperclip=pyperclip if HAS_PYPERCLIP else None,
-                upload_reassemble=None,
-                HAS_PYPERCLIP_local=HAS_PYPERCLIP,
-                encrypt_string=encrypt_string,
-                get_all_comments=lambda: sync_repo.get_all_comments(),
-                delete_comment=lambda cid: sync_repo.delete_comment(cid),
-                issue_comment=lambda body: sync_repo.create_comment(body),
-                smart_edit_comment=lambda cid, body: sync_repo.edit_comment(cid, body),
-                git_push_with_retry=(lambda: sync_repo._rw._git_push_with_retry()),
-                comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
-            )
+            # Acquire serialisation locks for save/upload to prevent concurrent runs
+            if is_save:
+                save_lock.acquire()
+            elif is_upload:
+                upload_lock.acquire()
+            try:
+                cmd_type_final, arg = parse_single_command(ctext)
+                return execute_one_command(
+                    cmd_type_final, arg,
+                    driver=driver, cursor_x=agent_state.cursor_x, cursor_y=agent_state.cursor_y,
+                    W=agent_state.W, H=agent_state.H, DOWNLOAD_DIR=DOWNLOAD_DIR, LOG_FILENAME=LOG_FILENAME,
+                    KEY_SECRET=KEY_SECRET, REPO=REPO, ISSUE_NUMBER=ISSUE_NUMBER,
+                    HAS_GEMINI=HAS_GEMINI, HAS_PYPERCLIP=HAS_PYPERCLIP,
+                    allowed_secrets=allowed_secrets, ENCRYPTION_KEY=ENCRYPTION_KEY,
+                    human_click_callable=human_click, human_click_at_callable=human_click_at,
+                    _try_gemini_click=_try_gemini_click,
+                    move_cursor_absolute=move_cursor_absolute,
+                    move_cursor_relative=move_cursor_relative,
+                    left_click=left_click, left_button_down=left_button_down,
+                    left_button_up=left_button_up, right_button_down=right_button_down,
+                    right_button_up=right_button_up, middle_button_down=middle_button_down,
+                    middle_button_up=middle_button_up, double_click=double_click,
+                    right_click=right_click, middle_click=middle_click,
+                    scroll_by=scroll_by, drag_from_to=drag_from_to,
+                    press_key=press_key, press_combo=press_combo,
+                    type_secret=type_secret, decode_string=decode_string,
+                    ss=None,   # screenshot function removed from here
+                    refresh_file_registry=refresh_file_registry,
+                    add_autonomous_report=add_autonomous_report,
+                    refresh_known_handles=refresh_known_handles,
+                    get_upload_paths=get_upload_paths, save_profile=save_profile,
+                    _file_registry=_file_registry, _upload_file_paths=_upload_file_paths,
+                    pyperclip=pyperclip if HAS_PYPERCLIP else None,
+                    upload_reassemble=None,
+                    HAS_PYPERCLIP_local=HAS_PYPERCLIP,
+                    encrypt_string=encrypt_string,
+                    get_all_comments=lambda: sync_repo.get_all_comments(),
+                    delete_comment=lambda cid: sync_repo.delete_comment(cid),
+                    issue_comment=lambda body: sync_repo.create_comment(body),
+                    smart_edit_comment=lambda cid, body: sync_repo.edit_comment(cid, body),
+                    git_push_with_retry=(lambda: sync_repo._rw._git_push_with_retry()),
+                    comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
+                )
+            finally:
+                if is_save:
+                    save_lock.release()
+                if is_upload:
+                    upload_lock.release()
 
         try:
             future = executor_pool.submit(run_command)
-            result = future.result(timeout=15)
+            result = future.result(timeout=timeout)
         except FutureTimeoutError:
-            result = "ERR timeout: command exceeded 15 seconds"
+            result = f"ERR timeout: command exceeded {timeout} seconds"
             safe_log(f"Command {cid} timed out.")
         except Exception as ex:
             result = f"ERR unexpected: {ex}"
@@ -812,7 +680,9 @@ def main():
         safe_log(f"Warning: scrollTo failed: {e}")
     safe_log("STEP 4: Taking first screenshot")
     try:
-        ss("01_start_page", push=True)
+        # Use screenshot_manager's worker only after start, but we can do one manual shot
+        # We'll just start the worker and let it take the first auto shot.
+        pass
     except Exception as e:
         safe_log(f"Warning: first screenshot push failed: {e}")
     push_logs()
@@ -845,7 +715,14 @@ def main():
     fetcher_thread = threading.Thread(target=fetcher_loop, daemon=True)
     executor_thread = threading.Thread(target=executor_loop, daemon=True)
     sender_thread = threading.Thread(target=sender_loop, daemon=True)
-    start_screenshot_worker()
+
+    # Start screenshot worker (using the new module)
+    screenshot_worker = ScreenshotWorker(
+        _screenshot_stop, driver, driver_lock, agent_state,
+        sync_repo, safe_log, push_logs,
+        lambda: COMM_INTERVAL, lambda: slow_mode
+    )
+    screenshot_worker.start()
 
     fetcher_thread.start()
     executor_thread.start()
