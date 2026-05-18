@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.28.1
-#   - Uses queued screenshot push (via sync_repo.push_screenshots) to avoid
-#     blocking the screenshot worker thread.
-#   - Startup no longer restarts the browser on a failed first screenshot.
-#   - Ensure_active_tab() removed from ss() to avoid interfering with cursor.
+# command_mouse_keyboard.py – Version 39.28.2
+#   - Response publishing moved to a background timer (COMM_INTERVAL).
+#   - Autonomous reports are kept alive across publishes, only culled after 60s.
+#   - Main loop sleeps a little after each poll to avoid busy‑waiting.
+#   - git_push_with_retry passed correctly (connected to repo_wrapper).
+#   - All shared report lists protected by a lock.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -90,7 +91,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.28.1 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.28.2 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -335,7 +336,6 @@ def ss(desc="screenshot", push=True, response_suffix=""):
     fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
     safe_log(f"Taking screenshot: {fname}")
     try:
-        # ensure_active_tab() REMOVED – it interferes with cursor movements
         driver.save_screenshot(fname)
         img = Image.open(fname); draw = ImageDraw.Draw(img)
         x, y = agent_state.cursor_x if agent_state else 960, agent_state.cursor_y if agent_state else 540
@@ -348,7 +348,6 @@ def ss(desc="screenshot", push=True, response_suffix=""):
         safe_log(f"Screenshot image processing error: {e}")
     if not push: return fname
 
-    # Use QUEUED push – does not block the screenshot worker
     safe_log("Enqueuing screenshot for push...")
     sync_repo.push_screenshots([fname])
     safe_log(f"Enqueued {fname} + log")
@@ -425,9 +424,73 @@ def restart_browser():
             time.sleep(5)
     return False
 
+# ---------- Main loop data structures ----------
+# Locks for thread safety
+_reports_lock = threading.Lock()
+unsent_reports = []          # list of (timestamp, seq_num, result)
+executed_cache = {}          # cmd_id -> (timestamp, seq_num, result)
+
+# ---------- Background report publisher ----------
+_report_publisher_stop = threading.Event()
+
+def report_publisher_worker():
+    """Publish unsent reports + autonomous reports every COMM_INTERVAL seconds."""
+    while not _report_publisher_stop.is_set():
+        _report_publisher_stop.wait(COMM_INTERVAL * slow_mode)
+        if _report_publisher_stop.is_set():
+            break
+        try:
+            publish_reports()
+        except Exception as e:
+            safe_log(f"Report publisher error: {e}")
+
+def publish_reports():
+    global response_comment_id
+    with _reports_lock:
+        # Copy and clear unsent reports
+        reports_to_send = unsent_reports.copy()
+        unsent_reports.clear()
+        # Cull expired autonomous reports (removes those older than 60s)
+        cull_expired_autonomous_reports()
+        # Copy remaining autonomous reports (they stay in the list for future publishes)
+        auto_reports = pending_autonomous_reports.copy()
+        # Do NOT clear pending_autonomous_reports – they will be culled automatically
+
+    if not reports_to_send and not auto_reports:
+        return  # nothing to publish
+
+    lines = ["## Remote Agent Responses"]
+    for ts, seq, result in reports_to_send:
+        lines.append(f"[{ts}]: response to command number [{seq}]: {result}")
+    for r in auto_reports:
+        lines.append(f"{r['id']}; {r['text']}")
+
+    body = "\n".join(lines)
+
+    try:
+        if not sync_repo.comment_exists(response_comment_id):
+            for _ in range(3):
+                try:
+                    new_id = sync_repo.create_comment(body)
+                    safe_log(f"Created new response comment: {new_id}")
+                    response_comment_id = new_id
+                    add_autonomous_report("responsecommentid", f"responsecommentid:{new_id}")
+                    push_logs()
+                    return
+                except Exception:
+                    time.sleep(2)
+            return
+        sync_repo.edit_comment(response_comment_id, body)
+        push_logs()
+    except Exception as e:
+        safe_log(f"Error publishing reports: {e}")
+
+# Start the publisher thread after response_comment_id is obtained
+report_publisher_thread = None
+
 # ---------- Main loop ----------
 def main():
-    global slow_mode, last_command_time, _calibration_in_progress
+    global slow_mode, last_command_time, response_comment_id, report_publisher_thread
 
     safe_log("STEP 1: Loading start URL...")
     try:
@@ -448,9 +511,7 @@ def main():
     try:
         ss("01_start_page", push=True)
     except Exception as e:
-        # Do NOT restart the browser – just log the error and continue.
-        safe_log(f"Warning: first screenshot push failed (log push may be delayed): {e}")
-        # The screenshot file was still saved; the queue will retry the push.
+        safe_log(f"Warning: first screenshot push failed: {e}")
     safe_log("STEP 5: First screenshot saved – pushing logs")
     push_logs()
     safe_log("STEP 6: refresh_known_handles()")
@@ -521,41 +582,15 @@ def main():
     safe_log("STEP 15: Entering main command loop...")
     push_logs()
 
-    executed_cache = {}
-    unsent_reports = []
+    # Start the background report publisher now that response_comment_id is set
+    report_publisher_thread = threading.Thread(target=report_publisher_worker, daemon=True)
+    report_publisher_thread.start()
 
-    def publish_reports(comment_id):
-        nonlocal response_comment_id
-        cull_expired_autonomous_reports()
-        lines = ["## Remote Agent Responses"]
-        for ts, seq, result in unsent_reports:
-            lines.append(f"[{ts}]: response to command number [{seq}]: {result}")
-        for r in pending_autonomous_reports:
-            lines.append(f"{r['id']}; {r['text']}")
-        body = "\n".join(lines)
-        pending_autonomous_reports.clear()
-        try:
-            if not sync_repo.comment_exists(comment_id):
-                for _ in range(3):
-                    try:
-                        new_id = sync_repo.create_comment(body)
-                        safe_log(f"Created new response comment: {new_id}")
-                        response_comment_id = new_id
-                        add_autonomous_report("responsecommentid", f"responsecommentid:{new_id}")
-                        unsent_reports.clear()
-                        push_logs()
-                        return new_id
-                    except Exception:
-                        time.sleep(2)
-                return comment_id
-            sync_repo.edit_comment(comment_id, body)
-            unsent_reports.clear()
-            push_logs()
-            return comment_id
-        except Exception as e:
-            safe_log(f"Error publishing reports: {e}")
-            return comment_id
+    # Define a real git_push_with_retry function (connects to RepoWrapper)
+    def git_push_with_retry():
+        return sync_repo._rw._git_push_with_retry()
 
+    # Main command loop
     while True:
         if time.time() - last_command_time > 120:
             slow_mode = 15
@@ -621,8 +656,9 @@ def main():
                             new_cmds.append((cid, ctext, line_idx))
 
             for cid, ctext, line_num in new_cmds:
-                if cid in executed_cache:
-                    continue
+                with _reports_lock:
+                    if cid in executed_cache:
+                        continue
 
                 safe_log(f"Executing [{cid}] from line {line_num}: {ctext}")
 
@@ -659,7 +695,7 @@ def main():
                     delete_comment=lambda cid: sync_repo.delete_comment(cid),
                     issue_comment=lambda body: sync_repo.create_comment(body),
                     smart_edit_comment=lambda cid, body: sync_repo.edit_comment(cid, body),
-                    git_push_with_retry=None,
+                    git_push_with_retry=git_push_with_retry,
                     comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
                 )
                 ts = int(time.time() * 1_000_000)
@@ -671,31 +707,37 @@ def main():
                             seq_num = int(parts_cid[1])
                         except ValueError:
                             pass
-                executed_cache[cid] = (ts, seq_num, result)
-                unsent_reports.append((ts, seq_num, result))
+
+                with _reports_lock:
+                    executed_cache[cid] = (ts, seq_num, result)
+                    unsent_reports.append((ts, seq_num, result))
+
                 last_command_time = time.time()
                 safe_log(f"Executed: {cid} → {result}")
                 push_logs()
 
                 if cmd_type == "exit":
-                    response_comment_id = publish_reports(response_comment_id)
+                    # Publish immediately before exiting
+                    publish_reports()
                     safe_log("Exit command received – saving profile cache...")
                     ok, msg = save_profile()
                     safe_log(f"Profile save: {msg}")
                     time.sleep(1)
-                    response_comment_id = publish_reports(response_comment_id)
+                    publish_reports()  # final flush
                     ss("final", push=True)
                     _screenshot_stop.set()
                     _url_monitor_stop.set()
                     _log_pusher_stop.set()
                     _heartbeat_stop.set()
+                    _report_publisher_stop.set()
                     driver.quit()
                     display.stop()
                     push_logs()
                     echo("\n🎉 Remote session ended.")
                     sys.exit(0)
 
-            response_comment_id = publish_reports(response_comment_id)
+            # After processing all new commands, sleep briefly to avoid tight loop
+            time.sleep(0.1)
 
         except KeyboardInterrupt:
             raise
@@ -727,6 +769,7 @@ if __name__ == "__main__":
             _url_monitor_stop.set()
             _log_pusher_stop.set()
             _heartbeat_stop.set()
+            _report_publisher_stop.set()
             ok, msg = save_profile()
             safe_log(f"Final profile save: {msg}")
             push_logs()
@@ -734,5 +777,6 @@ if __name__ == "__main__":
             _url_monitor_stop.clear()
             _log_pusher_stop.clear()
             _heartbeat_stop.clear()
+            _report_publisher_stop.clear()
             threading.Thread(target=log_pusher, daemon=True).start()
             threading.Thread(target=heartbeat_worker, daemon=True).start()
