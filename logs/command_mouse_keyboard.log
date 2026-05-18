@@ -518,3 +518,6 @@
 [10:52:03] Executing [APP-51924-20260518105048] from line 4: dir
 [10:52:03] Executed: APP-51924-20260518105048 → Files: (empty)
 [10:52:04] Agent alive
+[10:52:06] Taking screenshot: screenshots/156_105206_auto.png
+[10:52:06] Enqueuing screenshot for push...
+[10:52:06] Enqueued screenshots/156_105206_auto.png + log
