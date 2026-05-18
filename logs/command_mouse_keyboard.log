@@ -70,3 +70,6 @@
 [12:00:25] New autonomous report: AUT-3-1779105625 -> navigate(https://www.google.com/?zx=1779105625530)
 [12:00:26] New autonomous report: AUT-4-1779105626 -> navigate(https://www.google.com/?zx=1779105625530)
 [12:00:26] Executed: APP-51996-20260518115908 → OK navigate(https://www.google.com/?zx=1779105625530)
+[12:00:29] Taking screenshot: screenshots/018_120029_auto.png
+[12:00:29] Enqueuing screenshot for push...
+[12:00:29] Enqueued screenshots/018_120029_auto.png + log
