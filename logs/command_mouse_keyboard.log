@@ -1166,3 +1166,5 @@ Stacktrace:
 [18:04:13] Sender published response comment.
 [18:04:14] Agent alive
 [18:04:19] Screenshot screenshots/0157_180409_422_auto.png pushed successfully.
+[18:04:19] Taking screenshot: screenshots/0158_180419_486_auto.png
+[18:04:20] Pushing screenshot screenshots/0158_180419_486_auto.png with 10s timeout...
