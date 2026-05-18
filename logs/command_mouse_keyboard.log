@@ -1101,3 +1101,7 @@ Stacktrace:
 [18:02:36] Screenshot push failed or timed out for screenshots/0143_180226_442_auto.png.
 [18:02:36] Taking screenshot: screenshots/0144_180236_663_auto.png
 [18:02:36] Pushing screenshot screenshots/0144_180236_663_auto.png with 10s timeout...
+[18:02:37] Fetcher detected new App Commands comment.
+[18:02:37] Enqueued for execution: APP-52079-20260518180112
+[18:02:43] Screenshot screenshots/0144_180236_663_auto.png pushed successfully.
+[18:02:43] Taking screenshot: screenshots/0145_180243_274_auto.png
