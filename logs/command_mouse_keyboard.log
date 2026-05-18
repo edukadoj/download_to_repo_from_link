@@ -192,3 +192,5 @@
 [17:54:10] Execution loop: processing APP-52060-20260518175256: dir
 [17:54:10] Executed APP-52060-20260518175256 -> Files: (empty)
 [17:54:12] Screenshot screenshots/0045_175408_716_auto.png pushed successfully.
+[17:54:13] Taking screenshot: screenshots/0046_175413_716_auto.png
+[17:54:13] Pushing screenshot screenshots/0046_175413_716_auto.png with 10s timeout...
