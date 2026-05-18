@@ -143,3 +143,6 @@ Stacktrace:
 [22:42:21] Screenshot screenshots/0019_224219_585_auto.png pushed successfully.
 [22:42:24] Taking screenshot: screenshots/0020_224224_586_auto.png
 [22:42:24] Pushing screenshot screenshots/0020_224224_586_auto.png with 10s timeout...
+[22:42:28] Fetcher error reading app cmd body: RepoWrapper call timed out after 30s
+[22:42:29] Screenshot screenshots/0020_224224_586_auto.png pushed successfully.
+[22:42:29] Taking screenshot: screenshots/0021_224229_700_auto.png
