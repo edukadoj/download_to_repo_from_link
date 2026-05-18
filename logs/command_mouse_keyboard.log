@@ -126,3 +126,7 @@
 [12:01:29] Enqueued screenshots/030_120129_auto.png + log
 [12:01:30] Executing [APP-52001-20260518120014] from line 3: humanclick(933, 404)
 [12:01:30] Cursor moved to (933, 404)
+[12:01:31] Cursor moved to (933, 404)
+[12:01:31] Cursor moved to (931, 403)
+[12:01:31] Cursor moved to (930, 404)
+[12:01:31] Executed: APP-52001-20260518120014 → Human click at (933,404)
