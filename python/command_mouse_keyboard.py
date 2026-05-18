@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.33.3
-#   - The entire main() function is now wrapped in a catch‑all try/except
-#     that logs the traceback, pushes the log file, and then exits cleanly.
-#     This guarantees we always see why the agent died.
-#   - All other logic unchanged (viewport detection, screenshot encryption,
-#     four independent crash‑proof loops).
+# command_mouse_keyboard.py – Version 39.33.4
+#   - Reduced page_load_timeout to 5 seconds to prevent a single stuck
+#     driver call from blocking all subsequent commands.
+#   - Crash‑proof wrapper already present; no other changes.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -13,7 +11,7 @@ from datetime import datetime
 from pyvirtualdisplay import Display
 from cryptography.fernet import Fernet
 from selenium import webdriver
-from selenium.common.exceptions import WebDriverException, InvalidSessionIdException
+from selenium.common.exceptions import WebDriverException, InvalidSessionIdException, TimeoutException
 from selenium.webdriver.chrome.options import Options
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 import queue as queue_module
@@ -92,7 +90,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.33.3 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.33.4 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -261,7 +259,9 @@ def create_driver():
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
     opts.add_experimental_option('useAutomationExtension', False)
     drv = webdriver.Chrome(options=opts)
-    drv.set_page_load_timeout(30)
+    # ***** FIX: Short timeouts so a single stuck driver call cannot block the whole agent *****
+    drv.set_page_load_timeout(5)       # was 30
+    drv.set_script_timeout(5)          # new
     drv.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     drv.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]})")
     drv.execute_script("Object.defineProperty(navigator, 'languages', {get: () => ['en-US','en']})")
@@ -713,7 +713,7 @@ def main():
         safe_log(f"Warning: scrollTo failed: {e}")
     safe_log("STEP 4: Taking first screenshot")
     try:
-        pass  # The screenshot worker will take the first shot
+        pass
     except Exception as e:
         safe_log(f"Warning: first screenshot push failed: {e}")
     push_logs()
