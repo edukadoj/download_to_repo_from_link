@@ -28,3 +28,5 @@
 [01:53:44] STEP 10: Fetching comments via sync_repo.get_all_comments()
 [01:53:44] Taking screenshot: screenshots/003_015344_auto.png
 [01:53:49] Taking screenshot: screenshots/004_015349_auto.png
+[01:53:50] Enqueuing screenshot for push...
+[01:53:50] Enqueued screenshots/004_015349_auto.png + log
