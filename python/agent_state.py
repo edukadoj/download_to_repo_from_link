@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.6.2
-#   - Removed update_viewport() call from ensure_active_tab() to prevent
-#     driver deadlock during page loads or dialogs. Viewport detection now
-#     happens only at startup and after explicit navigation.
-#   - All other improvements (move return bool, 'set' indexing fix, etc.)
-#     remain intact.
+# agent_state.py – Version 2.7.0
+#   - Added probe_clickable_bounds() that safely discovers the maximum
+#     coordinates the browser will accept, then updates W, H and reports
+#     the values to the client via an autonomous report.
+#   - All other improvements retained (move return bool, set index fix,
+#     no blocking update_viewport in ensure_active_tab).
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -23,7 +23,7 @@ def log(msg: str) -> None:
 
 # ---------- Global driver & viewport ----------
 driver = None
-W, H = 1920, 1080          # default; overwritten by update_viewport()
+W, H = 1920, 1080          # default; overwritten by update_viewport() and probe
 cursor_x, cursor_y = 0, 0
 
 # Thread‑safety lock – set by main script to a common lock
@@ -42,10 +42,9 @@ ACTIVE_TAB_INDEX = 1
 
 def update_viewport():
     """
-    Read the actual viewport size from the browser and update W, H.
-    Should be called after a page load or tab switch.
-    This function must ONLY be called when the driver is idle (not during
-    page loads) to avoid blocking the command loop.
+    Read the CSS viewport size from the browser and update W, H.
+    This is an approximation; the real clickable area may be slightly
+    smaller and will be refined by probe_clickable_bounds().
     """
     global W, H
     if driver is None:
@@ -56,9 +55,69 @@ def update_viewport():
             h = driver.execute_script("return window.innerHeight;")
             if w and h:
                 W, H = int(w), int(h)
-                log(f"Viewport updated to {W}x{H}")
+                log(f"Viewport CSS size updated to {W}x{H}")
     except Exception as e:
         log(f"update_viewport error: {e}")
+
+
+def _try_raw_move(x: int, y: int) -> bool:
+    """
+    Attempt an absolute move to (x, y) without any coordinate clamping.
+    Returns True if the driver accepted the move, False otherwise.
+    """
+    try:
+        with driver_lock:
+            action = ActionBuilder(driver)
+            action.pointer_action.move_to_location(x, y)
+            action.perform()
+        return True
+    except (WebDriverException, InvalidSessionIdException):
+        return False
+    except Exception:
+        return False
+
+
+def probe_clickable_bounds():
+    """
+    Find the largest X and Y coordinates that the browser will accept
+    by probing from the current (W-5, H-5) downwards.  Only a few
+    attempts are needed because the unreachable border is tiny.
+    Updates W, H and sends an autonomous report 'viewsize:WxH'.
+    """
+    global W, H
+    if driver is None:
+        return
+
+    ensure_active_tab()          # make sure we are on the right tab
+    log("Probing clickable bounds...")
+
+    # ---- find max X ----
+    max_x = W - 5
+    while max_x > 0:
+        if _try_raw_move(max_x, 1):
+            break
+        max_x -= 1
+    if max_x == 0:
+        max_x = W - 5   # fallback, should never happen
+    log(f"Max clickable X = {max_x}")
+
+    # ---- find max Y ----
+    max_y = H - 5
+    while max_y > 0:
+        if _try_raw_move(1, max_y):
+            break
+        max_y -= 1
+    if max_y == 0:
+        max_y = H - 5
+    log(f"Max clickable Y = {max_y}")
+
+    # Update global dimensions
+    W, H = max_x, max_y
+    log(f"Clickable bounds set to {W}x{H}")
+
+    # Report to the client so it can update its calibration
+    add_autonomous_report("viewsize", f"viewsize:{W}x{H}")
+
 
 def ensure_active_tab():
     """
@@ -95,6 +154,7 @@ def ensure_active_tab():
         log(f"ensure_active_tab driver error: {e}")
     except Exception as e:
         log(f"ensure_active_tab unexpected error: {e}")
+
 
 # ---------- Improved drag‑and‑drop file injection ----------
 def drag_file_to_target(driver_ref, file_path, x, y):
@@ -210,15 +270,17 @@ def _try_gemini_click(prompt: str) -> bool:
         log(f"Gemini click error: {e}")
         return False
 
-# ── move_cursor_absolute – returns bool ─────────────────
+# ── move_cursor_absolute – returns bool, now uses safe W/H ─────────────────
 def move_cursor_absolute(x: int, y: int) -> bool:
     """
-    Move the cursor to (x, y), clamped to the current viewport.
+    Move the cursor to (x, y), clamped to the current clickable bounds.
     Returns True if the driver operation succeeded, False otherwise.
     On success, global cursor_x/cursor_y are updated.
     """
     ensure_active_tab()
     global cursor_x, cursor_y
+    # W and H are already the safe maxima from probe_clickable_bounds,
+    # so clamping to W-1 / H-1 will always succeed.
     x = max(0, min(W-1, x))
     y = max(0, min(H-1, y))
     try:
