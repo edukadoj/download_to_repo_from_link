@@ -1,24 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.5.0
-# ==============================================================================
-# This module holds all mutable state and low‑level browser interaction
-# functions for the remote‑control agent.
-#
-# Role in the communication system:
-#   - Provides a global driver object and viewport dimensions.
-#   - Stores the current cursor position.
-#   - Implements atomic movement, click, scroll, drag, and keyboard actions.
-#   - Contains the command parser (parse_single_command).
-#   - Manages the file registry and upload file selections.
-#   - Handles tab tracking and autonomous report generation.
-#     (Now reports the full tab list whenever a new handle is detected.)
-#   - Provides the human‑click helper with optional Gemini AI fallback.
-#
-# Every function that touches the driver uses a shared threading.Lock to
-# prevent concurrent access, and catches WebDriver exceptions so that no
-# thread ever dies because of a browser glitch.  If an operation fails, the
-# error is logged and the caller receives a safe fallback.
+# agent_state.py – Version 2.6.0
+#   - Real viewport size detection (window.innerWidth/innerHeight).
+#   - All coordinate clamping now uses the detected size.
+#   - move_cursor_absolute returns a bool signalling success.
+#   - Fixed 'set' object is not subscriptable in refresh_known_handles.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -36,7 +22,7 @@ def log(msg: str) -> None:
 
 # ---------- Global driver & viewport ----------
 driver = None
-W, H = 1920, 1080
+W, H = 1920, 1080          # default; will be overwritten by update_viewport()
 cursor_x, cursor_y = 0, 0
 
 # Thread‑safety lock – set by main script to a common lock
@@ -53,6 +39,25 @@ allowed_secrets = []
 # ---------- Active tab tracking (1‑based index) ----------
 ACTIVE_TAB_INDEX = 1
 
+def update_viewport():
+    """
+    Read the actual viewport size from the browser and update W, H.
+    Should be called once after the initial page load and whenever a new tab
+    might have a different size.
+    """
+    global W, H
+    if driver is None:
+        return
+    try:
+        with driver_lock:
+            w = driver.execute_script("return window.innerWidth;")
+            h = driver.execute_script("return window.innerHeight;")
+            if w and h:
+                W, H = int(w), int(h)
+                log(f"Viewport updated to {W}x{H}")
+    except Exception as e:
+        log(f"update_viewport error: {e}")
+
 def ensure_active_tab():
     """
     Make sure the browser is pointing to the expected tab.
@@ -63,7 +68,7 @@ def ensure_active_tab():
         return
     try:
         with driver_lock:
-            handles = driver.window_handles
+            handles = list(driver.window_handles)
             if not handles:
                 return
             idx = ACTIVE_TAB_INDEX - 1
@@ -200,8 +205,13 @@ def _try_gemini_click(prompt: str) -> bool:
         log(f"Gemini click error: {e}")
         return False
 
-# ── Original absolute move ─────────────────────────────────────
-def move_cursor_absolute(x: int, y: int) -> None:
+# ── move_cursor_absolute – now returns bool ─────────────────
+def move_cursor_absolute(x: int, y: int) -> bool:
+    """
+    Move the cursor to (x, y), clamped to the current viewport.
+    Returns True if the driver operation succeeded, False otherwise.
+    On success, the global cursor_x/cursor_y are updated.
+    """
     ensure_active_tab()
     global cursor_x, cursor_y
     x = max(0, min(W-1, x))
@@ -213,17 +223,20 @@ def move_cursor_absolute(x: int, y: int) -> None:
             action.perform()
         cursor_x, cursor_y = x, y
         log(f"Cursor moved to ({x}, {y})")
+        return True
     except (WebDriverException, InvalidSessionIdException) as e:
         log(f"move_cursor_absolute driver error: {e}")
+        return False
     except Exception as e:
         log(f"move_cursor_absolute unexpected error: {e}")
+        return False
 
-def move_cursor_relative(dx: int, dy: int) -> None:
+def move_cursor_relative(dx: int, dy: int) -> bool:
     ensure_active_tab()
     global cursor_x, cursor_y
     new_x = max(0, min(W-1, cursor_x + dx))
     new_y = max(0, min(H-1, cursor_y + dy))
-    move_cursor_absolute(new_x, new_y)
+    return move_cursor_absolute(new_x, new_y)
 
 # ── Other interaction functions ────────────────────
 def _driver_action(func, *args, **kwargs):
@@ -517,7 +530,6 @@ def parse_single_command(raw: str):
             val = float(lo.split(":",1)[1].strip())
             return ("setinterval", val)
         except: return ("key", raw)
-    # zoom command is handled directly in the executor loop, but parse it here for completeness
     if lo.startswith("zoom:"):
         return ("zoom", raw.split(":",1)[1].strip())
     return ("key", raw)
@@ -575,11 +587,11 @@ def refresh_known_handles():
     global _known_handles
     try:
         with driver_lock:
-            handles = set(driver.window_handles)
-            new_handles = handles - _known_handles
+            handles = list(driver.window_handles)   # <-- convert to list first
+            new_handles = set(handles) - _known_handles
             for h in new_handles:
                 add_autonomous_report("tabopened", f"New tab/window handle: {h}")
-            _known_handles = handles
+            _known_handles = set(handles)
 
             # Build a tab list string and report it
             tab_lines = []
