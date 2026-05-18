@@ -106,3 +106,6 @@
 [21:43:25] Taking screenshot: screenshots/0015_214325_239_auto.png
 [21:43:25] Pushing screenshot screenshots/0015_214325_239_auto.png with 10s timeout...
 [21:43:28] Screenshot screenshots/0015_214325_239_auto.png pushed successfully.
+[21:43:30] Command APP-52127-20260518214137 timed out.
+[21:43:30] Executed APP-52127-20260518214137 -> ERR timeout: command exceeded 15 seconds
+[21:43:30] Execution loop: processing APP-52127-20260518214137: humanclick(752, 715)
