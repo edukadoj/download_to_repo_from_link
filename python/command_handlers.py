@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_handlers.py – Version 1.16.0
-#   - Fixed move/click response coordinates to show the actual new cursor
-#     position (from agent_state) instead of the old one.
-#   - All GitHub operations (comment create/delete/edit, git push) now use
-#     the callables injected from the main loop, never the raw `gh` function.
+# command_handlers.py – Version 1.16.1
+#   - No functional changes.  The zoom command is handled by the executor
+#     loop itself; duplicate save/upload rejection is done in the fetcher
+#     loop.  All other handlers remain as before.
 # ==============================================================================
 import os, time, subprocess, glob, shutil, re, tempfile, random
 from uploader import reassemble
@@ -83,7 +82,6 @@ def execute_one_command(
     if cmd == "move":
         agent_state.ensure_active_tab()
         x, y = arg; move_cursor_absolute(x, y)
-        # Use actual updated coordinates
         result = f"OK move({agent_state.cursor_x},{agent_state.cursor_y})"
     elif cmd == "moveby":
         agent_state.ensure_active_tab()
