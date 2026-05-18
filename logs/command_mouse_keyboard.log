@@ -39,3 +39,8 @@
 [21:42:20] Taking screenshot: screenshots/0003_214220_599_auto.png
 [21:42:20] Pushing screenshot screenshots/0003_214220_599_auto.png with 10s timeout...
 [21:42:23] Screenshot screenshots/0003_214220_599_auto.png pushed successfully.
+[21:42:24] Command APP-52123-20260518211040 timed out.
+[21:42:24] Executed APP-52123-20260518211040 -> ERR timeout: command exceeded 15 seconds
+[21:42:25] Sender published response comment.
+[21:42:25] Taking screenshot: screenshots/0004_214225_599_auto.png
+[21:42:25] Pushing screenshot screenshots/0004_214225_599_auto.png with 10s timeout...
