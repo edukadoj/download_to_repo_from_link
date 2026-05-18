@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.28.0
-#   - Removed ensure_active_tab() from ss() to avoid interfering with cursor
-#     movements during the main loop.
-#   - Uses push_screenshots_now() for immediate screenshot upload.
-#   - KEY_SECRET defined at module level.
+# command_mouse_keyboard.py – Version 39.28.1
+#   - Uses queued screenshot push (via sync_repo.push_screenshots) to avoid
+#     blocking the screenshot worker thread.
+#   - Startup no longer restarts the browser on a failed first screenshot.
+#   - Ensure_active_tab() removed from ss() to avoid interfering with cursor.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -90,7 +90,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.28.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.28.1 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -348,9 +348,10 @@ def ss(desc="screenshot", push=True, response_suffix=""):
         safe_log(f"Screenshot image processing error: {e}")
     if not push: return fname
 
-    safe_log("Pushing screenshot to repo (synchronous)...")
-    repo_wrapper.push_screenshots_now([fname])
-    safe_log(f"Pushed {fname} + log")
+    # Use QUEUED push – does not block the screenshot worker
+    safe_log("Enqueuing screenshot for push...")
+    sync_repo.push_screenshots([fname])
+    safe_log(f"Enqueued {fname} + log")
     return fname
 
 _screenshot_stop = threading.Event()
@@ -447,10 +448,9 @@ def main():
     try:
         ss("01_start_page", push=True)
     except Exception as e:
-        safe_log(f"FATAL STARTUP: first screenshot failed: {e}")
-        push_logs()
-        if not restart_browser():
-            return
+        # Do NOT restart the browser – just log the error and continue.
+        safe_log(f"Warning: first screenshot push failed (log push may be delayed): {e}")
+        # The screenshot file was still saved; the queue will retry the push.
     safe_log("STEP 5: First screenshot saved – pushing logs")
     push_logs()
     safe_log("STEP 6: refresh_known_handles()")
