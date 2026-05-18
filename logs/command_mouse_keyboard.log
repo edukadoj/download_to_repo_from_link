@@ -22,3 +22,13 @@
 [21:42:06] STEP 7: Set last known URL
 [21:42:06] STEP 8: Start URL monitor
 [21:42:06] STEP 9: URL monitor started
+[21:42:08] Screenshot worker started.
+[21:42:08] Fetcher loop started.
+[21:42:08] Execution loop started.
+[21:42:08] Sender loop started.
+[21:42:09] Fetcher detected new App Commands comment.
+[21:42:09] Enqueued for execution: APP-52123-20260518211040
+[21:42:09] Execution loop: processing APP-52123-20260518211040: humanclick(838, 555)
+[21:42:09] Sender using response comment: 4377972232
+[21:42:10] Taking screenshot: screenshots/0001_214210_598_auto.png
+[21:42:10] Pushing screenshot screenshots/0001_214210_598_auto.png with 10s timeout...
