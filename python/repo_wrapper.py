@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# repo_wrapper.py – Version 1.2.2
-#   - Uses PAT environment variable exclusively (from GH_TOKEN secret).
-#     No fallback to GITHUB_TOKEN.
+# repo_wrapper.py – Version 1.2.3
+#   - Keep last 5 screenshots to avoid losing them before the client fetches.
+#   - Safer git stash/pull/pop sequence during screenshot push.
 # ==============================================================================
 
 import os, time, subprocess, json, re, glob, threading, queue as queue_module, urllib.request
 from typing import Any, Callable, Dict, List, Optional
 
+
 class RepoWrapper:
     def __init__(self, repo: str, issue_number: int,
                  log_filename: str = "logs/command_mouse_keyboard.log",
-                 screenshots_dir: str = "screenshots"):
+                 screenshots_dir: str = "screenshots",
+                 max_screenshots: int = 5):
         self.repo = repo
         self.issue_number = issue_number
         self.log_filename = log_filename
         self.screenshots_dir = screenshots_dir
+        self.max_screenshots = max_screenshots
 
         # Only PAT – no fallback to GITHUB_TOKEN
         self._pat = os.environ.get("PAT", "")
@@ -167,8 +170,10 @@ class RepoWrapper:
     def _git(self, *args: str, **kwargs: Any) -> subprocess.CompletedProcess:
         lock = ".git/index.lock"
         if os.path.exists(lock):
-            try: os.remove(lock)
-            except Exception: pass
+            try:
+                os.remove(lock)
+            except Exception:
+                pass
         return subprocess.run(["git"] + list(args), **kwargs)
 
     def _git_push_with_retry(self) -> bool:
@@ -179,8 +184,10 @@ class RepoWrapper:
             except subprocess.CalledProcessError:
                 if attempt < 2:
                     time.sleep(2)
-                    try: self._git("pull", "--rebase", check=True, capture_output=True)
-                    except Exception: pass
+                    try:
+                        self._git("pull", "--rebase", check=True, capture_output=True)
+                    except Exception:
+                        pass
         return False
 
     def _edit_comment(self, comment_id: str, new_body: str, max_retries: int = 5) -> None:
@@ -237,11 +244,17 @@ class RepoWrapper:
         self._push_file_to_repo(self.log_filename, "Log update")
 
     def _push_screenshots_impl(self, paths: List[str]) -> None:
+        """
+        Push screenshots while preserving the last N screenshots and keeping the
+        repository in a consistent state even if concurrent pushes occur.
+        """
+        # Stash any local changes (e.g., log file) to avoid conflicts
         self._git("stash", "--include-untracked", capture_output=True)
         try:
             self._git("pull", "--rebase", check=True, capture_output=True)
         except Exception:
             pass
+        # Restore stashed changes (if any)
         self._git("stash", "pop", capture_output=True)
 
         for p in paths:
@@ -253,9 +266,9 @@ class RepoWrapper:
         diff = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
         if diff.returncode != 0:
             self._git("commit", "-m", "Screenshots & log", check=True, capture_output=True)
-            self._git_push_with_retry()
-            if paths:
-                self._purge_old_screenshots(paths[0])
+            if self._git_push_with_retry():
+                # Cleanup old screenshots, keeping the last max_screenshots files
+                self._purge_old_screenshots()
 
     def _push_file_to_repo(self, path: str, commit_msg: str) -> None:
         self._git("add", path, check=True, capture_output=True)
@@ -313,12 +326,21 @@ class RepoWrapper:
         except Exception:
             pass
 
-    def _purge_old_screenshots(self, keep_path: str) -> None:
+    def _purge_old_screenshots(self) -> None:
+        """
+        Keep only the last `max_screenshots` screenshots (sorted by name,
+        which is chronological because they include a timestamp).
+        Delete any extras to prevent the repository from growing indefinitely.
+        """
         try:
             files = self._list_screenshot_files()
-            for path in files:
-                if path == keep_path or not path.endswith(".png"):
-                    continue
+            # Sort by name (which includes a timestamp, thus chronological)
+            files.sort()
+            if len(files) <= self.max_screenshots:
+                return
+            # Delete oldest files beyond the limit
+            to_delete = files[:-self.max_screenshots]
+            for path in to_delete:
                 sha_raw = self._gh(f"repos/{self.repo}/contents/{path}", "--jq", ".sha")
                 sha = sha_raw.strip().strip('"') if sha_raw else None
                 if sha:
