@@ -205,3 +205,4 @@
 [00:57:28] Taking screenshot: screenshots/052_005728_auto.png
 [00:57:28] Pushing screenshot to repo (synchronous)...
 [00:57:28] Screenshot worker error: 'RepoWrapper' object has no attribute 'push_screenshots_now'
+[00:57:33] Taking screenshot: screenshots/053_005733_auto.png
