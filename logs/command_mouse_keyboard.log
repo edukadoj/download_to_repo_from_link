@@ -59,3 +59,4 @@ Stacktrace:
 [23:27:50] Executed APP-52141-20260518224029 -> ERR move to (1900,1060) failed
 [23:27:51] Taking screenshot: screenshots/0001_232751_666_auto.png
 [23:27:52] Pushing screenshot screenshots/0001_232751_666_auto.png with 10s timeout...
+[23:27:54] Screenshot screenshots/0001_232751_666_auto.png pushed successfully.
