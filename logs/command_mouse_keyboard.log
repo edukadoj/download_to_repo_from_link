@@ -1148,3 +1148,8 @@ Stacktrace:
 [18:03:47] Executed APP-52080-20260518180213 -> Files: 1: اثری ازم مونده باشه.mp4
 [18:03:51] Screenshot screenshots/0154_180342_423_auto.png pushed successfully.
 [18:03:51] Taking screenshot: screenshots/0155_180351_403_auto.png
+[18:03:51] Pushing screenshot screenshots/0155_180351_403_auto.png with 10s timeout...
+[18:03:52] Sender published response comment.
+[18:04:01] push_screenshots_now timed out
+[18:04:01] Screenshot push failed or timed out for screenshots/0155_180351_403_auto.png.
+[18:04:01] Taking screenshot: screenshots/0156_180401_599_auto.png
