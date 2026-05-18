@@ -1,10 +1,24 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.1.0
-#   - Restores the original move_cursor_absolute that uses ActionBuilder
-#     with absolute move_to_location (as in the first two posts).
-#   - All other functions unchanged.
+# agent_state.py – Version 2.2.0
 # ==============================================================================
+# This module holds all mutable state and low‑level browser interaction
+# functions for the remote‑control agent.
+#
+# Role in the communication system:
+#   - Provides a global driver object and viewport dimensions.
+#   - Stores the current cursor position.
+#   - Implements atomic movement, click, scroll, drag, and keyboard actions.
+#   - Contains the command parser (parse_single_command).
+#   - Manages the file registry and upload file selections.
+#   - Handles tab tracking and autonomous report generation.
+#   - Provides the human‑click helper with optional Gemini AI fallback.
+#
+# All functions that touch the browser are expected to be fast and
+# non‑blocking.  Any long‑running operations are wrapped with timeouts
+# in the execution loop (see command_mouse_keyboard.py).
+# ==============================================================================
+
 import os, time, re, glob, threading, traceback, random, base64
 from datetime import datetime
 from selenium.webdriver.common.by import By
