@@ -140,3 +140,7 @@ Stacktrace:
 [19:40:49] Cursor moved to (1674, 579)
 [19:40:49] Cursor moved to (1672, 576)
 [19:40:49] Screenshot screenshots/0024_194046_450_auto.png pushed successfully.
+[19:40:50] refresh_known_handles unexpected error: 'set' object is not subscriptable
+[19:40:50] Executed APP-52092-20260518193932 -> Human click at (1676,578)
+[19:40:51] Taking screenshot: screenshots/0025_194051_450_auto.png
+[19:40:51] Pushing screenshot screenshots/0025_194051_450_auto.png with 10s timeout...
