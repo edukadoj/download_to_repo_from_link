@@ -32,3 +32,6 @@
 [11:04:24] STEP 13: App command comment id = 4377752559
 [11:04:24] STEP 14: Blanked app command comment
 [11:04:24] STEP 15: Entering main command loop...
+[11:04:28] Taking screenshot: screenshots/004_110428_auto.png
+[11:04:28] Enqueuing screenshot for push...
+[11:04:28] Enqueued screenshots/004_110428_auto.png + log
