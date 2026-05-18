@@ -40,3 +40,6 @@
 [20:59:40] Sender using response comment: 4377972232
 [20:59:41] Taking screenshot: screenshots/0001_205941_592_auto.png
 [20:59:41] Pushing screenshot screenshots/0001_205941_592_auto.png with 10s timeout...
+[20:59:45] Sender published response comment.
+[20:59:48] Screenshot screenshots/0001_205941_592_auto.png pushed successfully.
+[20:59:48] Taking screenshot: screenshots/0002_205948_365_auto.png
