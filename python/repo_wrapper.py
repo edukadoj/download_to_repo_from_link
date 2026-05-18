@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# repo_wrapper.py – Version 1.3.0
-# ==============================================================================
-# Asynchronous GitHub API & git operations via internal queues.
-# Added timeout for screenshot pushes (push_screenshots_now with 10s default).
-# All errors are logged via the error_log callback.
+# repo_wrapper.py – Version 1.2.3
+#   - Keep last 5 screenshots to avoid losing them before the client fetches.
+#   - Safer git stash/pull/pop sequence during screenshot push.
+#   - NOTE: Screenshot pushes and profile saves both use git; concurrent
+#     operations may cause push failures.  Future improvement: use a single
+#     git serialisation queue.
 # ==============================================================================
 
 import os, time, subprocess, json, re, glob, threading, queue as queue_module, urllib.request
@@ -22,6 +23,7 @@ class RepoWrapper:
         self.screenshots_dir = screenshots_dir
         self.max_screenshots = max_screenshots
 
+        # Only PAT – no fallback to GITHUB_TOKEN
         self._pat = os.environ.get("PAT", "")
 
         # ── Fast queue for comment operations ──
@@ -69,17 +71,11 @@ class RepoWrapper:
         self._slow_queue.put(("push_log_file", (), None))
 
     def push_screenshots(self, screenshot_paths: List[str]) -> None:
-        """Asynchronously queue screenshot push."""
         self._slow_queue.put(("push_screenshots_impl", (screenshot_paths,), None))
 
     def push_screenshots_now(self, paths: List[str], timeout: int = 10) -> bool:
-        """
-        Synchronously push screenshots with a timeout.
-        Returns True on success, False on failure/timeout.
-        """
         result = [False]
         event = threading.Event()
-
         def task():
             try:
                 self._push_screenshots_impl(paths)
@@ -90,7 +86,6 @@ class RepoWrapper:
                 result[0] = False
             finally:
                 event.set()
-
         thread = threading.Thread(target=task, daemon=True)
         thread.start()
         thread.join(timeout)
