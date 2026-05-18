@@ -60,3 +60,6 @@
 [16:14:45] Taking screenshot: screenshots/0011_161445_524_auto.png
 [16:14:45] Pushing screenshot screenshots/0011_161445_524_auto.png with 10s timeout...
 [16:14:48] Agent alive
+[16:14:48] Screenshot screenshots/0011_161445_524_auto.png pushed successfully.
+[16:14:50] Taking screenshot: screenshots/0012_161450_524_auto.png
+[16:14:50] Pushing screenshot screenshots/0012_161450_524_auto.png with 10s timeout...
