@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# repo_wrapper.py – Version 1.2.0
-#   - Dual worker: fast queue for comments, slow queue for screenshots / logs.
-#   - Synchronous push_screenshots_now() for immediate screenshot upload.
+# repo_wrapper.py – Version 1.2.2
+#   - Uses PAT environment variable exclusively (from GH_TOKEN secret).
+#     No fallback to GITHUB_TOKEN.
 # ==============================================================================
 
 import os, time, subprocess, json, re, glob, threading, queue as queue_module, urllib.request
@@ -17,7 +17,8 @@ class RepoWrapper:
         self.log_filename = log_filename
         self.screenshots_dir = screenshots_dir
 
-        self._pat = os.environ.get("PAT") or os.environ.get("GITHUB_TOKEN", "")
+        # Only PAT – no fallback to GITHUB_TOKEN
+        self._pat = os.environ.get("PAT", "")
 
         # ── Fast queue for comment operations ──
         self._fast_queue: queue_module.Queue = queue_module.Queue()
@@ -66,7 +67,6 @@ class RepoWrapper:
     def push_screenshots(self, screenshot_paths: List[str]) -> None:
         self._slow_queue.put(("push_screenshots_impl", (screenshot_paths,), None))
 
-    # ── Synchronous screenshot push (bypasses queues) ───────────
     def push_screenshots_now(self, paths: List[str]) -> None:
         """Synchronously push screenshots – blocks until complete."""
         self._push_screenshots_impl(paths)
@@ -158,7 +158,7 @@ class RepoWrapper:
     def _gh(self, *args: str, input_data: Optional[str] = None, **kwargs: Any) -> str:
         env = os.environ.copy()
         if self._pat:
-            env["GITHUB_TOKEN"] = self._pat
+            env["GITHUB_TOKEN"] = self._pat   # gh CLI uses GITHUB_TOKEN
         cmd = ["gh", "api"] + list(args)
         res = subprocess.run(cmd, capture_output=True, text=True, check=True,
                              input=input_data, env=env, **kwargs)
@@ -232,6 +232,8 @@ class RepoWrapper:
         return comments
 
     def _push_log_file(self) -> None:
+        if not os.path.exists(self.log_filename):
+            return
         self._push_file_to_repo(self.log_filename, "Log update")
 
     def _push_screenshots_impl(self, paths: List[str]) -> None:
@@ -275,7 +277,8 @@ class RepoWrapper:
         url = f"https://api.github.com/repos/{self.repo}/contents/{path}"
         req = urllib.request.Request(url)
         req.add_header("Accept", "application/vnd.github.3.raw")
-        req.add_header("Authorization", f"Bearer {self._pat}")
+        if self._pat:
+            req.add_header("Authorization", f"Bearer {self._pat}")
         resp = urllib.request.urlopen(req)
         return resp.read()
 
