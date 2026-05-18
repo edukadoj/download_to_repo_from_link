@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.33.4
-#   - Reduced page_load_timeout to 5 seconds to prevent a single stuck
-#     driver call from blocking all subsequent commands.
-#   - Crash‑proof wrapper already present; no other changes.
+# command_mouse_keyboard.py – Version 39.33.5
+#   - Removed the blocking update_viewport() call from ensure_active_tab()
+#     (already done in agent_state.py v2.6.2).
+#   - Reverted page_load_timeout to 30 seconds (5s was a temporary hack).
+#   - Viewport is updated after every successful navigate command, keeping
+#     the coordinate clamping accurate without blocking the command loop.
+#   - All other functionality (encryption, loops, timeouts) unchanged.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -90,7 +93,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.33.4 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.33.5 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -259,9 +262,9 @@ def create_driver():
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
     opts.add_experimental_option('useAutomationExtension', False)
     drv = webdriver.Chrome(options=opts)
-    # ***** FIX: Short timeouts so a single stuck driver call cannot block the whole agent *****
-    drv.set_page_load_timeout(5)       # was 30
-    drv.set_script_timeout(5)          # new
+    # Standard timeouts – no longer artificially shortened
+    drv.set_page_load_timeout(30)
+    drv.set_script_timeout(30)
     drv.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     drv.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]})")
     drv.execute_script("Object.defineProperty(navigator, 'languages', {get: () => ['en-US','en']})")
@@ -524,6 +527,7 @@ def executor_loop():
         is_save = (cmd_type == "save")
         is_upload = (cmd_type == "upload" or cmd_type == "uploadtoyoutube")
         is_zoom = (cmd_type == "zoom")
+        is_navigate = (cmd_type == "navigate")
 
         timeout = 120 if (is_save or is_upload) else 15
 
@@ -600,6 +604,12 @@ def executor_loop():
             result = f"ERR unexpected: {ex}"
             safe_log(f"Command {cid} crashed: {ex}")
 
+        # After a successful navigate, update the viewport size
+        if is_navigate and result.startswith("OK navigate"):
+            safe_log("Navigation completed – updating viewport size...")
+            update_viewport()
+            safe_log(f"Viewport dimensions now {agent_state.W}x{agent_state.H}")
+
         ts = int(time.time() * 1_000_000)
         seq_num = 0
         if cid.startswith("APP-"):
@@ -653,6 +663,7 @@ def sender_loop():
                 continue
 
             lines = ["## Remote Agent Responses"]
+            # Autonomous reports first, then command responses
             for key, (ts, seq, res) in snapshot.items():
                 if key.startswith("AUT-"):
                     lines.append(f"{key}; {res}")
@@ -700,7 +711,7 @@ def main():
             return
     time.sleep(5)
 
-    # Detect real viewport size
+    # Detect real viewport size after initial page load
     safe_log("Detecting actual viewport size...")
     update_viewport()
     safe_log(f"Viewport dimensions set to {agent_state.W}x{agent_state.H}")
