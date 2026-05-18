@@ -86,3 +86,6 @@
 [17:51:41] Taking screenshot: screenshots/0016_175141_075_auto.png
 [17:51:41] Pushing screenshot screenshots/0016_175141_075_auto.png with 10s timeout...
 [17:51:44] Agent alive
+[17:51:44] Screenshot screenshots/0016_175141_075_auto.png pushed successfully.
+[17:51:46] Taking screenshot: screenshots/0017_175146_075_auto.png
+[17:51:46] Pushing screenshot screenshots/0017_175146_075_auto.png with 10s timeout...
