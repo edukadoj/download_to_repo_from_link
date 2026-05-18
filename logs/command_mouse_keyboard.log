@@ -1153,3 +1153,4 @@ Stacktrace:
 [18:04:01] push_screenshots_now timed out
 [18:04:01] Screenshot push failed or timed out for screenshots/0155_180351_403_auto.png.
 [18:04:01] Taking screenshot: screenshots/0156_180401_599_auto.png
+[18:04:01] Pushing screenshot screenshots/0156_180401_599_auto.png with 10s timeout...
