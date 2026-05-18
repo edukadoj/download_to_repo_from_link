@@ -17,3 +17,8 @@
 [21:42:06] STEP 4: Taking first screenshot
 [21:42:06] STEP 5: First screenshot saved – pushing logs
 [21:42:06] STEP 6: refresh_known_handles()
+[21:42:06] New autonomous report: AUT-1-1779140526 -> New tab/window handle: 80B80474899D91800602C13AC07ED20E
+[21:42:06] New autonomous report: AUT-2-1779140526 -> Tabs: 1: YouTube
+[21:42:06] STEP 7: Set last known URL
+[21:42:06] STEP 8: Start URL monitor
+[21:42:06] STEP 9: URL monitor started
