@@ -1,22 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.2.0
+# agent_state.py – Version 2.3.0
 # ==============================================================================
-# This module holds all mutable state and low‑level browser interaction
-# functions for the remote‑control agent.
-#
-# Role in the communication system:
-#   - Provides a global driver object and viewport dimensions.
-#   - Stores the current cursor position.
-#   - Implements atomic movement, click, scroll, drag, and keyboard actions.
-#   - Contains the command parser (parse_single_command).
-#   - Manages the file registry and upload file selections.
-#   - Handles tab tracking and autonomous report generation.
-#   - Provides the human‑click helper with optional Gemini AI fallback.
-#
-# All functions that touch the browser are expected to be fast and
-# non‑blocking.  Any long‑running operations are wrapped with timeouts
-# in the execution loop (see command_mouse_keyboard.py).
+# Added a global driver_lock to make all browser interactions thread‑safe.
+# The screenshot loop and execution loop both use the driver, and the lock
+# prevents concurrent access that could crash the process.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -36,6 +24,9 @@ driver = None
 W, H = 1920, 1080
 cursor_x, cursor_y = 0, 0
 
+# Thread‑safety lock – must be acquired before any driver call
+driver_lock = threading.Lock()
+
 # ---------- Optional modules ----------
 HAS_GEMINI = False
 HAS_PYPERCLIP = False
@@ -52,54 +43,55 @@ def ensure_active_tab():
     if driver is None:
         return
     try:
-        handles = driver.window_handles
-        if not handles:
-            return
-        idx = ACTIVE_TAB_INDEX - 1
-        if idx < 0 or idx >= len(handles):
-            current = driver.current_window_handle
-            if current in handles:
-                ACTIVE_TAB_INDEX = handles.index(current) + 1
+        with driver_lock:
+            handles = driver.window_handles
+            if not handles:
+                return
+            idx = ACTIVE_TAB_INDEX - 1
+            if idx < 0 or idx >= len(handles):
+                current = driver.current_window_handle
+                if current in handles:
+                    ACTIVE_TAB_INDEX = handles.index(current) + 1
+                else:
+                    ACTIVE_TAB_INDEX = 1
+                    idx = 0
             else:
-                ACTIVE_TAB_INDEX = 1
-                idx = 0
-        else:
-            if driver.current_window_handle != handles[idx]:
-                driver.switch_to.window(handles[idx])
-                try:
-                    driver.set_window_size(W, H)
-                except Exception:
-                    pass
+                if driver.current_window_handle != handles[idx]:
+                    driver.switch_to.window(handles[idx])
+                    try:
+                        driver.set_window_size(W, H)
+                    except Exception:
+                        pass
     except Exception:
         pass
 
 # ---------- Improved drag‑and‑drop file injection ----------
 def drag_file_to_target(driver, file_path, x, y):
-    """(unchanged)"""
     try:
-        elements = driver.execute_script(
-            "return document.elementsFromPoint(arguments[0], arguments[1]);",
-            x, y
-        )
-        if elements:
-            for el in elements:
-                tag = driver.execute_script("return arguments[0].tagName.toLowerCase();", el)
-                type_attr = driver.execute_script("return arguments[0].type;", el)
-                if tag == "input" and type_attr == "file":
-                    el.send_keys(file_path)
-                    return True
-            parent_el = elements[0]
-            for _ in range(10):
-                if parent_el is None:
-                    break
-                file_inputs = driver.execute_script(
-                    "return arguments[0].querySelectorAll('input[type=file]');",
-                    parent_el
-                )
-                if file_inputs and len(file_inputs) > 0:
-                    file_inputs[0].send_keys(file_path)
-                    return True
-                parent_el = driver.execute_script("return arguments[0].parentElement;", parent_el)
+        with driver_lock:
+            elements = driver.execute_script(
+                "return document.elementsFromPoint(arguments[0], arguments[1]);",
+                x, y
+            )
+            if elements:
+                for el in elements:
+                    tag = driver.execute_script("return arguments[0].tagName.toLowerCase();", el)
+                    type_attr = driver.execute_script("return arguments[0].type;", el)
+                    if tag == "input" and type_attr == "file":
+                        el.send_keys(file_path)
+                        return True
+                parent_el = elements[0]
+                for _ in range(10):
+                    if parent_el is None:
+                        break
+                    file_inputs = driver.execute_script(
+                        "return arguments[0].querySelectorAll('input[type=file]');",
+                        parent_el
+                    )
+                    if file_inputs and len(file_inputs) > 0:
+                        file_inputs[0].send_keys(file_path)
+                        return True
+                    parent_el = driver.execute_script("return arguments[0].parentElement;", parent_el)
     except Exception as e:
         log(f"drag_file_to_target: file input search failed: {e}")
 
@@ -139,10 +131,11 @@ def drag_file_to_target(driver, file_path, x, y):
     return fileInput;
     """
     try:
-        result = driver.execute_script(script, x, y, file_path)
-        if result and isinstance(result, bool) == False:
-            result.send_keys(file_path)
-            return True
+        with driver_lock:
+            result = driver.execute_script(script, x, y, file_path)
+            if result and isinstance(result, bool) == False:
+                result.send_keys(file_path)
+                return True
         return False
     except Exception:
         return False
@@ -160,7 +153,8 @@ def _try_gemini_click(prompt: str) -> bool:
         computer_tool = Tool(computer_use={})
         config = GenerateContentConfig(tools=[computer_tool])
         tmp = "/tmp/gemini_click.png"
-        driver.save_screenshot(tmp)
+        with driver_lock:
+            driver.save_screenshot(tmp)
         with open(tmp, "rb") as f:
             img_data = base64.b64encode(f.read()).decode()
         resp = client.models.generate_content(
@@ -182,11 +176,12 @@ def move_cursor_absolute(x: int, y: int) -> None:
     global cursor_x, cursor_y
     x = max(0, min(W-1, x))
     y = max(0, min(H-1, y))
-    action = ActionBuilder(driver)
-    action.pointer_action.move_to_location(x, y)
-    action.perform()
+    with driver_lock:
+        action = ActionBuilder(driver)
+        action.pointer_action.move_to_location(x, y)
+        action.perform()
     cursor_x, cursor_y = x, y
-    log(f"Cursor moved to ({x}, {y})")   # added logging
+    log(f"Cursor moved to ({x}, {y})")
 
 def move_cursor_relative(dx: int, dy: int) -> None:
     ensure_active_tab()
@@ -198,96 +193,133 @@ def move_cursor_relative(dx: int, dy: int) -> None:
 # ── Other interaction functions (unchanged) ────────────────────
 def left_click() -> None:
     ensure_active_tab()
-    ActionChains(driver).click().perform()
+    with driver_lock:
+        ActionChains(driver).click().perform()
 
 def left_button_down() -> None:
     ensure_active_tab()
-    action = ActionBuilder(driver); action.pointer_action.click_and_hold(); action.perform()
+    with driver_lock:
+        action = ActionBuilder(driver)
+        action.pointer_action.click_and_hold()
+        action.perform()
 
 def left_button_up() -> None:
     ensure_active_tab()
-    action = ActionBuilder(driver); action.pointer_action.release(); action.perform()
+    with driver_lock:
+        action = ActionBuilder(driver)
+        action.pointer_action.release()
+        action.perform()
 
 def right_button_down() -> None:
     ensure_active_tab()
-    action = ActionBuilder(driver); action.pointer_action.pointer_down(PointerInput.Button.RIGHT); action.perform()
+    with driver_lock:
+        action = ActionBuilder(driver)
+        action.pointer_action.pointer_down(PointerInput.Button.RIGHT)
+        action.perform()
 
 def right_button_up() -> None:
     ensure_active_tab()
-    action = ActionBuilder(driver); action.pointer_action.pointer_up(PointerInput.Button.RIGHT); action.perform()
+    with driver_lock:
+        action = ActionBuilder(driver)
+        action.pointer_action.pointer_up(PointerInput.Button.RIGHT)
+        action.perform()
 
 def middle_button_down() -> None:
     ensure_active_tab()
-    action = ActionBuilder(driver); action.pointer_action.pointer_down(PointerInput.Button.MIDDLE); action.perform()
+    with driver_lock:
+        action = ActionBuilder(driver)
+        action.pointer_action.pointer_down(PointerInput.Button.MIDDLE)
+        action.perform()
 
 def middle_button_up() -> None:
     ensure_active_tab()
-    action = ActionBuilder(driver); action.pointer_action.pointer_up(PointerInput.Button.MIDDLE); action.perform()
+    with driver_lock:
+        action = ActionBuilder(driver)
+        action.pointer_action.pointer_up(PointerInput.Button.MIDDLE)
+        action.perform()
 
 def double_click() -> None:
     ensure_active_tab()
-    ActionChains(driver).double_click().perform()
+    with driver_lock:
+        ActionChains(driver).double_click().perform()
 
 def right_click() -> None:
     ensure_active_tab()
-    ActionChains(driver).context_click().perform()
+    with driver_lock:
+        ActionChains(driver).context_click().perform()
 
 def middle_click() -> None:
     ensure_active_tab()
-    action = ActionBuilder(driver)
-    action.pointer_action.pointer_down(PointerInput.Button.MIDDLE)
-    action.pointer_action.pointer_up(PointerInput.Button.MIDDLE)
-    action.perform()
+    with driver_lock:
+        action = ActionBuilder(driver)
+        action.pointer_action.pointer_down(PointerInput.Button.MIDDLE)
+        action.pointer_action.pointer_up(PointerInput.Button.MIDDLE)
+        action.perform()
 
 def scroll_by(amount: int) -> None:
     ensure_active_tab()
     try:
-        scrollable = driver.execute_script("""
-            var elem = document.elementFromPoint(arguments[0], arguments[1]);
-            while (elem) {
-                var overflowY = window.getComputedStyle(elem).overflowY;
-                if (overflowY === 'auto' || overflowY === 'scroll') {
-                    if (elem.scrollHeight > elem.clientHeight) {
-                        return elem;
+        with driver_lock:
+            scrollable = driver.execute_script("""
+                var elem = document.elementFromPoint(arguments[0], arguments[1]);
+                while (elem) {
+                    var overflowY = window.getComputedStyle(elem).overflowY;
+                    if (overflowY === 'auto' || overflowY === 'scroll') {
+                        if (elem.scrollHeight > elem.clientHeight) {
+                            return elem;
+                        }
                     }
+                    elem = elem.parentElement;
                 }
-                elem = elem.parentElement;
-            }
-            return null;
-        """, cursor_x, cursor_y)
-        if scrollable:
-            driver.execute_script("arguments[0].scrollBy(0, arguments[1]);", scrollable, amount)
-        else:
-            driver.execute_script(f"window.scrollBy(0, {amount});")
+                return null;
+            """, cursor_x, cursor_y)
+            if scrollable:
+                driver.execute_script("arguments[0].scrollBy(0, arguments[1]);", scrollable, amount)
+            else:
+                driver.execute_script(f"window.scrollBy(0, {amount});")
     except Exception:
-        driver.execute_script(f"window.scrollBy(0, {amount});")
+        with driver_lock:
+            driver.execute_script(f"window.scrollBy(0, {amount});")
 
 def drag_from_to(x1,y1,x2,y2) -> None:
     ensure_active_tab()
-    move_cursor_absolute(x1,y1); left_button_down(); time.sleep(0.1)
-    move_cursor_absolute(x2,y2); time.sleep(0.1); left_button_up()
+    move_cursor_absolute(x1,y1)
+    left_button_down()
+    time.sleep(0.1)
+    move_cursor_absolute(x2,y2)
+    time.sleep(0.1)
+    left_button_up()
 
 def _perform_human_click_at(x: int, y: int) -> None:
     ensure_active_tab()
-    move_cursor_absolute(x, y); time.sleep(0.1)
+    move_cursor_absolute(x, y)
+    time.sleep(0.1)
     for _ in range(random.randint(1,3)):
-        dx=random.randint(-2,2); dy=random.randint(-2,2)
-        move_cursor_relative(dx, dy); time.sleep(random.uniform(0.015,0.040))
-    left_button_down(); time.sleep(random.uniform(0.030,0.080))
+        dx=random.randint(-2,2)
+        dy=random.randint(-2,2)
+        move_cursor_relative(dx, dy)
+        time.sleep(random.uniform(0.015,0.040))
+    left_button_down()
+    time.sleep(random.uniform(0.030,0.080))
     dx=random.randint(1,3)*(1 if random.random()>0.5 else -1)
     dy=random.randint(1,3)*(1 if random.random()>0.5 else -1)
-    move_cursor_relative(dx, dy); time.sleep(random.uniform(0.010,0.040)); left_button_up()
+    move_cursor_relative(dx, dy)
+    time.sleep(random.uniform(0.010,0.040))
+    left_button_up()
 
 def human_click(prompt: str = "Click the verify button") -> str:
     ensure_active_tab()
-    if _try_gemini_click(prompt): return f"Gemini click successful (prompt: {prompt})"
+    if _try_gemini_click(prompt):
+        return f"Gemini click successful (prompt: {prompt})"
     _perform_human_click_at(cursor_x, cursor_y)
     return "Fallback human click at current cursor."
 
 def human_click_at(x: int, y: int) -> str:
     ensure_active_tab()
-    move_cursor_absolute(x, y); time.sleep(0.1)
-    if _try_gemini_click("Click the button at this position"): return f"Gemini click at ({x},{y})"
+    move_cursor_absolute(x, y)
+    time.sleep(0.1)
+    if _try_gemini_click("Click the button at this position"):
+        return f"Gemini click at ({x},{y})"
     _perform_human_click_at(x, y)
     return f"Human click at ({x},{y})"
 
@@ -303,35 +335,54 @@ KEY_MAP = {
 def press_key(key_name: str) -> None:
     ensure_active_tab()
     kn = key_name.strip().lower()
-    if kn in KEY_MAP: ActionChains(driver).send_keys(KEY_MAP[kn]).perform()
-    elif len(kn)==1: ActionChains(driver).send_keys(kn).perform()
-    else: ActionChains(driver).send_keys(key_name).perform()
+    if kn in KEY_MAP:
+        with driver_lock:
+            ActionChains(driver).send_keys(KEY_MAP[kn]).perform()
+    elif len(kn)==1:
+        with driver_lock:
+            ActionChains(driver).send_keys(kn).perform()
+    else:
+        with driver_lock:
+            ActionChains(driver).send_keys(key_name).perform()
 
 def press_combo(combo_str: str) -> None:
     ensure_active_tab()
     parts = [p.strip() for p in combo_str.split('+')]
-    if len(parts) < 2: press_key(combo_str); return
-    mods = parts[:-1]; main = parts[-1]
-    actions = ActionChains(driver)
-    for m in mods:
-        mk = m.lower()
-        if mk in KEY_MAP: actions = actions.key_down(KEY_MAP[mk])
-        else: actions = actions.key_down(m)
-    mk_main = main.lower()
-    if mk_main in KEY_MAP: actions = actions.send_keys(KEY_MAP[mk_main])
-    else: actions = actions.send_keys(main)
-    for m in reversed(mods):
-        mk = m.lower()
-        if mk in KEY_MAP: actions = actions.key_up(KEY_MAP[mk])
-        else: actions = actions.key_up(m)
-    actions.perform()
+    if len(parts) < 2:
+        press_key(combo_str)
+        return
+    mods = parts[:-1]
+    main = parts[-1]
+    with driver_lock:
+        actions = ActionChains(driver)
+        for m in mods:
+            mk = m.lower()
+            if mk in KEY_MAP:
+                actions = actions.key_down(KEY_MAP[mk])
+            else:
+                actions = actions.key_down(m)
+        mk_main = main.lower()
+        if mk_main in KEY_MAP:
+            actions = actions.send_keys(KEY_MAP[mk_main])
+        else:
+            actions = actions.send_keys(main)
+        for m in reversed(mods):
+            mk = m.lower()
+            if mk in KEY_MAP:
+                actions = actions.key_up(KEY_MAP[mk])
+            else:
+                actions = actions.key_up(m)
+        actions.perform()
 
 def type_secret(name: str) -> bool:
     ensure_active_tab()
-    if name not in allowed_secrets: return False
+    if name not in allowed_secrets:
+        return False
     val = os.environ.get(name, "")
-    if not val: return False
-    ActionChains(driver).send_keys(val).perform()
+    if not val:
+        return False
+    with driver_lock:
+        ActionChains(driver).send_keys(val).perform()
     return True
 
 # ---------- COMMAND PARSER (unchanged) ----------
@@ -451,11 +502,12 @@ _known_handles = set()
 def refresh_known_handles():
     global _known_handles
     try:
-        handles = set(driver.window_handles)
-        new_handles = handles - _known_handles
-        for h in new_handles:
-            add_autonomous_report("tabopened", f"New tab/window handle: {h}")
-        _known_handles = handles
+        with driver_lock:
+            handles = set(driver.window_handles)
+            new_handles = handles - _known_handles
+            for h in new_handles:
+                add_autonomous_report("tabopened", f"New tab/window handle: {h}")
+            _known_handles = handles
     except Exception:
         pass
 
@@ -468,7 +520,8 @@ def url_monitor_worker():
     time.sleep(3)
     while not _url_monitor_stop.is_set():
         try:
-            cur = driver.current_url
+            with driver_lock:
+                cur = driver.current_url
             if cur and cur != _last_known_url:
                 _last_known_url = cur
                 add_autonomous_report("navigate", f"navigate({cur})")
