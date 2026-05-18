@@ -1090,3 +1090,4 @@ Stacktrace:
 [18:02:21] New autonomous report: AUT-19-1779127341 -> selectfiles(1)
 [18:02:26] Screenshot screenshots/0142_180220_525_auto.png pushed successfully.
 [18:02:26] Taking screenshot: screenshots/0143_180226_442_auto.png
+[18:02:26] Executed APP-52078-20260518180103 -> OK upload(1 files) (ready – use 'uploadtoyoutube')
