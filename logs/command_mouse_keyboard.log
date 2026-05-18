@@ -123,3 +123,6 @@ Stacktrace:
 [22:41:50] Screenshot screenshots/0013_224147_710_auto.png pushed successfully.
 [22:41:52] Taking screenshot: screenshots/0014_224152_710_auto.png
 [22:41:52] Pushing screenshot screenshots/0014_224152_710_auto.png with 10s timeout...
+[22:41:58] RepoWrapper fast error (get_comment_body): Command '['gh', 'api', 'repos/edukadoj/download_to_repo_from_link/issues/comments/4377752559', '--jq', '.body']' returned non-zero exit status 1.
+[22:41:59] Screenshot screenshots/0014_224152_710_auto.png pushed successfully.
+[22:41:59] Taking screenshot: screenshots/0015_224159_585_auto.png
