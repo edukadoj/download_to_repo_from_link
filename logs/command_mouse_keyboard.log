@@ -291,3 +291,5 @@
 [15:21:40] Cursor moved to (133, 759)
 [15:21:40] Cursor moved to (135, 760)
 [15:21:40] Executed APP-52022-20260518152023 -> Human click at (133,761)
+[15:21:41] Taking screenshot: screenshots/0076_152141_559_auto.png
+[15:21:41] Pushing screenshot screenshots/0076_152141_559_auto.png with 10s timeout...
