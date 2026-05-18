@@ -26,3 +26,9 @@
 [19:38:49] Fetcher detected new App Commands comment.
 [19:38:49] Execution loop: processing APP-52087-20260518180728: (20, 20)
 [19:38:49] Enqueued for execution: APP-52087-20260518180728
+[19:38:49] Cursor moved to (20, 20)
+[19:38:49] refresh_known_handles unexpected error: 'set' object is not subscriptable
+[19:38:49] Executed APP-52087-20260518180728 -> OK move(20,20)
+[19:38:49] Sender using response comment: 4377972232
+[19:38:50] Taking screenshot: screenshots/0001_193850_877_auto.png
+[19:38:51] Pushing screenshot screenshots/0001_193850_877_auto.png with 10s timeout...
