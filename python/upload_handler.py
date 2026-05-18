@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# upload_handler.py – Version 2.0.7 (no file renaming, keep original names)
+# upload_handler.py – Version 2.0.8 (safe git_push_with_retry, no rename)
 # ==============================================================================
 import os, re, shutil, tempfile, time, json, threading, subprocess
 from urllib.request import urlopen, Request
@@ -60,7 +60,6 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
                    inject_file_fn,
                    log_func=None):
     """Pull latest chunks, flat‑reassemble (like batch file), keep original names."""
-    chunks_source = "chunks"
 
     # ── Pull latest repo to get newly pushed chunks ──
     try:
@@ -76,6 +75,7 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
         if log_func:
             log_func(f"❌ Git pull error (continuing anyway): {e}")
 
+    chunks_source = "chunks"
     if not os.path.isdir(chunks_source):
         return f"ERR upload: {chunks_source} directory not found"
 
@@ -105,38 +105,12 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
                     if log_func:
                         log_func(f"  Copied {p} ({os.path.getsize(src)} bytes)")
 
-        # ── Compute total expected size for each base (sanity check) ──
-        total_sizes = {}
-        for base, parts in groups.items():
-            total = sum(os.path.getsize(os.path.join(flat_temp, p)) for p in parts)
-            total_sizes[base] = total
-            if log_func:
-                log_func(f"  Base '{base}': {len(parts)} parts, total size {total} bytes")
-
         # ── Reassemble using flat method (exactly like copy /b) ──
         count = reassemble_flat(flat_temp, DOWNLOAD_DIR)
         if count == 0:
             return "ERR upload: reassembly produced no files"
 
-        # ── Verify assembled file sizes (optional, but helpful) ──
-        for base, expected_size in total_sizes.items():
-            assembled_path = os.path.join(DOWNLOAD_DIR, base)
-            if os.path.isfile(assembled_path):
-                actual_size = os.path.getsize(assembled_path)
-                if actual_size == expected_size:
-                    if log_func:
-                        log_func(f"✅ Assembled '{base}' size OK: {actual_size} bytes")
-                else:
-                    if log_func:
-                        log_func(f"⚠️ Size mismatch for '{base}': expected {expected_size}, got {actual_size}")
-            else:
-                if log_func:
-                    log_func(f"❌ Missing assembled file: {base}")
-
-        # ===== NO FILE RENAMING – keep original names =====
-        # (The renaming block that produced 1.ext, 2.ext has been removed.)
-
-        # ── Refresh file registry (this also sends "Files:" report) ──
+        # ── Refresh file registry (also sends "Files:" report) ──
         refresh_file_registry()
 
         if log_func:
@@ -145,7 +119,7 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
         # ── Auto‑select newly assembled file(s) based on original names ──
         new_ids = []
         for fid, fname in _file_registry.items():
-            if fname in groups:   # original base name matches
+            if fname in groups:
                 new_ids.append(fid)
         if new_ids:
             _upload_file_paths.clear()
@@ -164,6 +138,17 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
                 add_autonomous_report("selectfiles", f"selectfiles({first_id})")
                 if log_func:
                     log_func("No newly assembled files matched – auto-selected first file.")
+
+        # ── Optional git push (if the caller provided a push function) ──
+        if callable(git_push_with_retry):
+            try:
+                git_push_with_retry()
+            except Exception as e:
+                if log_func:
+                    log_func(f"⚠️ git_push_with_retry failed (ignoring): {e}")
+        else:
+            if log_func:
+                log_func("ℹ️ No git_push_with_retry provided – upload complete locally.")
 
         return f"OK upload({count} files) (ready – use 'uploadtoyoutube')"
     except Exception as e:
