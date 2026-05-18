@@ -216,3 +216,6 @@
 [20:04:05] Executed APP-52100-20260518200249 -> Files: (empty)
 [20:04:06] Screenshot screenshots/0045_200402_517_auto.png pushed successfully.
 [20:04:08] Sender published response comment.
+[20:04:09] Fetcher detected new App Commands comment.
+[20:04:09] Re‑enqueued existing report for APP-52099-20260518200249
+[20:04:09] Re‑enqueued existing report for APP-52100-20260518200249
