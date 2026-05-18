@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.29.0
+# command_mouse_keyboard.py – Version 39.30.0
 # ==============================================================================
 # Agent main script that runs inside GitHub Actions.
 # Implements the communication logic with four independent loops:
@@ -17,12 +17,14 @@
 #    until acknowledged or timed out.
 # 4. Screenshot Loop       – continuously captures the virtual display,
 #    draws a red crosshair, adds a human‑readable timestamp watermark
-#    (50 % opacity), and pushes the image to the repository.
+#    (50 % opacity), and pushes the image to the repository.  Push has
+#    a 10‑second timeout; the loop waits for success or timeout before
+#    taking the next screenshot.  After every attempt the log file is
+#    pushed immediately to help diagnose problems.
 #
-# Data structures:
-#   Report History      : disk‑backed JSON dict (loaded into RAM).
-#   Report Queue        : dict preventing duplicate reports.
-#   Execution Queue     : thread‑safe FIFO (queue.Queue).
+# All loops are crash‑proof – unhandled exceptions are logged and the loop
+# continues.  The main process also logs any fatal exception and forces a
+# log push before terminating.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -108,7 +110,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.29.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.30.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -150,7 +152,13 @@ class SyncRepo:
         self._rw.push_log_file()
 
     def push_screenshots(self, paths):
+        # This queues the push; we need a way to know when it's done.
+        # We'll wrap it to wait with a timeout.
         self._rw.push_screenshots(paths)
+
+    def push_screenshots_now(self, paths, timeout=10):
+        """Synchronously push screenshots with a timeout."""
+        return self._rw.push_screenshots_now(paths, timeout=timeout)
 
     def comment_exists(self, comment_id):
         return self._call_and_wait(self._rw.comment_exists, comment_id)
@@ -253,6 +261,9 @@ def save_profile():
 DOWNLOAD_DIR = "/home/runner/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+# Thread‑safety lock for all driver operations
+driver_lock = threading.Lock()
+
 def create_driver():
     opts = Options()
     opts.add_argument("--no-sandbox"); opts.add_argument("--disable-gpu")
@@ -352,6 +363,10 @@ except:
     watermark_font = ImageFont.load_default()
 
 def ss(desc="screenshot", push=True):
+    """
+    Take a screenshot, overlay cursor and timestamp, and push to repo.
+    Returns the filename if successful, None otherwise.
+    """
     counter[0] += 1
     now = datetime.now()
     ms = now.microsecond // 1000
@@ -359,7 +374,12 @@ def ss(desc="screenshot", push=True):
     filename = f"screenshots/{counter[0]:04d}_{now.strftime('%H%M%S')}_{ms:03d}_{desc}.png"
     safe_log(f"Taking screenshot: {filename}")
     try:
-        driver.save_screenshot(filename)
+        with driver_lock:
+            driver.save_screenshot(filename)
+        # Check if the file was actually created
+        if not os.path.exists(filename):
+            safe_log(f"Screenshot file not created: {filename}")
+            return None
         img = Image.open(filename).convert("RGBA")
         draw = ImageDraw.Draw(img)
         x, y = agent_state.cursor_x if agent_state else 960, agent_state.cursor_y if agent_state else 540
@@ -377,36 +397,70 @@ def ss(desc="screenshot", push=True):
         img.save(filename)
     except BaseException as e:
         safe_log(f"Screenshot image processing error: {e}")
-    if not push: return filename
+        return None
+    if not push:
+        return filename
+    # Push asynchronously; the caller (screenshot_worker) will wait for completion
     safe_log("Enqueuing screenshot for push...")
     sync_repo.push_screenshots([filename])
     safe_log(f"Enqueued {filename} + log")
     return filename
 
+# ---------- Screenshot worker ----------
 _screenshot_stop = threading.Event()
 _screenshot_thread = None
 
 def screenshot_worker():
+    """
+    Continuously take screenshots, push them with a 10‑second timeout,
+    and push the log file after every attempt.  Never dies.
+    """
     while not _screenshot_stop.is_set():
         try:
-            time.sleep(2)
+            # Wait a bit before first capture
+            _screenshot_stop.wait(2)
             while not _screenshot_stop.is_set():
+                # Take screenshot
                 start = time.time()
-                try:
-                    ss("auto", push=True)
-                except BaseException as e:
-                    safe_log(f"Screenshot worker error: {e}")
-                    time.sleep(5)
+                filename = ss("auto", push=False)  # take without push, we will push manually
+                if filename is None:
+                    safe_log("Screenshot capture failed – will retry after interval.")
+                    # Push log so we can see the failure
+                    push_logs()
+                    _screenshot_stop.wait(max(0, COMM_INTERVAL * slow_mode - (time.time() - start)))
                     continue
+
+                # Now push with timeout
+                safe_log(f"Pushing screenshot {filename} with 10s timeout...")
+                push_ok = False
+                try:
+                    # Use the synchronous push method that has a timeout
+                    push_ok = sync_repo.push_screenshots_now([filename], timeout=10)
+                except Exception as e:
+                    safe_log(f"Screenshot push exception: {e}")
+                    push_ok = False
+
+                if push_ok:
+                    safe_log(f"Screenshot {filename} pushed successfully.")
+                else:
+                    safe_log(f"Screenshot push failed or timed out for {filename}.")
+
+                # Push log after every screenshot attempt
+                push_logs()
+
+                # Wait before next capture, respecting the interval
                 elapsed = time.time() - start
                 _screenshot_stop.wait(max(0, COMM_INTERVAL * slow_mode - elapsed))
         except BaseException as outer_e:
-            safe_log(f"Screenshot worker crashed: {outer_e}. Restarting in 5s...")
+            safe_log(f"Screenshot worker crashed: {outer_e}\n{traceback.format_exc()}")
+            push_logs()
             _screenshot_stop.wait(5)
+            # Continue loop – never die
 
 def start_screenshot_worker():
     global _screenshot_thread
-    if _screenshot_thread and _screenshot_thread.is_alive(): return
+    if _screenshot_thread and _screenshot_thread.is_alive():
+        return
     _screenshot_stop.clear()
     _screenshot_thread = threading.Thread(target=screenshot_worker, daemon=True)
     _screenshot_thread.start()
@@ -423,7 +477,8 @@ def restart_browser():
         add_autonomous_report("calibration_error", "Browser crashed during calibration – calibration cancelled.")
         return False
     try:
-        driver.quit()
+        with driver_lock:
+            driver.quit()
     except Exception:
         pass
     time.sleep(2)
@@ -492,7 +547,6 @@ def cull_timed_out_reports(timeout_seconds=60):
         now = time.time()
         to_remove = []
         for key, (ts, seq, res) in report_queue.items():
-            # ts is in microseconds, convert to seconds
             if now - (ts / 1_000_000) > timeout_seconds:
                 to_remove.append(key)
         for key in to_remove:
@@ -524,10 +578,9 @@ def fetcher_loop():
                 if not app_body:
                     _fetcher_stop.wait(COMM_INTERVAL * slow_mode)
                     continue
-                # Check if the body is new by comparing hash
                 body_hash = hashlib.md5(app_body.encode()).hexdigest()
                 if body_hash == last_app_body_hash:
-                    _fetcher_stop.wait(1)   # short sleep
+                    _fetcher_stop.wait(1)
                     continue
                 last_app_body_hash = body_hash
 
@@ -557,7 +610,7 @@ def fetcher_loop():
                         safe_log(f"Acknowledged autonomous report {aut_id}, removed from queue.")
                         continue
 
-                    # Normal command – check report history
+                    # Normal command
                     with _report_history_lock:
                         existing = report_history.get(cid)
                     if existing:
@@ -568,7 +621,6 @@ def fetcher_loop():
                         execution_queue.put((cid, ctext))
                         safe_log(f"Enqueued for execution: {cid}")
             else:
-                # App comment ID lost, try to rediscover
                 safe_log("App comment ID missing – rediscovering...")
                 try:
                     all_comments = sync_repo.get_all_comments()
@@ -583,17 +635,16 @@ def fetcher_loop():
                 _fetcher_stop.wait(COMM_INTERVAL * slow_mode)
                 continue
 
-            # Small sleep to avoid busy‑waiting
             _fetcher_stop.wait(0.1)
 
         except Exception as e:
             safe_log(f"Fetcher loop error: {traceback.format_exc()}")
+            push_logs()
             _fetcher_stop.wait(5)
 
 # ---------- Execution Loop ----------
 def executor_loop():
     safe_log("Execution loop started.")
-    # Thread pool for timeout
     executor_pool = ThreadPoolExecutor(max_workers=1)
     while not _executor_stop.is_set():
         try:
@@ -659,18 +710,13 @@ def executor_loop():
                 try: seq_num = int(parts_cid[1])
                 except: pass
 
-        # Save to history
-        entry = (ts, seq_num, result)
         with _report_history_lock:
-            report_history[cid] = entry
-        save_report_history()   # write to disk (could be done async, but small overhead)
-
-        # Enqueue into report queue
+            report_history[cid] = (ts, seq_num, result)
+        save_report_history()
         add_to_report_queue(cid, ts, seq_num, result)
         safe_log(f"Executed {cid} -> {result}")
 
         if ctext.strip().lower() == "exit":
-            # Exit sequence will be triggered by main after this
             _executor_stop.set()
             break
 
@@ -680,7 +726,6 @@ def executor_loop():
 def sender_loop():
     safe_log("Sender loop started.")
     response_comment_id = None
-    # Discover response comment on first run
     while not _sender_stop.is_set():
         try:
             all_comments = sync_repo.get_all_comments()
@@ -690,7 +735,6 @@ def sender_loop():
                 safe_log(f"Sender using response comment: {response_comment_id}")
                 break
             else:
-                # Create new
                 response_comment_id = sync_repo.create_comment("## Remote Agent Responses\n")
                 add_autonomous_report("responsecommentid", f"responsecommentid:{response_comment_id}")
                 safe_log(f"Created new response comment: {response_comment_id}")
@@ -702,7 +746,6 @@ def sender_loop():
     while not _sender_stop.is_set():
         _sender_stop.wait(COMM_INTERVAL * slow_mode)
         try:
-            # Cull timed‑out reports (60 seconds)
             removed = cull_timed_out_reports(60)
             if removed:
                 safe_log(f"Sender culled {removed} timed‑out reports.")
@@ -712,10 +755,8 @@ def sender_loop():
                 continue
 
             lines = ["## Remote Agent Responses"]
-            # Command reports and autonomous reports
             for key, (ts, seq, res) in snapshot.items():
                 if key.startswith("AUT-"):
-                    # autonomous report – find the corresponding text from pending list? We store result string.
                     lines.append(f"{key}; {res}")
                 else:
                     lines.append(f"[{ts}]: response to command number [{seq}]: {res}")
@@ -736,7 +777,6 @@ def sender_loop():
                     sync_repo.edit_comment(response_comment_id, body)
                 safe_log("Sender published response comment.")
 
-                # After success: remove command reports, keep autonomous
                 with _report_queue_lock:
                     to_remove = [k for k in snapshot if not k.startswith("AUT-")]
                     for k in to_remove:
@@ -751,7 +791,8 @@ def main():
     global app_cmd_id, last_app_body_hash
     safe_log("STEP 1: Loading start URL...")
     try:
-        driver.get(START_URL)
+        with driver_lock:
+            driver.get(START_URL)
         safe_log("STEP 2: Start URL loaded – sleeping 5s")
     except Exception as e:
         safe_log(f"FATAL STARTUP: driver.get failed: {e}")
@@ -761,7 +802,8 @@ def main():
     time.sleep(5)
     safe_log("STEP 3: Scrolling to top")
     try:
-        driver.execute_script("window.scrollTo(0,0);")
+        with driver_lock:
+            driver.execute_script("window.scrollTo(0,0);")
     except Exception as e:
         safe_log(f"Warning: scrollTo failed: {e}")
     safe_log("STEP 4: Taking first screenshot")
@@ -789,15 +831,13 @@ def main():
     safe_log("STEP 9: URL monitor started")
     push_logs()
 
-    # Discover app command comment
     all_comments = sync_repo.get_all_comments()
     app_cmd = find_marker_comment(all_comments, "## App Commands")
     app_cmd_id = app_cmd["id"] if app_cmd else None
     if not app_cmd_id:
         safe_log("No app command comment found – creating one? Not typical.")
-        # Optionally create? We'll assume it exists.
 
-    # Start the four loops
+    # Start loops
     fetcher_thread = threading.Thread(target=fetcher_loop, daemon=True)
     executor_thread = threading.Thread(target=executor_loop, daemon=True)
     sender_thread = threading.Thread(target=sender_loop, daemon=True)
@@ -807,7 +847,6 @@ def main():
     executor_thread.start()
     sender_thread.start()
 
-    # Wait for exit signal
     try:
         while True:
             time.sleep(1)
@@ -821,13 +860,12 @@ def main():
         _url_monitor_stop.set()
         _log_pusher_stop.set()
         _heartbeat_stop.set()
-        # Wait a bit for threads to finish
         time.sleep(2)
-        # Final profile save
         ok, msg = save_profile()
         safe_log(f"Final profile save: {msg}")
         push_logs()
-        driver.quit()
+        with driver_lock:
+            driver.quit()
         display.stop()
 
 if __name__ == "__main__":
@@ -842,7 +880,6 @@ if __name__ == "__main__":
             push_logs()
             time.sleep(10)
         finally:
-            # Cleanup stop events in case they weren't set
             _fetcher_stop.set()
             _executor_stop.set()
             _sender_stop.set()
@@ -850,3 +887,10 @@ if __name__ == "__main__":
             _url_monitor_stop.set()
             _log_pusher_stop.set()
             _heartbeat_stop.set()
+            # Try to quit driver if still alive
+            try:
+                if driver:
+                    driver.quit()
+            except:
+                pass
+            display.stop()
