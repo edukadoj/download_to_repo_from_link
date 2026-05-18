@@ -15,3 +15,11 @@
 [20:00:13] STEP 5: First screenshot saved – pushing logs
 [20:00:13] STEP 6: refresh_known_handles()
 [20:00:13] New autonomous report: AUT-1-1779134413 -> New tab/window handle: DAADD12A5B400F92FD47EA4A33647E84
+[20:00:14] New autonomous report: AUT-2-1779134414 -> Tabs: 1: YouTube
+[20:00:14] STEP 7: Set last known URL
+[20:00:14] STEP 8: Start URL monitor
+[20:00:14] STEP 9: URL monitor started
+[20:00:14] Screenshot worker started.
+[20:00:14] Fetcher loop started.
+[20:00:14] Execution loop started.
+[20:00:14] Sender loop started.
