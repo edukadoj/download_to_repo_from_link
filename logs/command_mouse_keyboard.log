@@ -72,3 +72,30 @@
 [19:39:44] Screenshot screenshots/0011_193940_879_auto.png pushed successfully.
 [19:39:45] Taking screenshot: screenshots/0012_193945_879_auto.png
 [19:39:46] Pushing screenshot screenshots/0012_193945_879_auto.png with 10s timeout...
+[19:39:48] Fetcher detected new App Commands comment.
+[19:39:48] Enqueued for execution: APP-52091-20260518193833
+[19:39:48] Execution loop: processing APP-52091-20260518193833: (1900, 1060)
+[19:39:48] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x55eef5ad422a <unknown>
+#1 0x55eef54d2870 <unknown>
+#2 0x55eef5578aa2 <unknown>
+#3 0x55eef556f116 <unknown>
+#4 0x55eef551a662 <unknown>
+#5 0x55eef551b451 <unknown>
+#6 0x55eef5a97d8b <unknown>
+#7 0x55eef5a9ac65 <unknown>
+#8 0x55eef5a84458 <unknown>
+#9 0x55eef5a9b7f0 <unknown>
+#10 0x55eef5a6b1c0 <unknown>
+#11 0x55eef5ac1168 <unknown>
+#12 0x55eef5ac1305 <unknown>
+#13 0x55eef5ad2c5e <unknown>
+#14 0x7f23d2a9caa4 <unknown>
+#15 0x7f23d2b29c6c <unknown>
+
+[19:39:48] refresh_known_handles unexpected error: 'set' object is not subscriptable
+[19:39:48] Executed APP-52091-20260518193833 -> OK move(20,20)
+[19:39:49] Screenshot screenshots/0012_193945_879_auto.png pushed successfully.
+[19:39:50] Taking screenshot: screenshots/0013_193950_879_auto.png
