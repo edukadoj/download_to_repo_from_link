@@ -114,3 +114,5 @@
 [16:15:38] Execution loop: processing APP-52047-20260518161419: save
 [16:15:38] Enqueued for execution: APP-52047-20260518161419
 [16:15:40] Screenshot screenshots/0021_161537_453_auto.png pushed successfully.
+[16:15:42] Taking screenshot: screenshots/0022_161542_453_auto.png
+[16:15:42] Pushing screenshot screenshots/0022_161542_453_auto.png with 10s timeout...
