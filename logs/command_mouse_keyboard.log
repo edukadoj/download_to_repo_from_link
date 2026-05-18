@@ -44,3 +44,10 @@
 [19:39:03] Execution loop: processing APP-52089-20260518193747: humanclick(877, 524)
 [19:39:04] Cursor moved to (877, 524)
 [19:39:04] Screenshot screenshots/0003_193900_878_auto.png pushed successfully.
+[19:39:04] Cursor moved to (877, 524)
+[19:39:04] Cursor moved to (877, 525)
+[19:39:05] Cursor moved to (877, 527)
+[19:39:05] Cursor moved to (880, 525)
+[19:39:05] Taking screenshot: screenshots/0004_193905_878_auto.png
+[19:39:08] Browser health check failed – skipping screenshot.
+[19:39:08] Screenshot capture failed – will retry after interval.
