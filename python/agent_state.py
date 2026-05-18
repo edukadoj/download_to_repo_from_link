@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 1.0.10 (unchanged – compatible with v39.20.10)
-#   - Improved drag‑and‑drop: prefer send_keys to file input, fallback to JS events
-#   - Added screenshot retry queue (handled in command_mouse_keyboard.py)
+# agent_state.py – Version 2.0.0
+#   - move_cursor_absolute now uses ActionChains for reliable cursor movement.
+#   - After moving, the global cursor_x / cursor_y are immediately updated.
+#   - ensure_active_tab is called inside the function but the main loop’s
+#     tab‑switching logic no longer interferes because ss() no longer calls it.
 # ==============================================================================
 import os, time, re, glob, threading, traceback, random, base64
 from datetime import datetime
@@ -67,15 +69,12 @@ def drag_file_to_target(driver, file_path, x, y):
     2. Walk up the DOM from the cursor to find any file input; send_keys if found.
     3. Fallback: JavaScript drag‑and‑drop event simulation (less reliable).
     """
-    # ── Strategy 1 & 2: find a file input and use send_keys ──────────
     try:
-        # Get all elements under the cursor
         elements = driver.execute_script(
             "return document.elementsFromPoint(arguments[0], arguments[1]);",
             x, y
         )
         if elements:
-            # Check each element for a file input
             for el in elements:
                 tag = driver.execute_script("return arguments[0].tagName.toLowerCase();", el)
                 type_attr = driver.execute_script("return arguments[0].type;", el)
@@ -83,12 +82,10 @@ def drag_file_to_target(driver, file_path, x, y):
                     el.send_keys(file_path)
                     return True
 
-            # Walk up from the topmost element to find a file input in ancestors
             parent_el = elements[0]
             for _ in range(10):
                 if parent_el is None:
                     break
-                # Check if this parent contains a file input
                 file_inputs = driver.execute_script(
                     "return arguments[0].querySelectorAll('input[type=file]');",
                     parent_el
@@ -100,14 +97,12 @@ def drag_file_to_target(driver, file_path, x, y):
     except Exception as e:
         log(f"drag_file_to_target: file input search failed: {e}")
 
-    # ── Strategy 3: JavaScript drag‑and‑drop simulation ──────────────
     script = """
     var x = arguments[0], y = arguments[1], filePath = arguments[2];
     var elements = document.elementsFromPoint(x, y);
     if (!elements || elements.length === 0) return false;
     var target = null;
 
-    // Try to find a file input among the elements
     for (var i = 0; i < elements.length; i++) {
         var el = elements[i];
         if (el.tagName === 'INPUT' && el.type === 'file') {
@@ -116,22 +111,13 @@ def drag_file_to_target(driver, file_path, x, y):
         }
     }
     if (!target) {
-        // Fallback to the first element
         target = elements[0];
     }
 
-    // If we found a file input, we can set its files directly via the DT
     if (target.tagName === 'INPUT' && target.type === 'file') {
-        // This case was already handled in Python; we shouldn't get here,
-        // but if we do, try to create a DT and assign to input
-        var dt = new DataTransfer();
-        // We cannot set dt.files directly, but we can try to use the input's click
-        // and hope that the file chooser opens (won't work in headless).
-        // Fallback: return false to indicate failure.
         return false;
     }
 
-    // For other elements, simulate a drop with a hidden file input
     var fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.style.display = 'none';
@@ -156,14 +142,11 @@ def drag_file_to_target(driver, file_path, x, y):
     };
     document.body.appendChild(fileInput);
 
-    // We need to set the file on the hidden input. This cannot be done purely from JS;
-    // the caller in Python must call fileInput.send_keys(filePath).
     return fileInput;
     """
     try:
         result = driver.execute_script(script, x, y, file_path)
         if result and isinstance(result, bool) == False:
-            # result is the file input element returned by JS
             result.send_keys(file_path)
             return True
         return False
@@ -199,12 +182,26 @@ def _try_gemini_click(prompt: str) -> bool:
     except Exception: return False
 
 def move_cursor_absolute(x: int, y: int) -> None:
-    ensure_active_tab()
+    """Reliably move the cursor to absolute coordinates (x, y)."""
     global cursor_x, cursor_y
-    x = max(0, min(W-1, x)); y = max(0, min(H-1, y))
-    action = ActionBuilder(driver)
-    action.pointer_action.move_to_location(x, y)
-    action.perform()
+    ensure_active_tab()
+
+    x = max(0, min(W-1, x))
+    y = max(0, min(H-1, y))
+
+    # Use ActionChains for reliable movement
+    try:
+        actions = ActionChains(driver)
+        actions.move_by_offset(x - cursor_x, y - cursor_y)  # relative move
+        actions.perform()
+    except Exception:
+        # fallback to direct move_to_location
+        from selenium.webdriver.common.actions.action_builder import ActionBuilder
+        from selenium.webdriver.common.actions.pointer_input import PointerInput
+        action = ActionBuilder(driver)
+        action.pointer_action.move_to_location(x, y)
+        action.perform()
+
     cursor_x, cursor_y = x, y
 
 def move_cursor_relative(dx: int, dy: int) -> None:
@@ -212,10 +209,7 @@ def move_cursor_relative(dx: int, dy: int) -> None:
     global cursor_x, cursor_y
     new_x = max(0, min(W-1, cursor_x + dx))
     new_y = max(0, min(H-1, cursor_y + dy))
-    action = ActionBuilder(driver)
-    action.pointer_action.move_to_location(new_x, new_y)
-    action.perform()
-    cursor_x, cursor_y = new_x, new_y
+    move_cursor_absolute(new_x, new_y)
 
 def left_click() -> None:
     ensure_active_tab()
