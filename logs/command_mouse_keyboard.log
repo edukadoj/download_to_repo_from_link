@@ -559,3 +559,11 @@
 [15:26:08] Enqueued for execution: APP-52036-20260518152452
 [15:26:08] Execution loop: processing APP-52036-20260518152452: humanclick(1177, 400)
 [15:26:08] Screenshot screenshots/0128_152605_290_auto.png pushed successfully.
+[15:26:08] Cursor moved to (1177, 400)
+[15:26:08] Cursor moved to (1177, 400)
+[15:26:09] Cursor moved to (1177, 400)
+[15:26:09] Cursor moved to (1180, 402)
+[15:26:09] New autonomous report: AUT-19-1779117969 -> New tab/window handle: 0BBECB7F5D6573F4BB061DF232B4C2A5
+[15:26:09] Executed APP-52036-20260518152452 -> Human click at (1177,400)
+[15:26:10] Taking screenshot: screenshots/0129_152610_290_auto.png
+[15:26:10] Pushing screenshot screenshots/0129_152610_290_auto.png with 10s timeout...
