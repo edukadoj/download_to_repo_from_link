@@ -1142,3 +1142,4 @@ Stacktrace:
 [18:03:42] Taking screenshot: screenshots/0154_180342_423_auto.png
 [18:03:42] Pushing screenshot screenshots/0154_180342_423_auto.png with 10s timeout...
 [18:03:44] Agent alive
+[18:03:47] Running chunker: python3 python/chunker.py --file /tmp/profile_nh_qizhv.dat --output-dir .profile_cache --chunk-size 20
