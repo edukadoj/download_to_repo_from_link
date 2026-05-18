@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.33.5
-#   - Removed the blocking update_viewport() call from ensure_active_tab()
-#     (already done in agent_state.py v2.6.2).
-#   - Reverted page_load_timeout to 30 seconds (5s was a temporary hack).
-#   - Viewport is updated after every successful navigate command, keeping
-#     the coordinate clamping accurate without blocking the command loop.
-#   - All other functionality (encryption, loops, timeouts) unchanged.
+# command_mouse_keyboard.py – Version 39.34.0
+#   - Calls probe_clickable_bounds() after startup and after navigations
+#     and tab switches, so the clickable viewport dimensions are always known.
+#   - All other logic (loops, encryption, timeouts) unchanged.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -49,7 +46,7 @@ from agent_state import (
     KEY_MAP, human_click, human_click_at,
     _perform_human_click_at, _try_gemini_click,
     ensure_active_tab, ACTIVE_TAB_INDEX,
-    update_viewport
+    update_viewport, probe_clickable_bounds   # <-- new import
 )
 
 # ---------- Signal handlers ----------
@@ -93,7 +90,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.33.5 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.34.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -262,7 +259,6 @@ def create_driver():
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
     opts.add_experimental_option('useAutomationExtension', False)
     drv = webdriver.Chrome(options=opts)
-    # Standard timeouts – no longer artificially shortened
     drv.set_page_load_timeout(30)
     drv.set_script_timeout(30)
     drv.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
@@ -528,6 +524,7 @@ def executor_loop():
         is_upload = (cmd_type == "upload" or cmd_type == "uploadtoyoutube")
         is_zoom = (cmd_type == "zoom")
         is_navigate = (cmd_type == "navigate")
+        is_tabswitch = (cmd_type == "tabnumber" or cmd_type == "closetab")
 
         timeout = 120 if (is_save or is_upload) else 15
 
@@ -604,11 +601,17 @@ def executor_loop():
             result = f"ERR unexpected: {ex}"
             safe_log(f"Command {cid} crashed: {ex}")
 
-        # After a successful navigate, update the viewport size
+        # After a successful navigate, re‑probe the clickable bounds
         if is_navigate and result.startswith("OK navigate"):
-            safe_log("Navigation completed – updating viewport size...")
+            safe_log("Navigation completed – probing clickable bounds...")
             update_viewport()
-            safe_log(f"Viewport dimensions now {agent_state.W}x{agent_state.H}")
+            probe_clickable_bounds()
+
+        # After a successful tab switch, also re‑probe (new tab may have different size)
+        if is_tabswitch and (result.startswith("Switched") or result.startswith("Closed")):
+            safe_log("Tab switched – probing clickable bounds...")
+            update_viewport()
+            probe_clickable_bounds()
 
         ts = int(time.time() * 1_000_000)
         seq_num = 0
@@ -663,7 +666,6 @@ def sender_loop():
                 continue
 
             lines = ["## Remote Agent Responses"]
-            # Autonomous reports first, then command responses
             for key, (ts, seq, res) in snapshot.items():
                 if key.startswith("AUT-"):
                     lines.append(f"{key}; {res}")
@@ -711,10 +713,11 @@ def main():
             return
     time.sleep(5)
 
-    # Detect real viewport size after initial page load
+    # Detect real viewport size and clickable bounds
     safe_log("Detecting actual viewport size...")
     update_viewport()
-    safe_log(f"Viewport dimensions set to {agent_state.W}x{agent_state.H}")
+    probe_clickable_bounds()
+    safe_log(f"Clickable dimensions set to {agent_state.W}x{agent_state.H}")
 
     safe_log("STEP 3: Scrolling to top")
     try:
