@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.4.0
+# agent_state.py – Version 2.5.0
 # ==============================================================================
 # This module holds all mutable state and low‑level browser interaction
 # functions for the remote‑control agent.
@@ -12,6 +12,7 @@
 #   - Contains the command parser (parse_single_command).
 #   - Manages the file registry and upload file selections.
 #   - Handles tab tracking and autonomous report generation.
+#     (Now reports the full tab list whenever a new handle is detected.)
 #   - Provides the human‑click helper with optional Gemini AI fallback.
 #
 # Every function that touches the driver uses a shared threading.Lock to
@@ -67,12 +68,10 @@ def ensure_active_tab():
                 return
             idx = ACTIVE_TAB_INDEX - 1
             if idx < 0 or idx >= len(handles):
-                # Current active tab index is out of bounds – try to stay on the current one
                 current = driver.current_window_handle
                 if current in handles:
                     ACTIVE_TAB_INDEX = handles.index(current) + 1
                 else:
-                    # Current handle gone, fall back to first tab
                     ACTIVE_TAB_INDEX = 1
                     idx = 0
             else:
@@ -89,7 +88,6 @@ def ensure_active_tab():
 
 # ---------- Improved drag‑and‑drop file injection ----------
 def drag_file_to_target(driver_ref, file_path, x, y):
-    """Try to inject a file into a file input near (x,y)."""
     try:
         with driver_lock:
             elements = driver_ref.execute_script(
@@ -120,7 +118,6 @@ def drag_file_to_target(driver_ref, file_path, x, y):
     except Exception as e:
         log(f"drag_file_to_target: unexpected error: {e}")
 
-    # Fallback: create a file input via JavaScript
     script = """
     var x = arguments[0], y = arguments[1], filePath = arguments[2];
     var elements = document.elementsFromPoint(x, y);
@@ -520,6 +517,9 @@ def parse_single_command(raw: str):
             val = float(lo.split(":",1)[1].strip())
             return ("setinterval", val)
         except: return ("key", raw)
+    # zoom command is handled directly in the executor loop, but parse it here for completeness
+    if lo.startswith("zoom:"):
+        return ("zoom", raw.split(":",1)[1].strip())
     return ("key", raw)
 
 # ---------- FILE REGISTRY & UPLOAD PATHS ----------
@@ -569,6 +569,9 @@ def get_upload_paths():
 _known_handles = set()
 
 def refresh_known_handles():
+    """
+    Detect new window handles and report the full tab list as an autonomous report.
+    """
     global _known_handles
     try:
         with driver_lock:
@@ -577,6 +580,26 @@ def refresh_known_handles():
             for h in new_handles:
                 add_autonomous_report("tabopened", f"New tab/window handle: {h}")
             _known_handles = handles
+
+            # Build a tab list string and report it
+            tab_lines = []
+            for i, h in enumerate(handles):
+                try:
+                    driver.switch_to.window(h)
+                    title = (driver.title or "Untitled")[:60]
+                except Exception:
+                    title = "(error)"
+                tab_lines.append(f"{i+1}: {title}")
+            # Switch back to active tab
+            idx = ACTIVE_TAB_INDEX - 1
+            if 0 <= idx < len(handles):
+                driver.switch_to.window(handles[idx])
+                try: driver.set_window_size(W, H)
+                except: pass
+            else:
+                driver.switch_to.window(handles[0])
+            tab_report = "Tabs: " + " | ".join(tab_lines)
+            add_autonomous_report("tabs", tab_report)
     except (WebDriverException, InvalidSessionIdException) as e:
         log(f"refresh_known_handles driver error: {e}")
     except Exception as e:
