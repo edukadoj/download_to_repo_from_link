@@ -1,11 +1,28 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.28.2
-#   - Response publishing moved to a background timer (COMM_INTERVAL).
-#   - Autonomous reports are kept alive across publishes, only culled after 60s.
-#   - Main loop sleeps a little after each poll to avoid busy‑waiting.
-#   - git_push_with_retry passed correctly (connected to repo_wrapper).
-#   - All shared report lists protected by a lock.
+# command_mouse_keyboard.py – Version 39.29.0
+# ==============================================================================
+# Agent main script that runs inside GitHub Actions.
+# Implements the communication logic with four independent loops:
+#
+# 1. Comment Fetcher Loop  – reads the App Commands comment, detects new
+#    content, routes commands to Report Queue (if already executed) or
+#    Execution Queue (if new).  Also handles acknowledgment commands.
+# 2. Execution Loop        – takes commands from the Execution Queue,
+#    executes them (with a 15‑second timeout), saves the result to
+#    Report History (disk) and enqueues it into the Report Queue.
+# 3. Comment Sender Loop   – periodically publishes the Report Queue to the
+#    Remote Agent Responses comment.  Culls timed‑out reports, removes
+#    command reports after successful publish, keeps autonomous reports
+#    until acknowledged or timed out.
+# 4. Screenshot Loop       – continuously captures the virtual display,
+#    draws a red crosshair, adds a human‑readable timestamp watermark
+#    (50 % opacity), and pushes the image to the repository.
+#
+# Data structures:
+#   Report History      : disk‑backed JSON dict (loaded into RAM).
+#   Report Queue        : dict preventing duplicate reports.
+#   Execution Queue     : thread‑safe FIFO (queue.Queue).
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -15,12 +32,13 @@ from cryptography.fernet import Fernet
 from selenium import webdriver
 from selenium.common.exceptions import WebDriverException, InvalidSessionIdException
 from selenium.webdriver.chrome.options import Options
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+import queue as queue_module
 
 from crypto_utils import encrypt_string, decode_string
 from comments import find_marker_comment
 from uploader import reassemble_flat
-from execution_queue import ExecutionQueue
 from command_handlers import execute_one_command
 from repo_wrapper import RepoWrapper
 
@@ -80,7 +98,6 @@ def safe_log(msg: str) -> None:
         print("[LOG ERROR] Could not write to log file", flush=True)
 
 def echo(msg: str) -> None:
-    """Write a line without timestamp (used for startup banner)."""
     print(msg, flush=True)
     try:
         with _log_lock:
@@ -91,7 +108,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.28.2 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.29.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -145,8 +162,7 @@ class SyncRepo:
 ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER","4").strip()
 START_URL = os.environ.get("START_URL") or "https://studio.youtube.com"
 REPO = os.environ['GITHUB_REPOSITORY']
-
-KEY_SECRET = os.environ["KEY"]   # must be at module level
+KEY_SECRET = os.environ["KEY"]
 
 repo_wrapper = RepoWrapper(REPO, int(ISSUE_NUMBER), LOG_FILENAME)
 repo_wrapper.error_log = safe_log
@@ -329,29 +345,43 @@ threading.Thread(target=heartbeat_worker, daemon=True).start()
 
 # ---------- Screenshot logic ----------
 counter = [0]
+# watermark font
+try:
+    watermark_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
+except:
+    watermark_font = ImageFont.load_default()
 
-def ss(desc="screenshot", push=True, response_suffix=""):
+def ss(desc="screenshot", push=True):
     counter[0] += 1
-    now = datetime.now().strftime("%H%M%S")
-    fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
-    safe_log(f"Taking screenshot: {fname}")
+    now = datetime.now()
+    ms = now.microsecond // 1000
+    timestamp_str = now.strftime("%H:%M:%S") + f".{ms:03d}"
+    filename = f"screenshots/{counter[0]:04d}_{now.strftime('%H%M%S')}_{ms:03d}_{desc}.png"
+    safe_log(f"Taking screenshot: {filename}")
     try:
-        driver.save_screenshot(fname)
-        img = Image.open(fname); draw = ImageDraw.Draw(img)
+        driver.save_screenshot(filename)
+        img = Image.open(filename).convert("RGBA")
+        draw = ImageDraw.Draw(img)
         x, y = agent_state.cursor_x if agent_state else 960, agent_state.cursor_y if agent_state else 540
         r = 12
         draw.ellipse([(x-r,y-r),(x+r,y+r)], outline='red', width=3)
         draw.line([(x-15,y),(x+15,y)], fill='red', width=3)
         draw.line([(x,y-15),(x,y+15)], fill='red', width=3)
-        img.save(fname)
+        # human‑readable watermark at 50% opacity
+        overlay = Image.new('RGBA', img.size, (0,0,0,0))
+        overlay_draw = ImageDraw.Draw(overlay)
+        text_bbox = overlay_draw.textbbox((0,0), timestamp_str, font=watermark_font)
+        text_pos = (img.width - text_bbox[2] - 20, img.height - text_bbox[3] - 20)
+        overlay_draw.text(text_pos, timestamp_str, font=watermark_font, fill=(255,255,255,128))
+        img = Image.alpha_composite(img, overlay)
+        img.save(filename)
     except BaseException as e:
         safe_log(f"Screenshot image processing error: {e}")
-    if not push: return fname
-
+    if not push: return filename
     safe_log("Enqueuing screenshot for push...")
-    sync_repo.push_screenshots([fname])
-    safe_log(f"Enqueued {fname} + log")
-    return fname
+    sync_repo.push_screenshots([filename])
+    safe_log(f"Enqueued {filename} + log")
+    return filename
 
 _screenshot_stop = threading.Event()
 _screenshot_thread = None
@@ -381,16 +411,6 @@ def start_screenshot_worker():
     _screenshot_thread = threading.Thread(target=screenshot_worker, daemon=True)
     _screenshot_thread.start()
     safe_log("Screenshot worker started.")
-
-def monitor_screenshot_worker():
-    while not _screenshot_stop.is_set():
-        time.sleep(10)
-        if not _screenshot_thread or not _screenshot_thread.is_alive():
-            safe_log("Screenshot worker is dead! Restarting...")
-            start_screenshot_worker()
-
-start_screenshot_worker()
-threading.Thread(target=monitor_screenshot_worker, daemon=True).start()
 
 # ---------- Browser recovery ----------
 _calibration_in_progress = False
@@ -424,74 +444,311 @@ def restart_browser():
             time.sleep(5)
     return False
 
-# ---------- Main loop data structures ----------
-# Locks for thread safety
-_reports_lock = threading.Lock()
-unsent_reports = []          # list of (timestamp, seq_num, result)
-executed_cache = {}          # cmd_id -> (timestamp, seq_num, result)
+# ---------- Report History ----------
+HISTORY_FILE = "logs/report_history.json"
+_report_history_lock = threading.Lock()
+report_history = {}
 
-# ---------- Background report publisher ----------
-_report_publisher_stop = threading.Event()
-
-def report_publisher_worker():
-    """Publish unsent reports + autonomous reports every COMM_INTERVAL seconds."""
-    while not _report_publisher_stop.is_set():
-        _report_publisher_stop.wait(COMM_INTERVAL * slow_mode)
-        if _report_publisher_stop.is_set():
-            break
+def load_report_history():
+    global report_history
+    if os.path.exists(HISTORY_FILE):
         try:
-            publish_reports()
+            with open(HISTORY_FILE, "r") as f:
+                report_history = json.load(f)
+            safe_log(f"Loaded report history with {len(report_history)} entries.")
         except Exception as e:
-            safe_log(f"Report publisher error: {e}")
+            safe_log(f"Failed to load report history: {e}")
+            report_history = {}
 
-def publish_reports():
-    global response_comment_id
-    with _reports_lock:
-        # Copy and clear unsent reports
-        reports_to_send = unsent_reports.copy()
-        unsent_reports.clear()
-        # Cull expired autonomous reports (removes those older than 60s)
-        cull_expired_autonomous_reports()
-        # Copy remaining autonomous reports (they stay in the list for future publishes)
-        auto_reports = pending_autonomous_reports.copy()
-        # Do NOT clear pending_autonomous_reports – they will be culled automatically
-
-    if not reports_to_send and not auto_reports:
-        return  # nothing to publish
-
-    lines = ["## Remote Agent Responses"]
-    for ts, seq, result in reports_to_send:
-        lines.append(f"[{ts}]: response to command number [{seq}]: {result}")
-    for r in auto_reports:
-        lines.append(f"{r['id']}; {r['text']}")
-
-    body = "\n".join(lines)
-
+def save_report_history():
     try:
-        if not sync_repo.comment_exists(response_comment_id):
-            for _ in range(3):
-                try:
-                    new_id = sync_repo.create_comment(body)
-                    safe_log(f"Created new response comment: {new_id}")
-                    response_comment_id = new_id
-                    add_autonomous_report("responsecommentid", f"responsecommentid:{new_id}")
-                    push_logs()
-                    return
-                except Exception:
-                    time.sleep(2)
-            return
-        sync_repo.edit_comment(response_comment_id, body)
-        push_logs()
+        with _report_history_lock:
+            with open(HISTORY_FILE, "w") as f:
+                json.dump(report_history, f)
     except Exception as e:
-        safe_log(f"Error publishing reports: {e}")
+        safe_log(f"Failed to save report history: {e}")
 
-# Start the publisher thread after response_comment_id is obtained
-report_publisher_thread = None
+load_report_history()
 
-# ---------- Main loop ----------
+# ---------- Report Queue (duplicate‑safe) ----------
+_report_queue_lock = threading.Lock()
+report_queue = {}   # key: command ID or AUT ID -> (timestamp, seq_num, result_string)
+
+def add_to_report_queue(key, timestamp, seq_num, result):
+    with _report_queue_lock:
+        if key not in report_queue:
+            report_queue[key] = (timestamp, seq_num, result)
+
+def remove_from_report_queue(key):
+    with _report_queue_lock:
+        report_queue.pop(key, None)
+
+def get_report_queue_snapshot():
+    with _report_queue_lock:
+        return dict(report_queue)
+
+def cull_timed_out_reports(timeout_seconds=60):
+    with _report_queue_lock:
+        now = time.time()
+        to_remove = []
+        for key, (ts, seq, res) in report_queue.items():
+            # ts is in microseconds, convert to seconds
+            if now - (ts / 1_000_000) > timeout_seconds:
+                to_remove.append(key)
+        for key in to_remove:
+            del report_queue[key]
+        return len(to_remove)
+
+# ---------- Execution Queue ----------
+execution_queue = queue_module.Queue()
+
+# ---------- Thread stop events ----------
+_fetcher_stop = threading.Event()
+_executor_stop = threading.Event()
+_sender_stop = threading.Event()
+
+# ---------- Fetcher Loop ----------
+def fetcher_loop():
+    global app_cmd_id, last_app_body_hash
+    last_app_body_hash = None
+    safe_log("Fetcher loop started.")
+    while not _fetcher_stop.is_set():
+        try:
+            if app_cmd_id:
+                try:
+                    app_body = sync_repo.get_comment_body(app_cmd_id)
+                except Exception as e:
+                    safe_log(f"Fetcher error reading app cmd body: {e}")
+                    _fetcher_stop.wait(COMM_INTERVAL * slow_mode)
+                    continue
+                if not app_body:
+                    _fetcher_stop.wait(COMM_INTERVAL * slow_mode)
+                    continue
+                # Check if the body is new by comparing hash
+                body_hash = hashlib.md5(app_body.encode()).hexdigest()
+                if body_hash == last_app_body_hash:
+                    _fetcher_stop.wait(1)   # short sleep
+                    continue
+                last_app_body_hash = body_hash
+
+                safe_log("Fetcher detected new App Commands comment.")
+                lines = app_body.strip().splitlines()
+                capture = False
+                for line in lines:
+                    if re.match(r'^\[(\d+)\]: app commands:', line):
+                        capture = True
+                        continue
+                    if capture and re.match(r'^\[', line):
+                        capture = False
+                    if not capture:
+                        continue
+                    parts = line.split(';', 1)
+                    if len(parts) != 2:
+                        continue
+                    cid = parts[0].strip()
+                    ctext = parts[1].strip()
+                    if not ctext:
+                        continue
+
+                    # Ack command?
+                    if ctext.startswith("ack:"):
+                        aut_id = ctext.split(":",1)[1].strip()
+                        remove_from_report_queue(aut_id)
+                        safe_log(f"Acknowledged autonomous report {aut_id}, removed from queue.")
+                        continue
+
+                    # Normal command – check report history
+                    with _report_history_lock:
+                        existing = report_history.get(cid)
+                    if existing:
+                        ts, seq, res = existing
+                        add_to_report_queue(cid, ts, seq, res)
+                        safe_log(f"Re‑enqueued existing report for {cid}")
+                    else:
+                        execution_queue.put((cid, ctext))
+                        safe_log(f"Enqueued for execution: {cid}")
+            else:
+                # App comment ID lost, try to rediscover
+                safe_log("App comment ID missing – rediscovering...")
+                try:
+                    all_comments = sync_repo.get_all_comments()
+                    app_c = find_marker_comment(all_comments, "## App Commands")
+                    if app_c:
+                        app_cmd_id = app_c["id"]
+                        safe_log(f"Re‑found app cmd: {app_cmd_id}")
+                    else:
+                        safe_log("Still no app comment found.")
+                except Exception as e:
+                    safe_log(f"Error rediscovering app comment: {e}")
+                _fetcher_stop.wait(COMM_INTERVAL * slow_mode)
+                continue
+
+            # Small sleep to avoid busy‑waiting
+            _fetcher_stop.wait(0.1)
+
+        except Exception as e:
+            safe_log(f"Fetcher loop error: {traceback.format_exc()}")
+            _fetcher_stop.wait(5)
+
+# ---------- Execution Loop ----------
+def executor_loop():
+    safe_log("Execution loop started.")
+    # Thread pool for timeout
+    executor_pool = ThreadPoolExecutor(max_workers=1)
+    while not _executor_stop.is_set():
+        try:
+            cid, ctext = execution_queue.get(timeout=1)
+        except queue_module.Empty:
+            continue
+
+        safe_log(f"Execution loop: processing {cid}: {ctext}")
+
+        def run_command():
+            cmd_type, arg = parse_single_command(ctext)
+            return execute_one_command(
+                cmd_type, arg,
+                driver=driver, cursor_x=agent_state.cursor_x, cursor_y=agent_state.cursor_y,
+                W=agent_state.W, H=agent_state.H, DOWNLOAD_DIR=DOWNLOAD_DIR, LOG_FILENAME=LOG_FILENAME,
+                KEY_SECRET=KEY_SECRET, REPO=REPO, ISSUE_NUMBER=ISSUE_NUMBER,
+                HAS_GEMINI=HAS_GEMINI, HAS_PYPERCLIP=HAS_PYPERCLIP,
+                allowed_secrets=allowed_secrets, ENCRYPTION_KEY=ENCRYPTION_KEY,
+                human_click_callable=human_click, human_click_at_callable=human_click_at,
+                _try_gemini_click=_try_gemini_click,
+                move_cursor_absolute=move_cursor_absolute,
+                move_cursor_relative=move_cursor_relative,
+                left_click=left_click, left_button_down=left_button_down,
+                left_button_up=left_button_up, right_button_down=right_button_down,
+                right_button_up=right_button_up, middle_button_down=middle_button_down,
+                middle_button_up=middle_button_up, double_click=double_click,
+                right_click=right_click, middle_click=middle_click,
+                scroll_by=scroll_by, drag_from_to=drag_from_to,
+                press_key=press_key, press_combo=press_combo,
+                type_secret=type_secret, decode_string=decode_string,
+                ss=ss, refresh_file_registry=refresh_file_registry,
+                add_autonomous_report=add_autonomous_report,
+                refresh_known_handles=refresh_known_handles,
+                get_upload_paths=get_upload_paths, save_profile=save_profile,
+                _file_registry=_file_registry, _upload_file_paths=_upload_file_paths,
+                pyperclip=pyperclip if HAS_PYPERCLIP else None,
+                upload_reassemble=None,
+                HAS_PYPERCLIP_local=HAS_PYPERCLIP,
+                encrypt_string=encrypt_string,
+                get_all_comments=lambda: sync_repo.get_all_comments(),
+                delete_comment=lambda cid: sync_repo.delete_comment(cid),
+                issue_comment=lambda body: sync_repo.create_comment(body),
+                smart_edit_comment=lambda cid, body: sync_repo.edit_comment(cid, body),
+                git_push_with_retry=(lambda: sync_repo._rw._git_push_with_retry()),
+                comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
+            )
+
+        try:
+            future = executor_pool.submit(run_command)
+            result = future.result(timeout=15)
+        except FutureTimeoutError:
+            result = "ERR timeout: command exceeded 15 seconds"
+            safe_log(f"Command {cid} timed out.")
+        except Exception as ex:
+            result = f"ERR unexpected: {ex}"
+            safe_log(f"Command {cid} crashed: {ex}")
+
+        ts = int(time.time() * 1_000_000)
+        seq_num = 0
+        if cid.startswith("APP-"):
+            parts_cid = cid.split('-')
+            if len(parts_cid) >= 2:
+                try: seq_num = int(parts_cid[1])
+                except: pass
+
+        # Save to history
+        entry = (ts, seq_num, result)
+        with _report_history_lock:
+            report_history[cid] = entry
+        save_report_history()   # write to disk (could be done async, but small overhead)
+
+        # Enqueue into report queue
+        add_to_report_queue(cid, ts, seq_num, result)
+        safe_log(f"Executed {cid} -> {result}")
+
+        if ctext.strip().lower() == "exit":
+            # Exit sequence will be triggered by main after this
+            _executor_stop.set()
+            break
+
+    executor_pool.shutdown(wait=False)
+
+# ---------- Sender Loop ----------
+def sender_loop():
+    safe_log("Sender loop started.")
+    response_comment_id = None
+    # Discover response comment on first run
+    while not _sender_stop.is_set():
+        try:
+            all_comments = sync_repo.get_all_comments()
+            resp_comment = find_marker_comment(all_comments, "## Remote Agent Responses")
+            if resp_comment:
+                response_comment_id = resp_comment["id"]
+                safe_log(f"Sender using response comment: {response_comment_id}")
+                break
+            else:
+                # Create new
+                response_comment_id = sync_repo.create_comment("## Remote Agent Responses\n")
+                add_autonomous_report("responsecommentid", f"responsecommentid:{response_comment_id}")
+                safe_log(f"Created new response comment: {response_comment_id}")
+                break
+        except Exception as e:
+            safe_log(f"Sender init error: {e}")
+            _sender_stop.wait(5)
+
+    while not _sender_stop.is_set():
+        _sender_stop.wait(COMM_INTERVAL * slow_mode)
+        try:
+            # Cull timed‑out reports (60 seconds)
+            removed = cull_timed_out_reports(60)
+            if removed:
+                safe_log(f"Sender culled {removed} timed‑out reports.")
+
+            snapshot = get_report_queue_snapshot()
+            if not snapshot:
+                continue
+
+            lines = ["## Remote Agent Responses"]
+            # Command reports and autonomous reports
+            for key, (ts, seq, res) in snapshot.items():
+                if key.startswith("AUT-"):
+                    # autonomous report – find the corresponding text from pending list? We store result string.
+                    lines.append(f"{key}; {res}")
+                else:
+                    lines.append(f"[{ts}]: response to command number [{seq}]: {res}")
+
+            body = "\n".join(lines)
+
+            try:
+                if not sync_repo.comment_exists(response_comment_id):
+                    for _ in range(3):
+                        try:
+                            new_id = sync_repo.create_comment(body)
+                            response_comment_id = new_id
+                            add_autonomous_report("responsecommentid", f"responsecommentid:{new_id}")
+                            break
+                        except:
+                            time.sleep(2)
+                else:
+                    sync_repo.edit_comment(response_comment_id, body)
+                safe_log("Sender published response comment.")
+
+                # After success: remove command reports, keep autonomous
+                with _report_queue_lock:
+                    to_remove = [k for k in snapshot if not k.startswith("AUT-")]
+                    for k in to_remove:
+                        report_queue.pop(k, None)
+            except Exception as e:
+                safe_log(f"Sender failed to publish: {e}")
+        except Exception as e:
+            safe_log(f"Sender loop error: {traceback.format_exc()}")
+
+# ---------- Main startup ----------
 def main():
-    global slow_mode, last_command_time, response_comment_id, report_publisher_thread
-
+    global app_cmd_id, last_app_body_hash
     safe_log("STEP 1: Loading start URL...")
     try:
         driver.get(START_URL)
@@ -512,8 +769,8 @@ def main():
         ss("01_start_page", push=True)
     except Exception as e:
         safe_log(f"Warning: first screenshot push failed: {e}")
-    safe_log("STEP 5: First screenshot saved – pushing logs")
     push_logs()
+    safe_log("STEP 5: First screenshot saved – pushing logs")
     safe_log("STEP 6: refresh_known_handles()")
     try:
         refresh_known_handles()
@@ -532,232 +789,52 @@ def main():
     safe_log("STEP 9: URL monitor started")
     push_logs()
 
-    RESPONSE_MARKER = "## Remote Agent Responses"
-    APP_COMMAND_MARKER = "## App Commands"
-
-    safe_log("STEP 10: Fetching comments via sync_repo.get_all_comments()")
-    try:
-        all_comments = sync_repo.get_all_comments()
-    except Exception as e:
-        safe_log(f"CRITICAL: get_all_comments failed: {e}\n{traceback.format_exc()}")
-        push_logs()
-        if not restart_browser():
-            return
-        try:
-            all_comments = sync_repo.get_all_comments()
-        except Exception as e2:
-            safe_log(f"FATAL: get_all_comments still failing: {e2}")
-            return
-    safe_log(f"STEP 11: Comments fetched – {len(all_comments)} entries")
-    push_logs()
-
-    safe_log("STEP 12: Locating markers in comments")
-    resp_comment = find_marker_comment(all_comments, RESPONSE_MARKER)
-    if resp_comment:
-        response_comment_id = resp_comment["id"]
-        safe_log(f"Found response comment: {response_comment_id}")
-    else:
-        safe_log("No response comment found, creating one...")
-        try:
-            response_comment_id = sync_repo.create_comment(f"{RESPONSE_MARKER}\n")
-            if response_comment_id:
-                add_autonomous_report("responsecommentid", f"responsecommentid:{response_comment_id}")
-                safe_log(f"Created response comment: {response_comment_id}")
-        except Exception as e:
-            safe_log(f"CRITICAL: create_comment failed: {e}")
-            push_logs()
-            return
-
-    app_cmd = find_marker_comment(all_comments, APP_COMMAND_MARKER)
+    # Discover app command comment
+    all_comments = sync_repo.get_all_comments()
+    app_cmd = find_marker_comment(all_comments, "## App Commands")
     app_cmd_id = app_cmd["id"] if app_cmd else None
-    safe_log(f"STEP 13: App command comment id = {app_cmd_id}")
+    if not app_cmd_id:
+        safe_log("No app command comment found – creating one? Not typical.")
+        # Optionally create? We'll assume it exists.
 
-    if app_cmd_id:
-        try:
-            sync_repo.edit_comment(app_cmd_id, "## App Commands\n")
-            safe_log("STEP 14: Blanked app command comment")
-        except Exception as e:
-            safe_log(f"Warning: Could not blank app cmd comment: {e}")
+    # Start the four loops
+    fetcher_thread = threading.Thread(target=fetcher_loop, daemon=True)
+    executor_thread = threading.Thread(target=executor_loop, daemon=True)
+    sender_thread = threading.Thread(target=sender_loop, daemon=True)
+    start_screenshot_worker()
 
-    safe_log("STEP 15: Entering main command loop...")
-    push_logs()
+    fetcher_thread.start()
+    executor_thread.start()
+    sender_thread.start()
 
-    # Start the background report publisher now that response_comment_id is set
-    report_publisher_thread = threading.Thread(target=report_publisher_worker, daemon=True)
-    report_publisher_thread.start()
-
-    # Define a real git_push_with_retry function (connects to RepoWrapper)
-    def git_push_with_retry():
-        return sync_repo._rw._git_push_with_retry()
-
-    # Main command loop
-    while True:
-        if time.time() - last_command_time > 120:
-            slow_mode = 15
-        else:
-            slow_mode = 1
-
-        try:
-            if app_cmd_id:
-                try:
-                    test = sync_repo.get_comment_body(app_cmd_id)
-                    if not test:
-                        safe_log(f"App command comment {app_cmd_id} vanished – resetting.")
-                        app_cmd_id = None
-                except Exception as e:
-                    safe_log(f"Error reading app cmd comment: {e}")
-
-            if not app_cmd_id:
-                time.sleep(COMM_INTERVAL * slow_mode)
-                try:
-                    allc = sync_repo.get_all_comments()
-                except Exception as e:
-                    safe_log(f"Error in get_all_comments: {e}")
-                    time.sleep(COMM_INTERVAL * slow_mode)
-                    continue
-                if not allc:
-                    time.sleep(COMM_INTERVAL * slow_mode)
-                    continue
-                app_c = find_marker_comment(allc, APP_COMMAND_MARKER)
-                if app_c:
-                    app_cmd_id = app_c["id"]
-                    safe_log(f"Re‑found app cmd: {app_cmd_id}")
-                continue
-
-            try:
-                app_body = sync_repo.get_comment_body(app_cmd_id)
-            except Exception as e:
-                safe_log(f"Error reading app cmd body: {e}")
-                time.sleep(COMM_INTERVAL * slow_mode)
-                continue
-            if not app_body:
-                time.sleep(COMM_INTERVAL * slow_mode)
-                continue
-            lines = app_body.strip().splitlines()
-            if not lines:
-                time.sleep(COMM_INTERVAL * slow_mode)
-                continue
-
-            capture = False
-            new_cmds = []
-            for line_idx, line in enumerate(lines, start=1):
-                m = re.match(r'^\[(\d+)\]: app commands:', line)
-                if m:
-                    capture = True
-                    continue
-                if capture:
-                    if re.match(r'^\[', line):
-                        break
-                    parts = line.split(';', 1)
-                    if len(parts) == 2:
-                        cid = parts[0].strip()
-                        ctext = parts[1].strip()
-                        if ctext:
-                            new_cmds.append((cid, ctext, line_idx))
-
-            for cid, ctext, line_num in new_cmds:
-                with _reports_lock:
-                    if cid in executed_cache:
-                        continue
-
-                safe_log(f"Executing [{cid}] from line {line_num}: {ctext}")
-
-                cmd_type, arg = parse_single_command(ctext)
-                result = execute_one_command(
-                    cmd_type, arg,
-                    driver=driver, cursor_x=agent_state.cursor_x, cursor_y=agent_state.cursor_y,
-                    W=agent_state.W, H=agent_state.H, DOWNLOAD_DIR=DOWNLOAD_DIR, LOG_FILENAME=LOG_FILENAME,
-                    KEY_SECRET=KEY_SECRET, REPO=REPO, ISSUE_NUMBER=ISSUE_NUMBER,
-                    HAS_GEMINI=HAS_GEMINI, HAS_PYPERCLIP=HAS_PYPERCLIP,
-                    allowed_secrets=allowed_secrets, ENCRYPTION_KEY=ENCRYPTION_KEY,
-                    human_click_callable=human_click, human_click_at_callable=human_click_at,
-                    _try_gemini_click=_try_gemini_click,
-                    move_cursor_absolute=move_cursor_absolute,
-                    move_cursor_relative=move_cursor_relative,
-                    left_click=left_click, left_button_down=left_button_down,
-                    left_button_up=left_button_up, right_button_down=right_button_down,
-                    right_button_up=right_button_up, middle_button_down=middle_button_down,
-                    middle_button_up=middle_button_up, double_click=double_click,
-                    right_click=right_click, middle_click=middle_click,
-                    scroll_by=scroll_by, drag_from_to=drag_from_to,
-                    press_key=press_key, press_combo=press_combo,
-                    type_secret=type_secret, decode_string=decode_string,
-                    ss=ss, refresh_file_registry=refresh_file_registry,
-                    add_autonomous_report=add_autonomous_report,
-                    refresh_known_handles=refresh_known_handles,
-                    get_upload_paths=get_upload_paths, save_profile=save_profile,
-                    _file_registry=_file_registry, _upload_file_paths=_upload_file_paths,
-                    pyperclip=pyperclip if HAS_PYPERCLIP else None,
-                    upload_reassemble=None,
-                    HAS_PYPERCLIP_local=HAS_PYPERCLIP,
-                    encrypt_string=encrypt_string,
-                    get_all_comments=lambda: sync_repo.get_all_comments(),
-                    delete_comment=lambda cid: sync_repo.delete_comment(cid),
-                    issue_comment=lambda body: sync_repo.create_comment(body),
-                    smart_edit_comment=lambda cid, body: sync_repo.edit_comment(cid, body),
-                    git_push_with_retry=git_push_with_retry,
-                    comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
-                )
-                ts = int(time.time() * 1_000_000)
-                seq_num = 0
-                if cid.startswith("APP-"):
-                    parts_cid = cid.split('-')
-                    if len(parts_cid) >= 2:
-                        try:
-                            seq_num = int(parts_cid[1])
-                        except ValueError:
-                            pass
-
-                with _reports_lock:
-                    executed_cache[cid] = (ts, seq_num, result)
-                    unsent_reports.append((ts, seq_num, result))
-
-                last_command_time = time.time()
-                safe_log(f"Executed: {cid} → {result}")
-                push_logs()
-
-                if cmd_type == "exit":
-                    # Publish immediately before exiting
-                    publish_reports()
-                    safe_log("Exit command received – saving profile cache...")
-                    ok, msg = save_profile()
-                    safe_log(f"Profile save: {msg}")
-                    time.sleep(1)
-                    publish_reports()  # final flush
-                    ss("final", push=True)
-                    _screenshot_stop.set()
-                    _url_monitor_stop.set()
-                    _log_pusher_stop.set()
-                    _heartbeat_stop.set()
-                    _report_publisher_stop.set()
-                    driver.quit()
-                    display.stop()
-                    push_logs()
-                    echo("\n🎉 Remote session ended.")
-                    sys.exit(0)
-
-            # After processing all new commands, sleep briefly to avoid tight loop
-            time.sleep(0.1)
-
-        except KeyboardInterrupt:
-            raise
-        except SystemExit:
-            raise
-        except (WebDriverException, InvalidSessionIdException) as driver_error:
-            safe_log(f"Driver error: {driver_error}. Attempting browser restart...")
-            if not restart_browser():
-                safe_log("Browser restart failed permanently. Exiting.")
-                push_logs()
-                break
-        except Exception as e:
-            safe_log(f"Main loop exception: {traceback.format_exc()}")
-            push_logs()
-            time.sleep(5)
+    # Wait for exit signal
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        safe_log("Keyboard interrupt, shutting down...")
+    finally:
+        _fetcher_stop.set()
+        _executor_stop.set()
+        _sender_stop.set()
+        _screenshot_stop.set()
+        _url_monitor_stop.set()
+        _log_pusher_stop.set()
+        _heartbeat_stop.set()
+        # Wait a bit for threads to finish
+        time.sleep(2)
+        # Final profile save
+        ok, msg = save_profile()
+        safe_log(f"Final profile save: {msg}")
+        push_logs()
+        driver.quit()
+        display.stop()
 
 if __name__ == "__main__":
     while True:
         try:
             main()
+            break
         except SystemExit:
             break
         except Exception as ex:
@@ -765,18 +842,11 @@ if __name__ == "__main__":
             push_logs()
             time.sleep(10)
         finally:
+            # Cleanup stop events in case they weren't set
+            _fetcher_stop.set()
+            _executor_stop.set()
+            _sender_stop.set()
             _screenshot_stop.set()
             _url_monitor_stop.set()
             _log_pusher_stop.set()
             _heartbeat_stop.set()
-            _report_publisher_stop.set()
-            ok, msg = save_profile()
-            safe_log(f"Final profile save: {msg}")
-            push_logs()
-            _screenshot_stop.clear()
-            _url_monitor_stop.clear()
-            _log_pusher_stop.clear()
-            _heartbeat_stop.clear()
-            _report_publisher_stop.clear()
-            threading.Thread(target=log_pusher, daemon=True).start()
-            threading.Thread(target=heartbeat_worker, daemon=True).start()
