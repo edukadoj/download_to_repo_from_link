@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.32.0
+# command_mouse_keyboard.py – Version 39.33.0
 # ==============================================================================
 # Agent main script that runs inside GitHub Actions.
 # Implements the communication logic with four independent loops:
@@ -8,6 +8,8 @@
 # 1. Comment Fetcher Loop  – reads the App Commands comment, detects new
 #    content, routes commands to Report Queue (if already executed) or
 #    Execution Queue (if new).  Also handles acknowledgment commands.
+#    Duplicate save/upload commands are rejected immediately if a previous
+#    one is still in progress.
 # 2. Execution Loop        – takes commands from the Execution Queue,
 #    executes them (with a 15‑second timeout for most, extended for save/upload),
 #    saves the result to Report History (disk) and enqueues it into the Report Queue.
@@ -105,7 +107,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.32.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.33.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -462,6 +464,39 @@ def fetcher_loop():
                         safe_log(f"Acknowledged autonomous report {aut_id}, removed from queue.")
                         continue
 
+                    # Reject duplicate save/upload if already running
+                    cmd_type, _ = parse_single_command(ctext)
+                    if cmd_type == "save" and save_lock.locked():
+                        ts = int(time.time() * 1_000_000)
+                        seq_num = 0
+                        if cid.startswith("APP-"):
+                            parts_cid = cid.split('-')
+                            if len(parts_cid) >= 2:
+                                try: seq_num = int(parts_cid[1])
+                                except: pass
+                        error_result = "ERR save already in progress"
+                        with _report_history_lock:
+                            report_history[cid] = (ts, seq_num, error_result)
+                        save_report_history()
+                        add_to_report_queue(cid, ts, seq_num, error_result)
+                        safe_log(f"Rejected duplicate save command {cid}")
+                        continue
+                    if cmd_type in ("upload", "uploadtoyoutube") and upload_lock.locked():
+                        ts = int(time.time() * 1_000_000)
+                        seq_num = 0
+                        if cid.startswith("APP-"):
+                            parts_cid = cid.split('-')
+                            if len(parts_cid) >= 2:
+                                try: seq_num = int(parts_cid[1])
+                                except: pass
+                        error_result = "ERR upload already in progress"
+                        with _report_history_lock:
+                            report_history[cid] = (ts, seq_num, error_result)
+                        save_report_history()
+                        add_to_report_queue(cid, ts, seq_num, error_result)
+                        safe_log(f"Rejected duplicate upload command {cid}")
+                        continue
+
                     # Normal command
                     with _report_history_lock:
                         existing = report_history.get(cid)
@@ -506,12 +541,11 @@ def executor_loop():
 
         safe_log(f"Execution loop: processing {cid}: {ctext}")
 
-        # Determine command type for timeout and locking
         cmd_type, _ = parse_single_command(ctext)
         is_save = (cmd_type == "save")
-        is_upload = (cmd_type == "upload" or cmd_type == "uploadtoyoutube")  # uploadtoyoutube also heavy? we can treat like upload
+        is_upload = (cmd_type == "upload" or cmd_type == "uploadtoyoutube")
+        is_zoom = (cmd_type == "zoom")
 
-        # Timeout: 15s normally, 120s for save/upload
         timeout = 120 if (is_save or is_upload) else 15
 
         def run_command():
@@ -521,6 +555,23 @@ def executor_loop():
             elif is_upload:
                 upload_lock.acquire()
             try:
+                # Handle zoom command locally (without going through command_handlers)
+                if is_zoom:
+                    # arg is the zoom factor string, e.g. "1.25"
+                    try:
+                        factor = float(ctext.split(":",1)[1].strip())
+                    except:
+                        return "ERR zoom: invalid factor"
+                    try:
+                        with driver_lock:
+                            driver.execute_script(f"document.body.style.zoom = '{factor}'")
+                        return f"OK zoom({factor})"
+                    except (WebDriverException, InvalidSessionIdException) as e:
+                        return f"ERR zoom: {e}"
+                    except Exception as e:
+                        return f"ERR zoom: {e}"
+
+                # Otherwise use the standard command handler
                 cmd_type_final, arg = parse_single_command(ctext)
                 return execute_one_command(
                     cmd_type_final, arg,
@@ -541,7 +592,7 @@ def executor_loop():
                     scroll_by=scroll_by, drag_from_to=drag_from_to,
                     press_key=press_key, press_combo=press_combo,
                     type_secret=type_secret, decode_string=decode_string,
-                    ss=None,   # screenshot function removed from here
+                    ss=None,   # screenshot function not needed here
                     refresh_file_registry=refresh_file_registry,
                     add_autonomous_report=add_autonomous_report,
                     refresh_known_handles=refresh_known_handles,
@@ -627,10 +678,12 @@ def sender_loop():
                 continue
 
             lines = ["## Remote Agent Responses"]
+            # Command responses first, then autonomous reports
             for key, (ts, seq, res) in snapshot.items():
                 if key.startswith("AUT-"):
                     lines.append(f"{key}; {res}")
-                else:
+            for key, (ts, seq, res) in snapshot.items():
+                if not key.startswith("AUT-"):
                     lines.append(f"[{ts}]: response to command number [{seq}]: {res}")
 
             body = "\n".join(lines)
@@ -680,9 +733,7 @@ def main():
         safe_log(f"Warning: scrollTo failed: {e}")
     safe_log("STEP 4: Taking first screenshot")
     try:
-        # Use screenshot_manager's worker only after start, but we can do one manual shot
-        # We'll just start the worker and let it take the first auto shot.
-        pass
+        pass  # The screenshot worker will take the first shot
     except Exception as e:
         safe_log(f"Warning: first screenshot push failed: {e}")
     push_logs()
