@@ -20,3 +20,11 @@
 [00:53:11] Pushing screenshot to repo (synchronous)...
 [00:53:11] FATAL STARTUP: first screenshot failed: 'RepoWrapper' object has no attribute 'push_screenshots_now'
 [00:53:11] Attempting browser restart...
+[00:53:12] Taking screenshot: screenshots/003_005312_auto.png
+[00:53:12] Screenshot image processing error: HTTPConnectionPool(host='localhost', port=55209): Max retries exceeded with url: /session/aa4bc0af845626531d797330e688970e/screenshot (Caused by NewConnectionError("HTTPConnection(host='localhost', port=55209): Failed to establish a new connection: [Errno 111] Connection refused"))
+[00:53:12] Pushing screenshot to repo (synchronous)...
+[00:53:12] Screenshot worker error: 'RepoWrapper' object has no attribute 'push_screenshots_now'
+[00:53:16] Browser restarted and navigated to START_URL.
+[00:53:16] New autonomous report: AUT-1-1779065596 -> Browser was restarted after a crash.
+[00:53:16] STEP 5: First screenshot saved – pushing logs
+[00:53:16] STEP 6: refresh_known_handles()
