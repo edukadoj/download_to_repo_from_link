@@ -33,3 +33,29 @@
 [23:27:49] Sender loop started.
 [23:27:50] Fetcher detected new App Commands comment.
 [23:27:50] Enqueued for execution: APP-52141-20260518224029
+[23:27:50] Execution loop: processing APP-52141-20260518224029: (1900, 1060)
+[23:27:50] Sender using response comment: 4377972232
+[23:27:50] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x55b4a806c22a <unknown>
+#1 0x55b4a7a6a870 <unknown>
+#2 0x55b4a7b10aa2 <unknown>
+#3 0x55b4a7b07116 <unknown>
+#4 0x55b4a7ab2662 <unknown>
+#5 0x55b4a7ab3451 <unknown>
+#6 0x55b4a802fd8b <unknown>
+#7 0x55b4a8032c65 <unknown>
+#8 0x55b4a801c458 <unknown>
+#9 0x55b4a80337f0 <unknown>
+#10 0x55b4a80031c0 <unknown>
+#11 0x55b4a8059168 <unknown>
+#12 0x55b4a8059305 <unknown>
+#13 0x55b4a806ac5e <unknown>
+#14 0x7f23cb29caa4 <unknown>
+#15 0x7f23cb329c6c <unknown>
+
+[23:27:50] New autonomous report: AUT-4-1779146870 -> Tabs: 1: YouTube
+[23:27:50] Executed APP-52141-20260518224029 -> ERR move to (1900,1060) failed
+[23:27:51] Taking screenshot: screenshots/0001_232751_666_auto.png
+[23:27:52] Pushing screenshot screenshots/0001_232751_666_auto.png with 10s timeout...
