@@ -1,20 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# upload_handler.py – Version 2.0.8
+# upload_handler.py – Version 2.0.9
+#   - Fixed report ordering: selectfiles is sent before the file registry
+#     refresh, so the client sees the selection command before the new file
+#     list and can apply it correctly.
 # ==============================================================================
-# Handles reassembly of chunked files and injection into the browser’s file
-# chooser dialog for upload.
-#
-# Role in the communication system:
-#   - Called by the executor when an “upload” command is received.
-#   - Pulls the latest chunks from the repository via git pull, reassembles
-#     them into the download directory, and refreshes the file registry.
-#   - Auto‑selects the newly assembled files so they are ready for upload.
-#   - Optionally triggers a CDP‑based injection into a pending file dialog.
-#   - The git_push_with_retry callback is safely handled (if None, the upload
-#     still succeeds locally).
-# ==============================================================================
-
 import os, re, shutil, tempfile, time, json, threading, subprocess
 from urllib.request import urlopen, Request
 from uploader import reassemble_flat
@@ -123,13 +113,8 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
         if count == 0:
             return "ERR upload: reassembly produced no files"
 
-        # ── Refresh file registry (also sends "Files:" report) ──
-        refresh_file_registry()
-
-        if log_func:
-            log_func(f"File registry after refresh: {_file_registry}")
-
-        # ── Auto‑select newly assembled file(s) based on original names ──
+        # Auto‑select newly assembled files BEFORE refreshing the registry,
+        # so the selectfiles report arrives before the Files: report.
         new_ids = []
         for fid, fname in _file_registry.items():
             if fname in groups:
@@ -138,6 +123,7 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
             _upload_file_paths.clear()
             sorted_ids = sorted(new_ids)
             _upload_file_paths.extend([_file_registry[fid] for fid in sorted_ids])
+            # Send selectfiles FIRST
             add_autonomous_report("selectfiles",
                                   f"selectfiles({','.join(str(i) for i in sorted_ids)})")
             if log_func:
@@ -152,7 +138,13 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
                 if log_func:
                     log_func("No newly assembled files matched – auto-selected first file.")
 
-        # ── Optional git push (if the caller provided a push function) ──
+        # Now refresh the file registry (this sends the Files: report)
+        refresh_file_registry()
+
+        if log_func:
+            log_func(f"File registry after refresh: {_file_registry}")
+
+        # ── Optional git push ──
         if callable(git_push_with_retry):
             try:
                 git_push_with_retry()
