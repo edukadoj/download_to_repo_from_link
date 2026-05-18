@@ -99,3 +99,4 @@ Stacktrace:
 [19:39:48] Executed APP-52091-20260518193833 -> OK move(20,20)
 [19:39:49] Screenshot screenshots/0012_193945_879_auto.png pushed successfully.
 [19:39:50] Taking screenshot: screenshots/0013_193950_879_auto.png
+[19:39:51] Pushing screenshot screenshots/0013_193950_879_auto.png with 10s timeout...
