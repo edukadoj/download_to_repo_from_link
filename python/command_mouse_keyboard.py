@@ -1,27 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.33.0
-# ==============================================================================
-# Agent main script that runs inside GitHub Actions.
-# Implements the communication logic with four independent loops:
-#
-# 1. Comment Fetcher Loop  – reads the App Commands comment, detects new
-#    content, routes commands to Report Queue (if already executed) or
-#    Execution Queue (if new).  Also handles acknowledgment commands.
-#    Duplicate save/upload commands are rejected immediately if a previous
-#    one is still in progress.
-# 2. Execution Loop        – takes commands from the Execution Queue,
-#    executes them (with a 15‑second timeout for most, extended for save/upload),
-#    saves the result to Report History (disk) and enqueues it into the Report Queue.
-#    Save and upload commands are serialised to prevent concurrent runs.
-# 3. Comment Sender Loop   – periodically publishes the Report Queue to the
-#    Remote Agent Responses comment.  Culls timed‑out reports, removes
-#    command reports after successful publish, keeps autonomous reports
-#    until acknowledged or timed out.
-# 4. Screenshot Loop       – (moved to screenshot_manager.py)
-#
-# All loops are crash‑proof.  The main process logs any fatal exception and
-# forces a log push before terminating.
+# command_mouse_keyboard.py – Version 39.33.1
+#   - Added update_viewport() call after the start page loads so that the
+#     real browser viewport dimensions are used immediately.
+#   - All other logic unchanged from v39.33.0.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -63,7 +45,8 @@ from agent_state import (
     autonomous_counter,
     KEY_MAP, human_click, human_click_at,
     _perform_human_click_at, _try_gemini_click,
-    ensure_active_tab, ACTIVE_TAB_INDEX
+    ensure_active_tab, ACTIVE_TAB_INDEX,
+    update_viewport   # <-- new import
 )
 
 # ---------- Signal handlers ----------
@@ -107,7 +90,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.33.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.33.1 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -725,6 +708,12 @@ def main():
         if not restart_browser():
             return
     time.sleep(5)
+
+    # ***** NEW: Detect real viewport size after the page has settled *****
+    safe_log("Detecting actual viewport size...")
+    update_viewport()
+    safe_log(f"Viewport dimensions set to {agent_state.W}x{agent_state.H}")
+
     safe_log("STEP 3: Scrolling to top")
     try:
         with driver_lock:
