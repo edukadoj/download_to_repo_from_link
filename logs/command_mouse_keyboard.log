@@ -116,3 +116,5 @@
 [00:55:11] New autonomous report: AUT-4-1779065711 -> Files: (empty)
 [00:55:11] Executed: APP-51858-20260518005356 → Files: (empty)
 [00:55:12] Taking screenshot: screenshots/026_005512_auto.png
+[00:55:12] Pushing screenshot to repo (synchronous)...
+[00:55:12] Screenshot worker error: 'RepoWrapper' object has no attribute 'push_screenshots_now'
