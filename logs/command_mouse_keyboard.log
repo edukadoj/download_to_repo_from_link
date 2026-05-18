@@ -105,3 +105,6 @@
 [12:01:10] Executing [APP-51999-20260518115955] from line 5: dir
 [12:01:10] New autonomous report: AUT-5-1779105670 -> Files: (empty)
 [12:01:10] Executed: APP-51999-20260518115955 → Files: (empty)
+[12:01:14] Taking screenshot: screenshots/027_120114_auto.png
+[12:01:14] Enqueuing screenshot for push...
+[12:01:14] Enqueued screenshots/027_120114_auto.png + log
