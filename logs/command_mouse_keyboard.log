@@ -14,3 +14,9 @@
 [11:59:09] STEP 2: Start URL loaded – sleeping 5s
 [11:59:09] Enqueuing screenshot for push...
 [11:59:09] Enqueued screenshots/001_115909_auto.png + log
+[11:59:14] Taking screenshot: screenshots/002_115914_auto.png
+[11:59:14] STEP 3: Scrolling to top
+[11:59:14] STEP 4: Taking first screenshot
+[11:59:14] Taking screenshot: screenshots/003_115914_01_start_page.png
+[11:59:14] Enqueuing screenshot for push...
+[11:59:14] Enqueued screenshots/002_115914_auto.png + log
