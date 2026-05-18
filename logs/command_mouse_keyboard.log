@@ -58,3 +58,9 @@
 [22:05:17] Taking screenshot: screenshots/0006_220517_797_auto.png
 [22:05:18] Pushing screenshot screenshots/0006_220517_797_auto.png with 10s timeout...
 [22:05:19] Screenshot screenshots/0006_220517_797_auto.png pushed successfully.
+[22:05:21] Command APP-52134-20260518214240 timed out.
+[22:05:21] Executed APP-52134-20260518214240 -> ERR timeout: command exceeded 15 seconds
+[22:05:21] Execution loop: processing APP-52135-20260518214240: dir
+[22:05:22] Sender published response comment.
+[22:05:22] Taking screenshot: screenshots/0007_220522_797_auto.png
+[22:05:23] Pushing screenshot screenshots/0007_220522_797_auto.png with 10s timeout...
