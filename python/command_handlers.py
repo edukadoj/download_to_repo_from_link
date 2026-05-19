@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_handlers.py – Version 1.16.5
-#   - Move/click responses now show only percentage coordinates (e.g.
-#     OK move(0.9885,0.9909)) without absolute pixel values.
-#   - All other handlers unchanged.
+# command_handlers.py – Version 1.16.6
+#   - closetab now refuses to close tab 1 (the main tab) and returns an error.
+#   - All other commands unchanged.
 # ==============================================================================
 import os, time, subprocess, glob, shutil, re, tempfile, random
 from uploader import reassemble
@@ -109,13 +108,12 @@ def execute_one_command(
         result = _make_result("click", agent_state.cursor_x, agent_state.cursor_y, W, H)
     elif cmd == "humanclick":
         agent_state.ensure_active_tab()
-        res = human_click_callable()
-        # humanclick at current position – report percentage of where the click actually happened
+        human_click_callable()
         result = _make_result("humanclick", agent_state.cursor_x, agent_state.cursor_y, W, H)
     elif cmd == "humanclick_at":
         agent_state.ensure_active_tab()
         x, y = arg
-        res = human_click_at_callable(x, y)
+        human_click_at_callable(x, y)
         result = _make_result("humanclick", agent_state.cursor_x, agent_state.cursor_y, W, H)
     elif cmd == "leftdown":
         agent_state.ensure_active_tab()
@@ -209,8 +207,6 @@ def execute_one_command(
         agent_state.ensure_active_tab()
         x1, y1, x2, y2 = arg
         drag_from_to(x1, y1, x2, y2)
-        # Report percentages for both start and end
-        pct_start = _make_result("drag", x1, y1, W, H)  # just for info, we'll override
         result = f"OK drag({x1},{y1})->({x2},{y2})"
     elif cmd == "filedrop":
         agent_state.ensure_active_tab()
@@ -336,8 +332,6 @@ def execute_one_command(
         idx = agent_state.ACTIVE_TAB_INDEX - 1
         if 0 <= idx < len(handles):
             driver.switch_to.window(handles[idx])
-            try: driver.set_window_size(W, H)
-            except Exception: pass
         else:
             driver.switch_to.window(handles[0])
         result = "Tabs: " + " | ".join(lines)
@@ -356,30 +350,35 @@ def execute_one_command(
             if not handles: result = "ERR tabnumber: no window handles"
             elif 0 <= idx < len(handles):
                 driver.switch_to.window(handles[idx])
-                try: driver.set_window_size(W, H)
-                except Exception: pass
                 agent_state.ACTIVE_TAB_INDEX = idx + 1
                 result = f"Switched to tab {idx+1}: {driver.title[:40]}"
             else:
                 time.sleep(0.5); handles = driver.window_handles
                 if 0 <= idx < len(handles):
                     driver.switch_to.window(handles[idx])
-                    try: driver.set_window_size(W, H)
-                    except Exception: pass
                     agent_state.ACTIVE_TAB_INDEX = idx + 1
                     result = f"Switched to tab {idx+1}: {driver.title[:40]}"
                 else: result = "ERR: invalid tab number"
         except Exception as e: result = f"ERR tabnumber: {e}"
     elif cmd == "closetab":
         try:
-            idx = int(arg) - 1; handles = driver.window_handles
-            if 0 <= idx < len(handles) and len(handles) > 1:
-                driver.switch_to.window(handles[idx]); driver.close()
-                handles = driver.window_handles; driver.switch_to.window(handles[0])
-                agent_state.ACTIVE_TAB_INDEX = 1
-                result = f"Closed tab {idx+1}"
-            else: result = "ERR: cannot close last tab"
-        except: result = "ERR: invalid tab number"
+            idx = int(arg) - 1
+            # Refuse to close the main tab (index 1)
+            if idx == 0:
+                result = "ERR cannot close main tab"
+            else:
+                handles = driver.window_handles
+                if 0 <= idx < len(handles):
+                    driver.switch_to.window(handles[idx])
+                    driver.close()
+                    handles = driver.window_handles
+                    driver.switch_to.window(handles[0])
+                    agent_state.ACTIVE_TAB_INDEX = 1
+                    result = f"Closed tab {idx+1}"
+                else:
+                    result = "ERR: invalid tab number"
+        except Exception as e:
+            result = f"ERR closetab: {e}"
     elif cmd == "lastdownload": result = "Last download: (not implemented)"
     elif cmd == "uploadnumber":
         try:
