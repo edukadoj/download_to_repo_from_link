@@ -1517,3 +1517,9 @@ Stacktrace:
 [18:27:32] Screenshot screenshots/0083_182727_634_auto.png pushed successfully.
 [18:27:32] Taking screenshot: screenshots/0084_182732_635_auto.png
 [18:27:33] Pushing screenshot screenshots/0084_182732_635_auto.png with 10s timeout...
+[18:27:36] Fetcher detected new App Commands comment.
+[18:27:36] Enqueued for execution: APP-52474-20260519182614
+[18:27:36] Execution loop: processing APP-52474-20260519182614: zoom:1.1
+[18:27:36] Executed APP-52474-20260519182614 -> OK zoom(1.1)
+[18:27:41] Screenshot screenshots/0084_182732_635_auto.png pushed successfully.
+[18:27:41] Taking screenshot: screenshots/0085_182741_138_auto.png
