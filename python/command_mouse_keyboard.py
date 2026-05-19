@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.38.0
-#   - Extracted profile cache logic into profile_cache.py.
-#   - After tab switch or navigation, cursor is moved to center (W//2, H//2)
-#     instead of top‑left (10,10), so the red crosshair appears centered.
+# command_mouse_keyboard.py – Version 39.39.0
+#   - Introduced heavy_execution_queue and heavy_executor_loop for
+#     long‑running commands (save, upload, downselected).  Normal commands
+#     now have a 10‑second execution timeout; heavy commands have 300 s.
+#   - Both queues are bounded; the fetcher never blocks and immediately
+#     generates an error if a queue is full.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -22,7 +24,7 @@ from uploader import reassemble_flat
 from command_handlers import execute_one_command
 from repo_wrapper import RepoWrapper
 from screenshot_manager import ScreenshotWorker
-from profile_cache import load_profile, save_profile   # <-- new import
+from profile_cache import load_profile, save_profile
 
 from agent_state import (
     driver as state_driver, W as state_W, H as state_H,
@@ -89,7 +91,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.38.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.39.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -159,7 +161,7 @@ def _autonomous_callback(report_type, text):
     add_autonomous_report(report_type, text)
 repo_wrapper.report_callback = _autonomous_callback
 
-# ---------- Profile cache constants (used by profile_cache functions) ----------
+# ---------- Profile cache constants ----------
 PROFILE_DIR = "/tmp/chrome_profile"
 CACHE_DIR = ".profile_cache"
 CHUNK_SIZE_MB = 20
@@ -340,14 +342,19 @@ def cull_timed_out_reports(timeout_seconds=60):
             del report_queue[key]
         return len(to_remove)
 
-# ---------- Execution Queue ----------
-execution_queue = queue_module.Queue()
+# ---------- Execution Queues ----------
+LIGHT_QUEUE_MAX = 200
+HEAVY_QUEUE_MAX = 20
+
+execution_queue = queue_module.Queue(maxsize=LIGHT_QUEUE_MAX)
+heavy_execution_queue = queue_module.Queue(maxsize=HEAVY_QUEUE_MAX)
 
 save_lock = threading.Lock()
 upload_lock = threading.Lock()
 
 _fetcher_stop = threading.Event()
 _executor_stop = threading.Event()
+_heavy_executor_stop = threading.Event()
 _sender_stop = threading.Event()
 _screenshot_stop = threading.Event()
 
@@ -400,6 +407,14 @@ def fetcher_loop():
                         continue
 
                     cmd_type, _ = parse_single_command(ctext)
+
+                    # Route to heavy or light queue
+                    if cmd_type in ("save", "upload", "downselected"):
+                        target_queue = heavy_execution_queue
+                    else:
+                        target_queue = execution_queue
+
+                    # Reject duplicate save/upload while in progress
                     if cmd_type == "save" and save_lock.locked():
                         ts = int(time.time() * 1_000_000)
                         seq_num = 0
@@ -431,15 +446,34 @@ def fetcher_loop():
                         safe_log(f"Rejected duplicate upload command {cid}")
                         continue
 
+                    # Check for existing report in history
                     with _report_history_lock:
                         existing = report_history.get(cid)
                     if existing:
                         ts, seq, res = existing
                         add_to_report_queue(cid, ts, seq, res)
                         safe_log(f"Re‑enqueued existing report for {cid}")
-                    else:
-                        execution_queue.put((cid, ctext))
+                        continue
+
+                    # Try to add to the appropriate queue; if full, generate error immediately
+                    try:
+                        target_queue.put_nowait((cid, ctext))
                         safe_log(f"Enqueued for execution: {cid}")
+                    except queue_module.Full:
+                        ts = int(time.time() * 1_000_000)
+                        seq_num = 0
+                        if cid.startswith("APP-"):
+                            parts_cid = cid.split('-')
+                            if len(parts_cid) >= 2:
+                                try: seq_num = int(parts_cid[1])
+                                except: pass
+                        error_result = "ERR too many commands"
+                        with _report_history_lock:
+                            report_history[cid] = (ts, seq_num, error_result)
+                        save_report_history()
+                        add_to_report_queue(cid, ts, seq_num, error_result)
+                        safe_log(f"Rejected command {cid}: queue full")
+
             else:
                 safe_log("App comment ID missing – rediscovering...")
                 try:
@@ -462,9 +496,9 @@ def fetcher_loop():
             push_logs()
             _fetcher_stop.wait(5)
 
-# ---------- Execution Loop ----------
+# ---------- Light Execution Loop (10-second timeout) ----------
 def executor_loop():
-    safe_log("Execution loop started.")
+    safe_log("Execution loop started (light, timeout=10s).")
     executor_pool = ThreadPoolExecutor(max_workers=1)
     while not _executor_stop.is_set():
         try:
@@ -475,36 +509,116 @@ def executor_loop():
         safe_log(f"Execution loop: processing {cid}: {ctext}")
 
         cmd_type, _ = parse_single_command(ctext)
-        is_save = (cmd_type == "save")
-        is_upload = (cmd_type == "upload" or cmd_type == "uploadtoyoutube")
-        is_zoom = (cmd_type == "zoom")
-        is_navigate = (cmd_type == "navigate")
-        is_tabswitch = (cmd_type == "tabnumber" or cmd_type == "closetab")
-
-        timeout = 120 if (is_save or is_upload) else 15
+        timeout = 10
 
         def run_command():
-            if is_save:
+            try:
+                cmd_type_final, arg = parse_single_command(ctext)
+                return execute_one_command(
+                    cmd_type_final, arg,
+                    driver=driver, cursor_x=agent_state.cursor_x, cursor_y=agent_state.cursor_y,
+                    W=agent_state.W, H=agent_state.H, DOWNLOAD_DIR=DOWNLOAD_DIR, LOG_FILENAME=LOG_FILENAME,
+                    KEY_SECRET=KEY_SECRET, REPO=REPO, ISSUE_NUMBER=ISSUE_NUMBER,
+                    HAS_GEMINI=HAS_GEMINI, HAS_PYPERCLIP=HAS_PYPERCLIP,
+                    allowed_secrets=allowed_secrets, ENCRYPTION_KEY=ENCRYPTION_KEY,
+                    human_click_callable=human_click, human_click_at_callable=human_click_at,
+                    _try_gemini_click=_try_gemini_click,
+                    move_cursor_absolute=move_cursor_absolute,
+                    move_cursor_relative=move_cursor_relative,
+                    left_click=left_click, left_button_down=left_button_down,
+                    left_button_up=left_button_up, right_button_down=right_button_down,
+                    right_button_up=right_button_up, middle_button_down=middle_button_down,
+                    middle_button_up=middle_button_up, double_click=double_click,
+                    right_click=right_click, middle_click=middle_click,
+                    scroll_by=scroll_by, drag_from_to=drag_from_to,
+                    press_key=press_key, press_combo=press_combo,
+                    type_secret=type_secret, decode_string=decode_string,
+                    ss=None,
+                    refresh_file_registry=refresh_file_registry,
+                    add_autonomous_report=add_autonomous_report,
+                    refresh_known_handles=refresh_known_handles,
+                    get_upload_paths=get_upload_paths, save_profile=save_profile,
+                    _file_registry=_file_registry, _upload_file_paths=_upload_file_paths,
+                    pyperclip=pyperclip if HAS_PYPERCLIP else None,
+                    upload_reassemble=None,
+                    HAS_PYPERCLIP_local=HAS_PYPERCLIP,
+                    encrypt_string=encrypt_string,
+                    get_all_comments=lambda: sync_repo.get_all_comments(),
+                    delete_comment=lambda cid: sync_repo.delete_comment(cid),
+                    issue_comment=lambda body: sync_repo.create_comment(body),
+                    smart_edit_comment=lambda cid, body: sync_repo.edit_comment(cid, body),
+                    git_push_with_retry=(lambda: sync_repo._rw._git_push_with_retry()),
+                    comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
+                )
+            except Exception as e:
+                return f"ERR {e}"
+
+        try:
+            future = executor_pool.submit(run_command)
+            result = future.result(timeout=timeout)
+        except FutureTimeoutError:
+            result = f"ERR timeout: command exceeded {timeout} seconds"
+            safe_log(f"Command {cid} timed out.")
+        except Exception as ex:
+            result = f"ERR unexpected: {ex}"
+            safe_log(f"Command {cid} crashed: {ex}")
+
+        # After a successful navigate or tab switch, center cursor
+        is_navigate = cmd_type == "navigate"
+        is_tabswitch = cmd_type in ("tabnumber", "closetab")
+        if is_navigate and result.startswith("OK navigate"):
+            safe_log("Navigation completed – probing clickable bounds...")
+            update_viewport()
+            probe_clickable_bounds()
+            move_cursor_absolute(agent_state.W // 2, agent_state.H // 2)
+        if is_tabswitch and (result.startswith("Switched") or result.startswith("Closed")):
+            safe_log("Tab switched – probing clickable bounds...")
+            update_viewport()
+            probe_clickable_bounds()
+            move_cursor_absolute(agent_state.W // 2, agent_state.H // 2)
+
+        ts = int(time.time() * 1_000_000)
+        seq_num = 0
+        if cid.startswith("APP-"):
+            parts_cid = cid.split('-')
+            if len(parts_cid) >= 2:
+                try: seq_num = int(parts_cid[1])
+                except: pass
+
+        with _report_history_lock:
+            report_history[cid] = (ts, seq_num, result)
+        save_report_history()
+        add_to_report_queue(cid, ts, seq_num, result)
+        safe_log(f"Executed {cid} -> {result}")
+
+        if ctext.strip().lower() == "exit":
+            _executor_stop.set()
+            break
+
+    executor_pool.shutdown(wait=False)
+
+# ---------- Heavy Execution Loop (300-second timeout) ----------
+def heavy_executor_loop():
+    safe_log("Heavy execution loop started (timeout=300s).")
+    executor_pool = ThreadPoolExecutor(max_workers=1)
+    while not _heavy_executor_stop.is_set():
+        try:
+            cid, ctext = heavy_execution_queue.get(timeout=1)
+        except queue_module.Empty:
+            continue
+
+        safe_log(f"Heavy execution loop: processing {cid}: {ctext}")
+
+        cmd_type, _ = parse_single_command(ctext)
+        timeout = 300
+
+        def run_command():
+            if cmd_type == "save":
                 save_lock.acquire()
-            elif is_upload:
+            elif cmd_type in ("upload", "uploadtoyoutube"):
                 upload_lock.acquire()
             try:
-                if is_zoom:
-                    try:
-                        factor = float(ctext.split(":",1)[1].strip())
-                    except:
-                        return "ERR zoom: invalid factor"
-                    try:
-                        with driver_lock:
-                            driver.execute_script(f"document.body.style.zoom = '{factor}'")
-                        return f"OK zoom({factor})"
-                    except (WebDriverException, InvalidSessionIdException) as e:
-                        return f"ERR zoom: {e}"
-                    except Exception as e:
-                        return f"ERR zoom: {e}"
-
-                # -------- save command: use profile_cache.save_profile --------
-                if is_save:
+                if cmd_type == "save":
                     ok, msg = save_profile(CACHE_DIR, PROFILE_DIR, ENCRYPTION_KEY, REPO, PAT, CHUNK_SIZE_MB)
                     return f"OK save: {msg}" if ok else f"ERR save: {msg}"
 
@@ -546,9 +660,9 @@ def executor_loop():
                     comm_interval=COMM_INTERVAL * slow_mode, inject_file=None
                 )
             finally:
-                if is_save:
+                if cmd_type == "save":
                     save_lock.release()
-                if is_upload:
+                elif cmd_type in ("upload", "uploadtoyoutube"):
                     upload_lock.release()
 
         try:
@@ -560,19 +674,6 @@ def executor_loop():
         except Exception as ex:
             result = f"ERR unexpected: {ex}"
             safe_log(f"Command {cid} crashed: {ex}")
-
-        # After a successful navigate or tab switch, center the cursor
-        if is_navigate and result.startswith("OK navigate"):
-            safe_log("Navigation completed – probing clickable bounds...")
-            update_viewport()
-            probe_clickable_bounds()
-            move_cursor_absolute(agent_state.W // 2, agent_state.H // 2)
-
-        if is_tabswitch and (result.startswith("Switched") or result.startswith("Closed")):
-            safe_log("Tab switched – probing clickable bounds...")
-            update_viewport()
-            probe_clickable_bounds()
-            move_cursor_absolute(agent_state.W // 2, agent_state.H // 2)
 
         ts = int(time.time() * 1_000_000)
         seq_num = 0
@@ -589,7 +690,7 @@ def executor_loop():
         safe_log(f"Executed {cid} -> {result}")
 
         if ctext.strip().lower() == "exit":
-            _executor_stop.set()
+            _heavy_executor_stop.set()
             break
 
     executor_pool.shutdown(wait=False)
@@ -748,10 +849,12 @@ def main():
 
     fetcher_thread = threading.Thread(target=fetcher_loop, daemon=True)
     executor_thread = threading.Thread(target=executor_loop, daemon=True)
+    heavy_executor_thread = threading.Thread(target=heavy_executor_loop, daemon=True)
     sender_thread = threading.Thread(target=sender_loop, daemon=True)
 
     fetcher_thread.start()
     executor_thread.start()
+    heavy_executor_thread.start()
     sender_thread.start()
 
     try:
@@ -765,6 +868,7 @@ def main():
     finally:
         _fetcher_stop.set()
         _executor_stop.set()
+        _heavy_executor_stop.set()
         _sender_stop.set()
         _screenshot_stop.set()
         _url_monitor_stop.set()
@@ -799,6 +903,7 @@ if __name__ == "__main__":
         finally:
             _fetcher_stop.set()
             _executor_stop.set()
+            _heavy_executor_stop.set()
             _sender_stop.set()
             _screenshot_stop.set()
             _url_monitor_stop.set()
