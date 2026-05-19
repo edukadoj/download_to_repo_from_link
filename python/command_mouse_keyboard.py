@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.36.0
-#   - Profile cache now saved only on explicit 'save' command.
-#   - Caches are stored in timestamped subdirectories under .profile_cache/.
-#   - On load, the newest timestamped cache is used.
-#   - Old caches are cleaned up after a successful push.
-#   - Removed all automatic cache saves on shutdown / signals.
+# command_mouse_keyboard.py – Version 39.37.0
+#   - Robust profile cache save: verifies every chunk’s remote size after push,
+#     re‑uploads any missing/corrupted chunks directly via GitHub API.
+#   - On load, if Chrome fails to start, the corrupted cache is deleted and
+#     the agent falls back to the next cache or starts fresh, reporting the
+#     failure as an autonomous message.
+#   - Profile cache is never saved automatically; only on explicit 'save'.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -51,7 +52,7 @@ from agent_state import (
     update_viewport, probe_clickable_bounds
 )
 
-# ---------- Signal handlers (no auto-save) ----------
+# ---------- Signal handlers (no auto‑save) ----------
 def _signal_handler(signum, frame):
     safe_log("Received signal, performing emergency push of logs only.")
     push_logs()
@@ -67,7 +68,6 @@ os.makedirs("logs", exist_ok=True)
 _log_lock = threading.Lock()
 
 def safe_log(msg: str) -> None:
-    """Write a timestamped line to log and stdout, then fsync."""
     now = datetime.now().strftime("%H:%M:%S")
     line = f"[{now}] {msg}"
     print(line, flush=True)
@@ -91,7 +91,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.36.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.37.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -144,7 +144,6 @@ class SyncRepo:
     def report_memory(self):
         self._rw.report_memory()
 
-    # New: push a directory tree to the repo
     def push_directory(self, dir_path, commit_message="Profile cache"):
         self._rw.push_directory(dir_path, commit_message)
 
@@ -162,7 +161,7 @@ def _autonomous_callback(report_type, text):
     add_autonomous_report(report_type, text)
 repo_wrapper.report_callback = _autonomous_callback
 
-# ---------- Profile cache ----------
+# ---------- Profile cache (robust save/load) ----------
 PROFILE_DIR = "/tmp/chrome_profile"
 CACHE_DIR = ".profile_cache"
 CHUNK_SIZE_MB = 20
@@ -176,26 +175,109 @@ except Exception as e:
 
 os.makedirs(CACHE_DIR, exist_ok=True)
 
+# ── Helper: get remote file size (bytes) via GitHub API ──
+def _remote_file_size(repo, path, pat=None):
+    env = os.environ.copy()
+    if pat:
+        env["GITHUB_TOKEN"] = pat
+    try:
+        out = subprocess.run(
+            ["gh", "api", f"repos/{repo}/contents/{path}", "--jq", ".size"],
+            capture_output=True, text=True, check=True, env=env
+        )
+        size_str = out.stdout.strip()
+        if size_str.isdigit():
+            return int(size_str)
+    except Exception:
+        pass
+    return None
+
+# ── Helper: delete a remote file by path (uses SHA) ──
+def _delete_remote_file(repo, path, pat=None):
+    env = os.environ.copy()
+    if pat:
+        env["GITHUB_TOKEN"] = pat
+    try:
+        sha_out = subprocess.run(
+            ["gh", "api", f"repos/{repo}/contents/{path}", "--jq", ".sha"],
+            capture_output=True, text=True, check=True, env=env
+        )
+        sha = sha_out.stdout.strip()
+        if not sha:
+            return
+        payload = json.dumps({"message": "delete corrupt chunk", "sha": sha, "branch": "main"})
+        subprocess.run(
+            ["gh", "api", f"repos/{repo}/contents/{path}", "--method", "DELETE", "--input", "-"],
+            input=payload, capture_output=True, text=True, check=True, env=env
+        )
+        safe_log(f"Deleted remote file {path}")
+    except Exception:
+        pass
+
+# ── Helper: upload a single file directly via GitHub API (base64) ──
+def _upload_single_file_to_repo(repo, local_path, remote_path, pat=None, max_retries=5):
+    env = os.environ.copy()
+    if pat:
+        env["GITHUB_TOKEN"] = pat
+    with open(local_path, "rb") as f:
+        content_bytes = f.read()
+    b64_content = base64.b64encode(content_bytes).decode()
+    payload = json.dumps({
+        "message": f"Upload {remote_path}",
+        "content": b64_content,
+        "branch": "main"
+    })
+
+    api_url = f"repos/{repo}/contents/{remote_path}"
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            sha = None
+            sha_out = subprocess.run(
+                ["gh", "api", api_url, "--jq", ".sha"],
+                capture_output=True, text=True, env=env
+            )
+            if sha_out.returncode == 0 and sha_out.stdout.strip():
+                sha = sha_out.stdout.strip()
+                payload_dict = json.loads(payload)
+                payload_dict["sha"] = sha
+                payload = json.dumps(payload_dict)
+
+            result = subprocess.run(
+                ["gh", "api", api_url, "--method", "PUT", "--input", "-"],
+                input=payload, capture_output=True, text=True, env=env
+            )
+            if result.returncode == 0:
+                remote_size = _remote_file_size(repo, remote_path, pat)
+                if remote_size == len(content_bytes):
+                    safe_log(f"Uploaded {remote_path} ({len(content_bytes)} bytes) verified")
+                    return True
+                else:
+                    safe_log(f"Size mismatch after upload {remote_path}: local {len(content_bytes)} remote {remote_size}, retrying...")
+                    _delete_remote_file(repo, remote_path, pat)
+            else:
+                safe_log(f"Upload {remote_path} attempt {attempt} failed: {result.stderr}")
+                if attempt < max_retries:
+                    _delete_remote_file(repo, remote_path, pat)
+                    time.sleep(1)
+        except Exception as e:
+            safe_log(f"Upload exception: {e}")
+        time.sleep(0.5)
+    return False
+
 def load_profile():
     """
-    Find the newest timestamped cache directory, reassemble, decrypt,
-    and extract the browser profile.
-    Returns True if a cache was loaded successfully.
+    Find the newest timestamped cache directory, reassemble, decrypt, extract.
+    Returns True if a profile was loaded successfully.
     """
-    # Find all timestamp subdirectories
     subdirs = []
     if os.path.isdir(CACHE_DIR):
         for name in os.listdir(CACHE_DIR):
             subpath = os.path.join(CACHE_DIR, name)
             if os.path.isdir(subpath) and re.match(r'^\d{8}_\d{6}$', name):
                 subdirs.append(name)
-    subdirs.sort(reverse=True)  # newest first
+    subdirs.sort(reverse=True)
 
-    if not subdirs:
-        safe_log("⚠️ No profile cache found – starting with fresh browser profile.")
-        return False
-
-    # Try each directory from newest to oldest until reassembly succeeds
     for dirname in subdirs:
         cache_path = os.path.join(CACHE_DIR, dirname)
         part_files = glob.glob(os.path.join(cache_path, "*.part*"))
@@ -206,14 +288,12 @@ def load_profile():
         safe_log(f"♻️  Reassembling profile cache from {dirname} …")
         tmp_reassemble = tempfile.mkdtemp(prefix="profile_reassemble_")
         try:
-            # Flat reassemble into temp directory
             count = reassemble_flat(cache_path, tmp_reassemble)
             if count == 0:
                 safe_log(f"⚠️ Reassembly of {dirname} produced no file – skipping.")
                 continue
             files = [f for f in os.listdir(tmp_reassemble) if os.path.isfile(os.path.join(tmp_reassemble, f))]
             if not files:
-                safe_log(f"⚠️ No reassembled file found in {dirname}.")
                 continue
             reassembled_path = os.path.join(tmp_reassemble, files[0])
             safe_log(f"   Reassembled: {files[0]} ({os.path.getsize(reassembled_path)} bytes)")
@@ -226,24 +306,25 @@ def load_profile():
             return True
         except Exception as e:
             safe_log(f"ERROR loading profile cache from {dirname}: {type(e).__name__}: {e}")
+            # Delete the corrupted cache directory so it won't be tried again
+            shutil.rmtree(cache_path, ignore_errors=True)
+            add_autonomous_report("cachecorrupted", f"Profile cache {dirname} is corrupted and has been deleted.")
         finally:
             shutil.rmtree(tmp_reassemble, ignore_errors=True)
 
-    safe_log("⚠️ All cache directories failed – starting fresh.")
+    safe_log("⚠️ No valid profile cache found – starting fresh.")
     return False
 
 
 def save_profile():
     """
-    Encrypt the current browser profile, split into chunks, store in a
-    timestamped directory, push to the repository, and delete old caches.
-    Only called by the 'save' command.
+    Encrypt the current browser profile, split into chunks, push to repository,
+    verify every chunk’s remote size, and clean up old caches only after success.
     """
     try:
         if not os.path.isdir(PROFILE_DIR):
             return (False, f"Profile directory not found: {PROFILE_DIR}")
 
-        # Create timestamped subdirectory
         ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         cache_subdir = os.path.join(CACHE_DIR, ts)
         os.makedirs(cache_subdir, exist_ok=True)
@@ -254,13 +335,11 @@ def save_profile():
             tar.add(PROFILE_DIR, arcname="chrome_profile")
         encrypted = Fernet(ENCRYPTION_KEY).encrypt(buf.getvalue())
 
-        # Write encrypted blob to a temporary file
         tmp_fd, tmp_path = tempfile.mkstemp(prefix="profile_", suffix=".dat")
         os.close(tmp_fd)
         with open(tmp_path, "wb") as f:
             f.write(encrypted)
 
-        # Run chunker into the timestamped directory
         chunker_script = "python/chunker.py"
         if not os.path.exists(chunker_script):
             os.remove(tmp_path)
@@ -276,17 +355,36 @@ def save_profile():
             shutil.rmtree(cache_subdir, ignore_errors=True)
             return (False, f"chunker.py failed: {result.stderr.strip() or result.stdout.strip()}")
 
-        # Verify that part files were created and are non‑zero
-        part_files = glob.glob(os.path.join(cache_subdir, "*.part*"))
-        if not part_files or any(os.path.getsize(p) == 0 for p in part_files):
+        local_parts = glob.glob(os.path.join(cache_subdir, "*.part*"))
+        if not local_parts or any(os.path.getsize(p) == 0 for p in local_parts):
             shutil.rmtree(cache_subdir, ignore_errors=True)
             return (False, "Chunking produced empty or missing parts.")
 
-        # Push the new cache directory to the repo
         safe_log(f"Pushing profile cache {ts} …")
         sync_repo.push_directory(cache_subdir, f"Profile cache {ts}")
 
-        # After a successful push, delete all older cache directories
+        # Verify every chunk individually
+        pat = os.environ.get("PAT", "")
+        all_verified = True
+        for part_path in local_parts:
+            part_name = os.path.basename(part_path)
+            remote_path = f".profile_cache/{ts}/{part_name}"
+            local_size = os.path.getsize(part_path)
+            remote_size = _remote_file_size(REPO, remote_path, pat)
+            if remote_size == local_size:
+                continue
+            safe_log(f"Chunk {part_name} size mismatch (local {local_size}, remote {remote_size}) – re‑uploading.")
+            _delete_remote_file(REPO, remote_path, pat)
+            if not _upload_single_file_to_repo(REPO, part_path, remote_path, pat):
+                safe_log(f"Failed to re‑upload chunk {part_name} after multiple attempts.")
+                all_verified = False
+                break
+
+        if not all_verified:
+            shutil.rmtree(cache_subdir, ignore_errors=True)
+            return (False, "Profile cache push failed verification; cache discarded.")
+
+        # Remove older caches
         for name in os.listdir(CACHE_DIR):
             full = os.path.join(CACHE_DIR, name)
             if os.path.isdir(full) and re.match(r'^\d{8}_\d{6}$', name) and name != ts:
@@ -297,7 +395,8 @@ def save_profile():
     except Exception as e:
         return (False, f"save_profile exception: {e}")
 
-# ---------- Browser setup ----------
+
+# ---------- Browser startup with fallback on corrupted cache ----------
 DOWNLOAD_DIR = "/home/runner/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
@@ -336,22 +435,37 @@ display = Display(visible=False, size=(1920,1080))
 display.start()
 safe_log("Virtual display started.")
 
-load_profile()
+# Attempt to load a profile cache; if Chrome fails to start, delete the corrupt cache and retry
 driver = None
-try:
-    driver = create_driver()
-    safe_log("Stealth JS injected.")
+profile_loaded = False
+while True:
+    profile_loaded = load_profile()
     try:
-        from upload_injector import _init_cdp
-        if _init_cdp(driver, safe_log):
-            safe_log("CDP interception active.")
-    except Exception as e_cdp:
-        safe_log(f"CDP not available ({e_cdp}) – using send_keys fallback.")
-    safe_log("Browser launched.")
-except Exception as e:
-    safe_log(f"BROWSER ERROR: {e}\n{traceback.format_exc()}")
-    push_logs()
-    raise
+        driver = create_driver()
+        safe_log("Stealth JS injected.")
+        try:
+            from upload_injector import _init_cdp
+            if _init_cdp(driver, safe_log):
+                safe_log("CDP interception active.")
+        except Exception as e_cdp:
+            safe_log(f"CDP not available ({e_cdp}) – using send_keys fallback.")
+        safe_log("Browser launched.")
+        break
+    except Exception as e:
+        safe_log(f"BROWSER ERROR: {e}")
+        if profile_loaded:
+            add_autonomous_report("cachecorrupted", "Profile cache caused Chrome to crash; deleting cache and starting fresh.")
+            for name in os.listdir(CACHE_DIR):
+                full = os.path.join(CACHE_DIR, name)
+                if os.path.isdir(full) and re.match(r'^\d{8}_\d{6}$', name):
+                    shutil.rmtree(full, ignore_errors=True)
+            shutil.rmtree(PROFILE_DIR, ignore_errors=True)
+            safe_log("Corrupted cache deleted; restarting without cache.")
+            profile_loaded = False
+            time.sleep(2)
+            continue
+        else:
+            raise
 
 agent_state = sys.modules.get("agent_state")
 if agent_state:
@@ -664,7 +778,6 @@ def executor_loop():
             result = f"ERR unexpected: {ex}"
             safe_log(f"Command {cid} crashed: {ex}")
 
-        # After a successful navigate, re‑probe the clickable bounds
         if is_navigate and result.startswith("OK navigate"):
             safe_log("Navigation completed – probing clickable bounds...")
             update_viewport()
@@ -761,6 +874,26 @@ def sender_loop():
                 safe_log(f"Sender failed to publish: {e}")
         except Exception as e:
             safe_log(f"Sender loop error: {traceback.format_exc()}")
+
+# ---------- Browser restart helper (for screenshot worker) ----------
+def restart_browser():
+    global driver
+    safe_log("Attempting to restart browser after health failure...")
+    try:
+        with driver_lock:
+            try: driver.quit()
+            except: pass
+        shutil.rmtree(PROFILE_DIR, ignore_errors=True)
+        os.makedirs(PROFILE_DIR, exist_ok=True)
+        driver = create_driver()
+        agent_state.driver = driver
+        agent_state.W = 1920; agent_state.H = 1080
+        agent_state.cursor_x = 960; agent_state.cursor_y = 540
+        safe_log("Browser restarted successfully.")
+        return True
+    except Exception as e:
+        safe_log(f"Browser restart failed: {e}")
+        return False
 
 # ---------- Main startup ----------
 def main():
