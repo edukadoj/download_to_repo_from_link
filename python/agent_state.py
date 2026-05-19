@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.7.1
-#   - Parser now interprets coordinate pairs as percentages (0.0 – 1.0)
-#     and converts them to absolute pixels using the real viewport (W, H).
-#   - Old integer‑pixel parsing removed.
-#   - probe_clickable_bounds() and update_viewport() unchanged.
+# agent_state.py – Version 2.7.2
+#   - probe_clickable_bounds() now tests the bottom‑right corner as well,
+#     ensuring the entire area is truly reachable.
+#   - After probing, the cursor is moved to (10,10) to reset the driver.
+#   - Parser converts percentages to absolute pixels using the safe bounds.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -78,9 +78,9 @@ def _try_raw_move(x: int, y: int) -> bool:
 
 def probe_clickable_bounds():
     """
-    Find the largest X and Y coordinates that the browser will accept
-    by probing from the current (W-5, H-5) downwards.  Only a few
-    attempts are needed because the unreachable border is tiny.
+    Find the largest X and Y coordinates that the browser will accept.
+    After finding max_x (at y=1) and max_y (at x=1), we test the
+    corner (max_x, max_y) and reduce until it works.
     Updates W, H and sends an autonomous report 'viewsize:WxH'.
     """
     global W, H
@@ -90,7 +90,7 @@ def probe_clickable_bounds():
     ensure_active_tab()
     log("Probing clickable bounds...")
 
-    # ---- find max X ----
+    # ---- find max X (near top of screen) ----
     max_x = W - 5
     while max_x > 0:
         if _try_raw_move(max_x, 1):
@@ -98,9 +98,9 @@ def probe_clickable_bounds():
         max_x -= 1
     if max_x == 0:
         max_x = W - 5
-    log(f"Max clickable X = {max_x}")
+    log(f"Max clickable X (top) = {max_x}")
 
-    # ---- find max Y ----
+    # ---- find max Y (near left of screen) ----
     max_y = H - 5
     while max_y > 0:
         if _try_raw_move(1, max_y):
@@ -108,14 +108,28 @@ def probe_clickable_bounds():
         max_y -= 1
     if max_y == 0:
         max_y = H - 5
-    log(f"Max clickable Y = {max_y}")
+    log(f"Max clickable Y (left) = {max_y}")
 
-    # Update global dimensions
-    W, H = max_x, max_y
+    # ---- test the bottom‑right corner, reduce until it works ----
+    corner_x, corner_y = max_x, max_y
+    while corner_x > 0 and corner_y > 0:
+        if _try_raw_move(corner_x, corner_y):
+            break
+        corner_x -= 1
+        corner_y -= 1
+    if corner_x == 0 or corner_y == 0:
+        corner_x, corner_y = max_x, max_y  # fallback
+    log(f"Corner clickable at ({corner_x}, {corner_y})")
+
+    # Use the corner values as the safe maximum
+    W, H = corner_x, corner_y
     log(f"Clickable bounds set to {W}x{H}")
 
-    # Report to the client
+    # Report to the client so it can update its calibration
     add_autonomous_report("viewsize", f"viewsize:{W}x{H}")
+
+    # Reset cursor to a safe position so the driver is not left in a hung state
+    move_cursor_absolute(10, 10)
 
 
 def ensure_active_tab():
@@ -557,7 +571,7 @@ def _pct_to_abs(pctx: float, pcty: float):
     """Convert percentage (0.0‑1.0) to absolute pixel coordinates."""
     x = int(pctx * W)
     y = int(pcty * H)
-    # Clamp to valid range (just in case)
+    # Clamp to valid range
     x = max(0, min(W - 1, x))
     y = max(0, min(H - 1, y))
     return x, y
@@ -638,8 +652,6 @@ def parse_single_command(raw: str):
     if lo == "filedrop": return ("filedrop", None)
     if lo == "downselected": return ("downselected", None)
     if lo == "deleteselected": return ("deleteselected", None)
-    if lo.startswith("moveby"):  # moveby is obsolete but keep for now? no, remove
-        return ("key", raw)
     if lo.startswith("scroll:"):
         try:
             val = int(float(lo.split(":",1)[1].strip()))
