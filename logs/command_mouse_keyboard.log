@@ -6980,3 +6980,6 @@ Stacktrace:
 [15:24:30] Screenshot screenshots/0207_152424_674_auto.png pushed successfully.
 [15:24:30] Taking screenshot: screenshots/0208_152430_002_auto.png
 [15:24:30] Pushing screenshot screenshots/0208_152430_002_auto.png with 10s timeout...
+[15:24:31] Fetcher detected new App Commands comment.
+[15:24:31] Re‑enqueued existing report for APP-52325-20260519152305
+[15:24:33] Screenshot screenshots/0208_152430_002_auto.png pushed successfully.
