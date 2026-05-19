@@ -170,3 +170,5 @@
 [22:05:44] Execution loop: processing APP-52524-20260519220421: humantype:3dp8xfgHsVMmvgL977UMNZ4n
 [22:05:44] Taking screenshot: screenshots/0029_220544_593_auto.png
 [22:05:44] Pushing screenshot screenshots/0029_220544_593_auto.png with 10s timeout...
+[22:05:46] New autonomous report: AUT-15-1779228346 -> Tabs: 1: YouTube
+[22:05:46] Executed APP-52524-20260519220421 -> OK humantype
