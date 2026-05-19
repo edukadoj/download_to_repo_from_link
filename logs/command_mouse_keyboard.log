@@ -655,3 +655,32 @@
 [01:12:22] Pushing screenshot screenshots/0087_011222_394_auto.png with 10s timeout...
 >>>>>>> Stashed changes
 [01:18:53] RepoWrapper slow error (push_log_file): Command '['git', 'commit', '-m', 'Log update']' returned non-zero exit status 128.
+[01:18:53] push_screenshots_now failed: Command '['git', 'add', 'screenshots/0164_011853_542_auto.png']' returned non-zero exit status 128.
+[01:18:53] Screenshot push failed or timed out for screenshots/0164_011853_542_auto.png.
+[01:18:58] Fetcher detected new App Commands comment.
+[01:18:58] Execution loop: processing APP-52178-20260519011743: (0.990000,0.990000)
+[01:18:58] Enqueued for execution: APP-52178-20260519011743
+[01:18:58] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x55a2bf0ac22a <unknown>
+#1 0x55a2beaaa870 <unknown>
+#2 0x55a2beb50aa2 <unknown>
+#3 0x55a2beb47116 <unknown>
+#4 0x55a2beaf2662 <unknown>
+#5 0x55a2beaf3451 <unknown>
+#6 0x55a2bf06fd8b <unknown>
+#7 0x55a2bf072c65 <unknown>
+#8 0x55a2bf05c458 <unknown>
+#9 0x55a2bf0737f0 <unknown>
+#10 0x55a2bf0431c0 <unknown>
+#11 0x55a2bf099168 <unknown>
+#12 0x55a2bf099305 <unknown>
+#13 0x55a2bf0aac5e <unknown>
+#14 0x7f274569caa4 <unknown>
+#15 0x7f2745729c6c <unknown>
+
+[01:18:58] New autonomous report: AUT-31-1779153538 -> Tabs: 1: YouTube
+[01:18:58] Executed APP-52178-20260519011743 -> ERR move to (1894,977) failed
+[01:18:58] Taking screenshot: screenshots/0165_011858_543_auto.png
+[01:18:58] Pushing screenshot screenshots/0165_011858_543_auto.png with 10s timeout...
