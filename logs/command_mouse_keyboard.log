@@ -1468,3 +1468,4 @@ Stacktrace:
 [18:26:40] Executed APP-52471-20260519182513 -> ERR: invalid tab number
 [18:26:41] Screenshot screenshots/0073_182634_728_auto.png pushed successfully.
 [18:26:41] Taking screenshot: screenshots/0074_182641_260_auto.png
+[18:26:41] Pushing screenshot screenshots/0074_182641_260_auto.png with 10s timeout...
