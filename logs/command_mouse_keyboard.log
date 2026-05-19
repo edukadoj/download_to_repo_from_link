@@ -347,3 +347,7 @@
 [15:03:52] Screenshot screenshots/0053_150349_837_auto.png pushed successfully.
 [15:03:54] Taking screenshot: screenshots/0054_150354_837_auto.png
 [15:03:55] Pushing screenshot screenshots/0054_150354_837_auto.png with 10s timeout...
+[15:04:05] push_screenshots_now timed out
+[15:04:05] Screenshot push failed or timed out for screenshots/0054_150354_837_auto.png.
+[15:04:05] Taking screenshot: screenshots/0055_150405_254_auto.png
+[15:04:05] Pushing screenshot screenshots/0055_150405_254_auto.png with 10s timeout...
