@@ -478,3 +478,4 @@
 [13:59:12] Rejected duplicate save command APP-52283-20260519135747
 [13:59:13] Screenshot screenshots/0089_135907_067_auto.png pushed successfully.
 [13:59:13] Taking screenshot: screenshots/0090_135913_463_auto.png
+[13:59:13] Pushing screenshot screenshots/0090_135913_463_auto.png with 10s timeout...
