@@ -7747,3 +7747,6 @@ Stacktrace:
 [15:30:29] Cursor moved to (10, 10)
 [15:30:29] Executed APP-52342-20260519152906 -> Switched to tab 2: Sign in - Google Accounts
 [15:30:32] Screenshot screenshots/0277_153028_909_auto.png pushed successfully.
+[15:30:33] Sender published response comment.
+[15:30:33] Taking screenshot: screenshots/0278_153033_909_auto.png
+[15:30:34] Pushing screenshot screenshots/0278_153033_909_auto.png with 10s timeout...
