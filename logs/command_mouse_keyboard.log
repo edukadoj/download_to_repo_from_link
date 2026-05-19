@@ -343,3 +343,5 @@
 [21:25:21] Screenshot screenshots/0058_212517_916_auto.png pushed successfully.
 [21:25:22] Taking screenshot: screenshots/0059_212522_916_auto.png
 [21:25:23] Pushing screenshot screenshots/0059_212522_916_auto.png with 10s timeout...
+[21:25:25] Executed APP-52505-20260519212223 -> ERR save: Failed to upload chunk profile_2nuaxnxt.dat.part0000
+[21:25:25] Execution loop: processing APP-52506-20260519212231: humanclick(0.619232,0.572742)
