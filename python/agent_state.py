@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.7.5
-#   - W and H start as -1 (invalid).  probe_clickable_bounds() discovers
-#     the real clickable maximums by testing moves with move_cursor_absolute.
-#   - move_cursor_absolute now returns False immediately if W or H are
-#     still invalid, preventing crashes from stale commands.
+# agent_state.py – Version 2.7.6
+#   - Fixed probe_clickable_bounds(): set W,H to a temporary valid size
+#     (CSS rough guess) before starting the probing moves, so that
+#     move_cursor_absolute does not reject them due to invalid dimensions.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -45,15 +44,16 @@ def probe_clickable_bounds():
     Discover the maximum clickable X and Y by testing moves.
     
     1.  Get a rough guess from window.innerWidth/innerHeight.
-    2.  For X: test move_cursor_absolute(x, 1) starting from the rough guess.
+    2.  Temporarily set W,H to this guess so that move_cursor_absolute will work.
+    3.  For X: test move_cursor_absolute(x, 1) starting from the rough guess.
         - If it succeeds, increment x and test until failure – the last
           successful x is W.
         - If it fails, decrement x and test until success – that x is W.
-    3.  For Y: test move_cursor_absolute(1, y) starting from the rough guess.
+    4.  For Y: test move_cursor_absolute(1, y) starting from the rough guess.
         - Same logic: increment on success, decrement on failure.
-    4.  Assign the found W and H to the global variables.
-    5.  Send the autonomous report 'viewsize:WxH'.
-    6.  Move cursor to percentage (0.5, 0.5) to leave a safe state.
+    5.  Assign the found W and H to the global variables.
+    6.  Send the autonomous report 'viewsize:WxH'.
+    7.  Move cursor to percentage (0.5, 0.5) to leave a safe state.
     """
     global W, H
     if driver is None:
@@ -75,6 +75,9 @@ def probe_clickable_bounds():
         css_w, css_h = 1920, 1080
 
     log(f"CSS rough guess: {css_w}x{css_h}")
+
+    # ── Temporary valid size so that move_cursor_absolute will work ──
+    W, H = css_w, css_h
 
     # ── Find max X ──────────────────────────────────────────────
     rx = css_w - 5       # start a few pixels inside
