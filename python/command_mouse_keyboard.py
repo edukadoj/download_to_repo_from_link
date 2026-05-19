@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.34.0
-#   - Calls probe_clickable_bounds() after startup and after navigations
-#     and tab switches, so the clickable viewport dimensions are always known.
-#   - All other logic (loops, encryption, timeouts) unchanged.
+# command_mouse_keyboard.py – Version 39.35.0
+#   - Blanks the App Commands comment at startup to prevent stale commands.
+#   - After probing clickable bounds, moves cursor to (10,10) to reset driver.
+#   - Passes a restart_browser callback to the screenshot worker for recovery.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -46,7 +46,7 @@ from agent_state import (
     KEY_MAP, human_click, human_click_at,
     _perform_human_click_at, _try_gemini_click,
     ensure_active_tab, ACTIVE_TAB_INDEX,
-    update_viewport, probe_clickable_bounds   # <-- new import
+    update_viewport, probe_clickable_bounds
 )
 
 # ---------- Signal handlers ----------
@@ -90,7 +90,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.34.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.35.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -606,12 +606,13 @@ def executor_loop():
             safe_log("Navigation completed – probing clickable bounds...")
             update_viewport()
             probe_clickable_bounds()
+            move_cursor_absolute(10, 10)  # reset driver
 
-        # After a successful tab switch, also re‑probe (new tab may have different size)
         if is_tabswitch and (result.startswith("Switched") or result.startswith("Closed")):
             safe_log("Tab switched – probing clickable bounds...")
             update_viewport()
             probe_clickable_bounds()
+            move_cursor_absolute(10, 10)
 
         ts = int(time.time() * 1_000_000)
         seq_num = 0
@@ -719,6 +720,9 @@ def main():
     probe_clickable_bounds()
     safe_log(f"Clickable dimensions set to {agent_state.W}x{agent_state.H}")
 
+    # Reset driver cursor to safe position
+    move_cursor_absolute(10, 10)
+
     safe_log("STEP 3: Scrolling to top")
     try:
         with driver_lock:
@@ -753,7 +757,11 @@ def main():
     all_comments = sync_repo.get_all_comments()
     app_cmd = find_marker_comment(all_comments, "## App Commands")
     app_cmd_id = app_cmd["id"] if app_cmd else None
-    if not app_cmd_id:
+    if app_cmd_id:
+        # Blank the old comment to prevent stale commands from previous session
+        safe_log("Blanking old App Commands comment...")
+        sync_repo.edit_comment(app_cmd_id, "## App Commands\n")
+    else:
         safe_log("No app command comment found – creating one? Not typical.")
 
     # Start loops
@@ -761,12 +769,13 @@ def main():
     executor_thread = threading.Thread(target=executor_loop, daemon=True)
     sender_thread = threading.Thread(target=sender_loop, daemon=True)
 
-    # Screenshot worker with encryption key
+    # Screenshot worker with encryption key and restart callback
     screenshot_worker = ScreenshotWorker(
         _screenshot_stop, driver, driver_lock, agent_state,
         sync_repo, safe_log, push_logs,
         lambda: COMM_INTERVAL, lambda: slow_mode,
-        encryption_key=KEY_SECRET
+        encryption_key=KEY_SECRET,
+        restart_browser_callback=lambda: restart_browser()
     )
     screenshot_worker.start()
 
@@ -804,7 +813,6 @@ def main():
 if __name__ == "__main__":
     while True:
         try:
-            # Crash‑proof wrapper: log any unhandled exception and push the log
             try:
                 main()
             except BaseException as ex:
