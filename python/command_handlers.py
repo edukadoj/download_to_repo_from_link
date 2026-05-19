@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_handlers.py – Version 1.16.6
-#   - closetab now refuses to close tab 1 (the main tab) and returns an error.
+# command_handlers.py – Version 1.17.0
+#   - download and downselected now use downloader.upload_chunk_to_repo
+#     for reliable chunk upload with size verification.
 #   - All other commands unchanged.
 # ==============================================================================
 import os, time, subprocess, glob, shutil, re, tempfile, random
 from uploader import reassemble
 from upload_handler import perform_upload
 from upload_injector import upload_to_youtube
+from downloader import upload_chunk_to_repo
 import agent_state
 
 def _ensure_selection(_file_registry, _upload_file_paths):
@@ -44,7 +46,6 @@ def _scroll_element_or_window(driver, amount, cursor_x, cursor_y):
         return f"OK scroll({direction},{abs(scroll_amount)}) [window]"
 
 def _make_result(cmd_type, x, y, W, H):
-    """Build a result string containing only the percentage coordinates."""
     pctx = x / (W - 1) if W > 1 else 0.0
     pcty = y / (H - 1) if H > 1 else 0.0
     return f"OK {cmd_type}({pctx:.4f},{pcty:.4f})"
@@ -74,7 +75,6 @@ def execute_one_command(
     comm_interval=5.0,
     inject_file=None
 ):
-    # Enforce active tab except for commands that don't need it
     if cmd not in ("exit", "screenshot", "tabs", "dir", "download", "upload", "injectfile",
                    "uploadtoyoutube", "paste", "tabnumber", "closetab", "lastdownload",
                    "uploadnumber", "savestate", "save", "setinterval", "filedrop",
@@ -220,25 +220,32 @@ def execute_one_command(
             else:
                 result = "ERR filedrop: injection failed"
 
-    # ── File commands ──
+    # ── File commands (download / downselected updated) ──
     elif cmd == "downselected":
         selected = [os.path.join(DOWNLOAD_DIR, f) for f in _upload_file_paths if os.path.isfile(os.path.join(DOWNLOAD_DIR, f))]
         if not selected:
             result = "ERR downselected: no selected files"
         else:
-            count = 0
+            success_count = 0
+            fail_count = 0
             for fpath in selected:
                 fname = os.path.basename(fpath)
                 out_dir = os.path.join("downloaded_chunks", fname)
                 os.makedirs(out_dir, exist_ok=True)
                 subprocess.run(["python3", "chunker.py", "--file", fpath, "--output-dir", out_dir, "--chunk-size", "20"], check=True)
-                count += 1
-            subprocess.run(["git", "add", "downloaded_chunks/", LOG_FILENAME], check=True)
-            try: subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
-            except subprocess.CalledProcessError:
-                subprocess.run(["git", "commit", "-m", "Downloaded selected files chunked"], check=True)
-                if git_push_with_retry: git_push_with_retry()
-            result = f"OK downselected({count} files chunked)"
+                chunks = glob.glob(os.path.join(out_dir, "*.part*"))
+                for chunk_path in chunks:
+                    chunk_name = os.path.basename(chunk_path)
+                    remote_path = f"downloaded_chunks/{fname}/{chunk_name}"
+                    if upload_chunk_to_repo(REPO, chunk_path, remote_path, pat=os.environ.get("PAT", "")):
+                        success_count += 1
+                    else:
+                        fail_count += 1
+                # Upload reassemble.bat if created
+                bat_path = os.path.join(out_dir, "reassemble.bat")
+                if os.path.isfile(bat_path):
+                    upload_chunk_to_repo(REPO, bat_path, f"downloaded_chunks/{fname}/reassemble.bat", pat=os.environ.get("PAT", ""))
+            result = f"OK downselected({len(selected)} files, {success_count} chunks uploaded, {fail_count} failed)"
         refresh_file_registry()
     elif cmd == "deleteselected":
         selected = [os.path.join(DOWNLOAD_DIR, f) for f in _upload_file_paths if os.path.isfile(os.path.join(DOWNLOAD_DIR, f))]
@@ -256,20 +263,26 @@ def execute_one_command(
         downloaded = glob.glob(os.path.join(DOWNLOAD_DIR, "*"))
         if not downloaded: result = "ERR download: no files in download folder"
         else:
-            count = 0
+            success_count = 0
+            fail_count = 0
             for fpath in downloaded:
                 if os.path.isfile(fpath):
                     fname = os.path.basename(fpath)
                     out_dir = os.path.join("downloaded_chunks", fname)
                     os.makedirs(out_dir, exist_ok=True)
                     subprocess.run(["python3", "chunker.py", "--file", fpath, "--output-dir", out_dir, "--chunk-size", "20"], check=True)
-                    count += 1
-            subprocess.run(["git", "add", "downloaded_chunks/", LOG_FILENAME], check=True)
-            try: subprocess.run(["git", "diff", "--cached", "--quiet"], check=True)
-            except subprocess.CalledProcessError:
-                subprocess.run(["git", "commit", "-m", "Downloaded files chunked"], check=True)
-                if git_push_with_retry: git_push_with_retry()
-            result = f"OK download({count} files chunked)"
+                    chunks = glob.glob(os.path.join(out_dir, "*.part*"))
+                    for chunk_path in chunks:
+                        chunk_name = os.path.basename(chunk_path)
+                        remote_path = f"downloaded_chunks/{fname}/{chunk_name}"
+                        if upload_chunk_to_repo(REPO, chunk_path, remote_path, pat=os.environ.get("PAT", "")):
+                            success_count += 1
+                        else:
+                            fail_count += 1
+                    bat_path = os.path.join(out_dir, "reassemble.bat")
+                    if os.path.isfile(bat_path):
+                        upload_chunk_to_repo(REPO, bat_path, f"downloaded_chunks/{fname}/reassemble.bat", pat=os.environ.get("PAT", ""))
+            result = f"OK download({len(downloaded)} files, {success_count} chunks uploaded, {fail_count} failed)"
         refresh_file_registry()
         _ensure_selection(_file_registry, _upload_file_paths)
     elif cmd == "upload":
@@ -363,7 +376,6 @@ def execute_one_command(
     elif cmd == "closetab":
         try:
             idx = int(arg) - 1
-            # Refuse to close the main tab (index 1)
             if idx == 0:
                 result = "ERR cannot close main tab"
             else:
