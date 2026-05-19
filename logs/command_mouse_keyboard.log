@@ -133,3 +133,6 @@
 [22:05:08] Executed APP-52522-20260519220349 -> Files: (empty)
 [22:05:09] Taking screenshot: screenshots/0022_220509_292_auto.png
 [22:05:09] Pushing screenshot screenshots/0022_220509_292_auto.png with 10s timeout...
+[22:05:10] Agent alive
+[22:05:12] Screenshot screenshots/0022_220509_292_auto.png pushed successfully.
+[22:05:12] Sender published response comment.
