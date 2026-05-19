@@ -377,3 +377,4 @@
 [01:12:50] Executed APP-52172-20260519011134 -> Files: (empty)
 [01:12:53] Screenshot screenshots/0092_011247_792_auto.png pushed successfully.
 [01:12:53] Taking screenshot: screenshots/0093_011253_197_auto.png
+[01:12:53] Pushing screenshot screenshots/0093_011253_197_auto.png with 10s timeout...
