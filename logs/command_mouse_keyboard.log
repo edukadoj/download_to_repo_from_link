@@ -7650,3 +7650,4 @@ Stacktrace:
 [15:28:56] Sender published response comment.
 [15:28:58] Screenshot screenshots/0258_152851_458_auto.png pushed successfully.
 [15:28:58] Taking screenshot: screenshots/0259_152858_073_auto.png
+[15:28:58] Pushing screenshot screenshots/0259_152858_073_auto.png with 10s timeout...
