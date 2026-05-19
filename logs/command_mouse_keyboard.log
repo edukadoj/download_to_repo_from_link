@@ -375,3 +375,7 @@
 [21:25:52] Screenshot screenshots/0064_212549_129_auto.png pushed successfully.
 [21:25:54] Taking screenshot: screenshots/0065_212554_130_auto.png
 [21:25:54] Pushing screenshot screenshots/0065_212554_130_auto.png with 10s timeout...
+[21:25:55] Command APP-52506-20260519212231 timed out.
+[21:25:55] Executed APP-52506-20260519212231 -> ERR timeout: command exceeded 15 seconds
+[21:25:55] Execution loop: processing APP-52507-20260519212238: tabs
+[21:25:57] Screenshot screenshots/0065_212554_130_auto.png pushed successfully.
