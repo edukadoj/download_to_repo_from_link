@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.7.8
-#   - Removed the window resize inside ensure_active_tab() that was destroying
-#     the probed clickable bounds. The window size is now never changed after
-#     the initial Chrome launch. Re‑probing already occurs after navigation,
-#     tab switches, or zoom commands.
+# agent_state.py – Version 2.7.9
+#   - refresh_known_handles() now detects removed window handles and includes
+#     them in the autonomous Tabs: report (so the client sees closed tabs).
+#   - url_monitor_worker periodically checks for handle changes and triggers
+#     refresh_known_handles(), ensuring spontaneous tab closes are reported.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -745,17 +745,26 @@ _known_handles = set()
 
 def refresh_known_handles():
     """
-    Detect new window handles and report the full tab list as an autonomous report.
+    Detect new and removed window handles, and report the full tab list
+    as an autonomous report.  Called after navigation, tab switches, and
+    periodically by url_monitor_worker.
     """
     global _known_handles
     try:
         with driver_lock:
             handles = list(driver.window_handles)
-            new_handles = set(handles) - _known_handles
+            old_handles = _known_handles
+            new_handles = set(handles) - old_handles
+            closed_handles = old_handles - set(handles)
+
             for h in new_handles:
                 add_autonomous_report("tabopened", f"New tab/window handle: {h}")
+            for h in closed_handles:
+                add_autonomous_report("tabclosed", f"Tab/window closed: {h}")
+
             _known_handles = set(handles)
 
+            # Build the Tabs: report string
             tab_lines = []
             for i, h in enumerate(handles):
                 try:
@@ -764,20 +773,25 @@ def refresh_known_handles():
                 except Exception:
                     title = "(error)"
                 tab_lines.append(f"{i+1}: {title}")
+
+            # Switch back to the expected active tab
             idx = ACTIVE_TAB_INDEX - 1
             if 0 <= idx < len(handles):
                 driver.switch_to.window(handles[idx])
-            else:
+            elif handles:
                 driver.switch_to.window(handles[0])
+                ACTIVE_TAB_INDEX = 1
+
             tab_report = "Tabs: " + " | ".join(tab_lines)
             add_autonomous_report("tabs", tab_report)
+
     except (WebDriverException, InvalidSessionIdException) as e:
         log(f"refresh_known_handles driver error: {e}")
     except Exception as e:
         log(f"refresh_known_handles unexpected error: {e}")
 
 
-# ---------- URL MONITOR ----------
+# ---------- URL MONITOR (also checks for closed tabs) ----------
 _last_known_url = ""
 _url_monitor_stop = threading.Event()
 
@@ -787,10 +801,17 @@ def url_monitor_worker():
     while not _url_monitor_stop.is_set():
         try:
             with driver_lock:
+                # Check URL changes
                 cur = driver.current_url
-            if cur and cur != _last_known_url:
-                _last_known_url = cur
-                add_autonomous_report("navigate", f"navigate({cur})")
+                if cur and cur != _last_known_url:
+                    _last_known_url = cur
+                    add_autonomous_report("navigate", f"navigate({cur})")
+
+                # Check for handle changes (tabs opened/closed spontaneously)
+                current_handles = set(driver.window_handles)
+                if current_handles != _known_handles:
+                    refresh_known_handles()
+
         except (WebDriverException, InvalidSessionIdException) as e:
             log(f"url_monitor driver error: {e}")
         except Exception as e:
