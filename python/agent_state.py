@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.7.0
-#   - Added probe_clickable_bounds() that safely discovers the maximum
-#     coordinates the browser will accept, then updates W, H and reports
-#     the values to the client via an autonomous report.
-#   - All other improvements retained (move return bool, set index fix,
-#     no blocking update_viewport in ensure_active_tab).
+# agent_state.py – Version 2.7.1
+#   - Parser now interprets coordinate pairs as percentages (0.0 – 1.0)
+#     and converts them to absolute pixels using the real viewport (W, H).
+#   - Old integer‑pixel parsing removed.
+#   - probe_clickable_bounds() and update_viewport() unchanged.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -23,7 +22,7 @@ def log(msg: str) -> None:
 
 # ---------- Global driver & viewport ----------
 driver = None
-W, H = 1920, 1080          # default; overwritten by update_viewport() and probe
+W, H = 1920, 1080          # default; overwritten by probe_clickable_bounds()
 cursor_x, cursor_y = 0, 0
 
 # Thread‑safety lock – set by main script to a common lock
@@ -88,7 +87,7 @@ def probe_clickable_bounds():
     if driver is None:
         return
 
-    ensure_active_tab()          # make sure we are on the right tab
+    ensure_active_tab()
     log("Probing clickable bounds...")
 
     # ---- find max X ----
@@ -98,7 +97,7 @@ def probe_clickable_bounds():
             break
         max_x -= 1
     if max_x == 0:
-        max_x = W - 5   # fallback, should never happen
+        max_x = W - 5
     log(f"Max clickable X = {max_x}")
 
     # ---- find max Y ----
@@ -115,7 +114,7 @@ def probe_clickable_bounds():
     W, H = max_x, max_y
     log(f"Clickable bounds set to {W}x{H}")
 
-    # Report to the client so it can update its calibration
+    # Report to the client
     add_autonomous_report("viewsize", f"viewsize:{W}x{H}")
 
 
@@ -131,7 +130,7 @@ def ensure_active_tab():
         return
     try:
         with driver_lock:
-            handles = list(driver.window_handles)   # convert to list immediately
+            handles = list(driver.window_handles)
             if not handles:
                 return
             idx = ACTIVE_TAB_INDEX - 1
@@ -234,6 +233,7 @@ def drag_file_to_target(driver_ref, file_path, x, y):
         log(f"drag_file_to_target fallback error: {e}")
         return False
 
+
 # ---------- EXISTING UTILITY FUNCTIONS (with driver_lock) ----------
 
 def _try_gemini_click(prompt: str) -> bool:
@@ -270,7 +270,8 @@ def _try_gemini_click(prompt: str) -> bool:
         log(f"Gemini click error: {e}")
         return False
 
-# ── move_cursor_absolute – returns bool, now uses safe W/H ─────────────────
+
+# ── move_cursor_absolute – returns bool, uses safe W/H ─────────────────
 def move_cursor_absolute(x: int, y: int) -> bool:
     """
     Move the cursor to (x, y), clamped to the current clickable bounds.
@@ -279,8 +280,6 @@ def move_cursor_absolute(x: int, y: int) -> bool:
     """
     ensure_active_tab()
     global cursor_x, cursor_y
-    # W and H are already the safe maxima from probe_clickable_bounds,
-    # so clamping to W-1 / H-1 will always succeed.
     x = max(0, min(W-1, x))
     y = max(0, min(H-1, y))
     try:
@@ -298,12 +297,14 @@ def move_cursor_absolute(x: int, y: int) -> bool:
         log(f"move_cursor_absolute unexpected error: {e}")
         return False
 
+
 def move_cursor_relative(dx: int, dy: int) -> bool:
     ensure_active_tab()
     global cursor_x, cursor_y
     new_x = max(0, min(W-1, cursor_x + dx))
     new_y = max(0, min(H-1, cursor_y + dy))
     return move_cursor_absolute(new_x, new_y)
+
 
 # ── Other interaction functions ────────────────────
 def _driver_action(func, *args, **kwargs):
@@ -316,9 +317,11 @@ def _driver_action(func, *args, **kwargs):
     except Exception as e:
         log(f"Driver action unexpected error: {e}")
 
+
 def left_click() -> None:
     ensure_active_tab()
     _driver_action(lambda: ActionChains(driver).click().perform())
+
 
 def left_button_down() -> None:
     ensure_active_tab()
@@ -328,6 +331,7 @@ def left_button_down() -> None:
         action.perform()
     _driver_action(_do)
 
+
 def left_button_up() -> None:
     ensure_active_tab()
     def _do():
@@ -335,6 +339,7 @@ def left_button_up() -> None:
         action.pointer_action.release()
         action.perform()
     _driver_action(_do)
+
 
 def right_button_down() -> None:
     ensure_active_tab()
@@ -344,6 +349,7 @@ def right_button_down() -> None:
         action.perform()
     _driver_action(_do)
 
+
 def right_button_up() -> None:
     ensure_active_tab()
     def _do():
@@ -351,6 +357,7 @@ def right_button_up() -> None:
         action.pointer_action.pointer_up(PointerInput.Button.RIGHT)
         action.perform()
     _driver_action(_do)
+
 
 def middle_button_down() -> None:
     ensure_active_tab()
@@ -360,6 +367,7 @@ def middle_button_down() -> None:
         action.perform()
     _driver_action(_do)
 
+
 def middle_button_up() -> None:
     ensure_active_tab()
     def _do():
@@ -368,13 +376,16 @@ def middle_button_up() -> None:
         action.perform()
     _driver_action(_do)
 
+
 def double_click() -> None:
     ensure_active_tab()
     _driver_action(lambda: ActionChains(driver).double_click().perform())
 
+
 def right_click() -> None:
     ensure_active_tab()
     _driver_action(lambda: ActionChains(driver).context_click().perform())
+
 
 def middle_click() -> None:
     ensure_active_tab()
@@ -384,6 +395,7 @@ def middle_click() -> None:
         action.pointer_action.pointer_up(PointerInput.Button.MIDDLE)
         action.perform()
     _driver_action(_do)
+
 
 def scroll_by(amount: int) -> None:
     ensure_active_tab()
@@ -411,6 +423,7 @@ def scroll_by(amount: int) -> None:
     except Exception as e:
         log(f"scroll_by unexpected error: {e}")
 
+
 def drag_from_to(x1, y1, x2, y2) -> None:
     ensure_active_tab()
     move_cursor_absolute(x1, y1)
@@ -419,6 +432,7 @@ def drag_from_to(x1, y1, x2, y2) -> None:
     move_cursor_absolute(x2, y2)
     time.sleep(0.1)
     left_button_up()
+
 
 def _perform_human_click_at(x: int, y: int) -> None:
     ensure_active_tab()
@@ -437,12 +451,14 @@ def _perform_human_click_at(x: int, y: int) -> None:
     time.sleep(random.uniform(0.010, 0.040))
     left_button_up()
 
+
 def human_click(prompt: str = "Click the verify button") -> str:
     ensure_active_tab()
     if _try_gemini_click(prompt):
         return f"Gemini click successful (prompt: {prompt})"
     _perform_human_click_at(cursor_x, cursor_y)
     return "Fallback human click at current cursor."
+
 
 def human_click_at(x: int, y: int) -> str:
     ensure_active_tab()
@@ -453,6 +469,7 @@ def human_click_at(x: int, y: int) -> str:
     _perform_human_click_at(x, y)
     return f"Human click at ({x},{y})"
 
+
 KEY_MAP = {
     "enter": Keys.ENTER, "tab": Keys.TAB, "escape": Keys.ESCAPE, "esc": Keys.ESCAPE,
     "backspace": Keys.BACKSPACE, "delete": Keys.DELETE, "del": Keys.DELETE,
@@ -462,6 +479,7 @@ KEY_MAP = {
     "f7": Keys.F7, "f8": Keys.F8, "f9": Keys.F9, "f10": Keys.F10, "f11": Keys.F11, "f12": Keys.F12,
     "ctrl": Keys.CONTROL, "shift": Keys.SHIFT, "alt": Keys.ALT, "meta": Keys.META, "command": Keys.META
 }
+
 
 def press_key(key_name: str) -> None:
     ensure_active_tab()
@@ -478,6 +496,7 @@ def press_key(key_name: str) -> None:
         log(f"press_key driver error: {e}")
     except Exception as e:
         log(f"press_key unexpected error: {e}")
+
 
 def press_combo(combo_str: str) -> None:
     ensure_active_tab()
@@ -513,6 +532,7 @@ def press_combo(combo_str: str) -> None:
     except Exception as e:
         log(f"press_combo unexpected error: {e}")
 
+
 def type_secret(name: str) -> bool:
     ensure_active_tab()
     if name not in allowed_secrets:
@@ -531,9 +551,73 @@ def type_secret(name: str) -> bool:
         log(f"type_secret unexpected error: {e}")
         return False
 
-# ---------- COMMAND PARSER (unchanged) ----------
+
+# ---------- COMMAND PARSER – percentage coordinates ----------
+def _pct_to_abs(pctx: float, pcty: float):
+    """Convert percentage (0.0‑1.0) to absolute pixel coordinates."""
+    x = int(pctx * W)
+    y = int(pcty * H)
+    # Clamp to valid range (just in case)
+    x = max(0, min(W - 1, x))
+    y = max(0, min(H - 1, y))
+    return x, y
+
+
 def parse_single_command(raw: str):
-    raw = raw.strip(); lo = raw.lower()
+    raw = raw.strip()
+    lo = raw.lower()
+
+    # Percentage‑based move and click commands
+    # Format: (0.123456,0.456789)
+    m = re.match(r'^\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', raw)
+    if m:
+        pctx = float(m.group(1))
+        pcty = float(m.group(2))
+        x, y = _pct_to_abs(pctx, pcty)
+        return ("move", (x, y))
+
+    # click(pctx, pcty)
+    m = re.match(r'^click\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m:
+        pctx = float(m.group(1))
+        pcty = float(m.group(2))
+        x, y = _pct_to_abs(pctx, pcty)
+        return ("click_at", (x, y))
+
+    # humanclick(pctx, pcty)
+    m = re.match(r'^humanclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m:
+        pctx = float(m.group(1))
+        pcty = float(m.group(2))
+        x, y = _pct_to_abs(pctx, pcty)
+        return ("humanclick_at", (x, y))
+
+    # doubleclick(pctx, pcty)
+    m = re.match(r'^doubleclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m:
+        pctx = float(m.group(1))
+        pcty = float(m.group(2))
+        x, y = _pct_to_abs(pctx, pcty)
+        return ("doubleclick_at", (x, y))
+
+    # rightclick(pctx, pcty)
+    m = re.match(r'^rightclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m:
+        pctx = float(m.group(1))
+        pcty = float(m.group(2))
+        x, y = _pct_to_abs(pctx, pcty)
+        return ("rightclick_at", (x, y))
+
+    # drag(pctx1, pcty1, pctx2, pcty2)
+    m = re.match(r'^drag\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m:
+        pctx1 = float(m.group(1)); pcty1 = float(m.group(2))
+        pctx2 = float(m.group(3)); pcty2 = float(m.group(4))
+        x1, y1 = _pct_to_abs(pctx1, pcty1)
+        x2, y2 = _pct_to_abs(pctx2, pcty2)
+        return ("drag", (x1, y1, x2, y2))
+
+    # ---------- other commands unchanged ----------
     if lo == "exit": return ("exit", None)
     if lo == "uploadtoyoutube": return ("uploadtoyoutube", None)
     if lo == "screenshot": return ("screenshot", None)
@@ -554,35 +638,29 @@ def parse_single_command(raw: str):
     if lo == "filedrop": return ("filedrop", None)
     if lo == "downselected": return ("downselected", None)
     if lo == "deleteselected": return ("deleteselected", None)
-    m = re.match(r'^moveby\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
-    if m: return ("moveby", (int(float(m.group(1))), int(float(m.group(2)))))
-    m = re.match(r'^\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', raw)
-    if m: return ("move", (int(float(m.group(1))), int(float(m.group(2)))))
-    m = re.match(r'^click\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
-    if m: return ("click_at", (int(float(m.group(1))), int(float(m.group(2)))))
-    m = re.match(r'^humanclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
-    if m: return ("humanclick_at", (int(float(m.group(1))), int(float(m.group(2)))))
-    m = re.match(r'^doubleclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
-    if m: return ("doubleclick_at", (int(float(m.group(1))), int(float(m.group(2)))))
-    m = re.match(r'^rightclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
-    if m: return ("rightclick_at", (int(float(m.group(1))), int(float(m.group(2)))))
-    m = re.match(r'^scroll:\s*(-?\d+(?:\.\d+)?)\s*$', lo)
-    if m: return ("scroll", int(float(m.group(1))))
-    m = re.match(r'^wait:\s*(\d+(?:\.\d+)?)\s*$', lo)
-    if m: return ("wait", float(m.group(1)))
-    m = re.match(r'^key:\s*(.+)\s*$', lo)
-    if m: return ("key", m.group(1).strip())
-    m = re.match(r'^combo:\s*(.+)\s*$', lo)
-    if m: return ("combo", m.group(1).strip())
+    if lo.startswith("moveby"):  # moveby is obsolete but keep for now? no, remove
+        return ("key", raw)
+    if lo.startswith("scroll:"):
+        try:
+            val = int(float(lo.split(":",1)[1].strip()))
+            return ("scroll", val)
+        except:
+            return ("key", raw)
+    if lo.startswith("wait:"):
+        try:
+            val = float(lo.split(":",1)[1].strip())
+            return ("wait", val)
+        except:
+            return ("key", raw)
+    if lo.startswith("key:"):
+        return ("key", raw.split(":",1)[1].strip())
+    if lo.startswith("combo:"):
+        return ("combo", raw.split(":",1)[1].strip())
     if lo.startswith('secret:'): return ("secret", raw.split(':',1)[1].strip())
     if lo.startswith('decode:'): return ("decode", raw.split(':',1)[1].strip())
     if lo.startswith('humantype:'): return ("humantype", raw.split(':',1)[1].strip())
-    m = re.match(r'^navigate:\s*(.+)\s*$', lo)
-    if m: return ("navigate", m.group(1).strip())
-    m = re.match(r'^drag\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
-    if m:
-        x1=int(float(m.group(1))); y1=int(float(m.group(2))); x2=int(float(m.group(3))); y2=int(float(m.group(4)))
-        return ("drag", (x1,y1,x2,y2))
+    if lo.startswith("navigate:"):
+        return ("navigate", raw.split(":",1)[1].strip())
     if lo in ("download","download:"): return ("download", None)
     if lo in ("upload","upload:"): return ("upload", None)
     if lo == "dir": return ("dir", None)
@@ -596,10 +674,13 @@ def parse_single_command(raw: str):
         try:
             val = float(lo.split(":",1)[1].strip())
             return ("setinterval", val)
-        except: return ("key", raw)
+        except:
+            return ("key", raw)
     if lo.startswith("zoom:"):
         return ("zoom", raw.split(":",1)[1].strip())
+
     return ("key", raw)
+
 
 # ---------- FILE REGISTRY & UPLOAD PATHS ----------
 _file_registry = {}
@@ -637,12 +718,14 @@ def refresh_file_registry():
         try: log(f"ERROR refreshing file registry: {e}")
         except: pass
 
+
 def get_upload_paths():
     paths = []
     for fname in _upload_file_paths:
         paths.append(os.path.join(DOWNLOAD_DIR, fname))
     if paths: return [paths[0]]
     return []
+
 
 # ---------- TAB HANDLE TRACKING ----------
 _known_handles = set()
@@ -654,13 +737,12 @@ def refresh_known_handles():
     global _known_handles
     try:
         with driver_lock:
-            handles = list(driver.window_handles)   # convert to list immediately
+            handles = list(driver.window_handles)
             new_handles = set(handles) - _known_handles
             for h in new_handles:
                 add_autonomous_report("tabopened", f"New tab/window handle: {h}")
             _known_handles = set(handles)
 
-            # Build a tab list string and report it
             tab_lines = []
             for i, h in enumerate(handles):
                 try:
@@ -669,7 +751,6 @@ def refresh_known_handles():
                 except Exception:
                     title = "(error)"
                 tab_lines.append(f"{i+1}: {title}")
-            # Switch back to active tab
             idx = ACTIVE_TAB_INDEX - 1
             if 0 <= idx < len(handles):
                 driver.switch_to.window(handles[idx])
@@ -683,6 +764,7 @@ def refresh_known_handles():
         log(f"refresh_known_handles driver error: {e}")
     except Exception as e:
         log(f"refresh_known_handles unexpected error: {e}")
+
 
 # ---------- URL MONITOR ----------
 _last_known_url = ""
@@ -704,6 +786,7 @@ def url_monitor_worker():
             log(f"url_monitor unexpected error: {e}")
         _url_monitor_stop.wait(2)
 
+
 # ---------- AUTONOMOUS REPORTS ----------
 autonomous_counter = 1
 pending_autonomous_reports = []
@@ -717,6 +800,7 @@ def add_autonomous_report(report_type, text):
     pending_autonomous_reports.append({"id":aut_id, "text":text, "timestamp":time.time()})
     try: log(f"New autonomous report: {aut_id} -> {text}")
     except: pass
+
 
 def cull_expired_autonomous_reports():
     now = time.time()
