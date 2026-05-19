@@ -1698,3 +1698,5 @@ Stacktrace:
 [18:31:37] Execution loop: processing APP-52481-20260519183012: save
 [18:31:37] Enqueued for execution: APP-52481-20260519183012
 [18:31:38] Screenshot screenshots/0131_183133_682_auto.png pushed successfully.
+[18:31:38] Taking screenshot: screenshots/0132_183138_682_auto.png
+[18:31:39] Pushing screenshot screenshots/0132_183138_682_auto.png with 10s timeout...
