@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.7.7
-#   - Fixed probe_clickable_bounds() to detect the true clickable bounds
-#     by checking whether the cursor_x / cursor_y after a move equal the
-#     requested coordinate. If they differ, clamping occurred and the
-#     previous successful coordinate is the maximum.
-#   - Temporary W, H are set from CSS before probing.
+# agent_state.py – Version 2.7.8
+#   - Removed the window resize inside ensure_active_tab() that was destroying
+#     the probed clickable bounds. The window size is now never changed after
+#     the initial Chrome launch. Re‑probing already occurs after navigation,
+#     tab switches, or zoom commands.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -46,7 +45,7 @@ def probe_clickable_bounds():
     Discover the maximum clickable X and Y by testing moves and checking
     whether the driver clamps the coordinate to a smaller value.
     
-    1.  Get a rough guess from window.innerWidth / innerHeight.
+    1.  Start with a hard‑coded rough guess (1918 x 991).
     2.  Temporarily set W, H to that guess so move_cursor_absolute works.
     3.  For X: start from guess-5, move to (rx, 1). If the resulting
         cursor_x equals rx, increment until cursor_x < requested x.
@@ -62,19 +61,9 @@ def probe_clickable_bounds():
     ensure_active_tab()
     log("Probing clickable bounds...")
 
-    # ── Rough CSS guess ──────────────────────────────────────────
-    try:
-        with driver_lock:
-            css_w = driver.execute_script("return window.innerWidth;")
-            css_h = driver.execute_script("return window.innerHeight;")
-            if css_w and css_h:
-                css_w, css_h = int(css_w), int(css_h)
-            else:
-                css_w, css_h = 1920, 1080   # fallback
-    except Exception:
-        css_w, css_h = 1920, 1080
-
-    log(f"CSS rough guess: {css_w}x{css_h}")
+    # ── Hard‑coded rough guess (no CSS viewport dimensions) ──────────
+    css_w, css_h = 1918, 991
+    log(f"Rough guess: {css_w}x{css_h}")
 
     # ── Temporary valid size so that move_cursor_absolute works ──
     W, H = css_w, css_h
@@ -84,25 +73,22 @@ def probe_clickable_bounds():
     if rx < 1:
         rx = 1
 
-    # Helper: move and check if clamping occurred
     def move_and_get_x(x):
         move_cursor_absolute(x, 1)
         return cursor_x
 
     achieved = move_and_get_x(rx)
     if achieved == rx:
-        # No clamp – can go further
         x = rx
         while True:
             x += 1
             achieved = move_and_get_x(x)
-            if achieved < x:      # clamping happened
-                x -= 1            # last full move was the max
+            if achieved < x:
+                x -= 1
                 break
         W = x
         log(f"Max clickable X (incrementing) = {W}")
     else:
-        # Already clamped – go backwards
         x = rx
         while x > 0:
             x -= 1
@@ -112,7 +98,7 @@ def probe_clickable_bounds():
                 log(f"Max clickable X (decrementing) = {W}")
                 break
         else:
-            W = 1   # extreme fallback
+            W = 1
 
     # ── Find max Y ──────────────────────────────────────────────
     ry = css_h - 5
@@ -167,6 +153,7 @@ def ensure_active_tab():
     """
     Make sure the browser is pointing to the expected tab.
     Never raises – all driver exceptions are caught and logged.
+    Does NOT resize the window – window size is fixed after initial launch.
     """
     global ACTIVE_TAB_INDEX
     if driver is None:
@@ -187,10 +174,6 @@ def ensure_active_tab():
             else:
                 if driver.current_window_handle != handles[idx]:
                     driver.switch_to.window(handles[idx])
-                    try:
-                        driver.set_window_size(W, H)
-                    except Exception:
-                        pass
     except (WebDriverException, InvalidSessionIdException) as e:
         log(f"ensure_active_tab driver error: {e}")
     except Exception as e:
@@ -784,8 +767,6 @@ def refresh_known_handles():
             idx = ACTIVE_TAB_INDEX - 1
             if 0 <= idx < len(handles):
                 driver.switch_to.window(handles[idx])
-                try: driver.set_window_size(W, H)
-                except: pass
             else:
                 driver.switch_to.window(handles[0])
             tab_report = "Tabs: " + " | ".join(tab_lines)
