@@ -1472,3 +1472,8 @@ Stacktrace:
 [18:26:42] Agent alive
 [18:26:42] New autonomous report: AUT-44-1779215202 -> Available memory: 14427 MB
 [18:26:44] Sender published response comment.
+[18:26:46] Fetcher detected new App Commands comment.
+[18:26:46] Re‑enqueued existing report for APP-52471-20260519182513
+[18:26:47] Screenshot screenshots/0074_182641_260_auto.png pushed successfully.
+[18:26:47] Taking screenshot: screenshots/0075_182647_543_auto.png
+[18:26:48] Pushing screenshot screenshots/0075_182647_543_auto.png with 10s timeout...
