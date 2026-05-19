@@ -1711,3 +1711,6 @@ Stacktrace:
 [18:31:51] Rejected duplicate save command APP-52481-20260519183012
 [18:31:51] Rejected duplicate save command APP-52482-20260519183027
 [18:31:53] Screenshot screenshots/0134_183148_683_auto.png pushed successfully.
+[18:31:53] Taking screenshot: screenshots/0135_183153_683_auto.png
+[18:31:53] Sender published response comment.
+[18:31:54] Pushing screenshot screenshots/0135_183153_683_auto.png with 10s timeout...
