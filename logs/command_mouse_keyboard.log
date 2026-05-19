@@ -308,3 +308,7 @@
 [01:11:16] Pushing screenshot screenshots/0074_011116_690_auto.png with 10s timeout...
 [01:11:19] Screenshot screenshots/0074_011116_690_auto.png pushed successfully.
 [01:11:21] Taking screenshot: screenshots/0075_011121_690_auto.png
+<<<<<<< Updated upstream
+=======
+[01:11:21] Pushing screenshot screenshots/0075_011121_690_auto.png with 10s timeout...
+>>>>>>> Stashed changes
