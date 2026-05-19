@@ -7754,3 +7754,6 @@ Stacktrace:
 [15:30:37] Screenshot screenshots/0278_153033_909_auto.png pushed successfully.
 [15:30:38] Taking screenshot: screenshots/0279_153038_909_auto.png
 [15:30:39] Pushing screenshot screenshots/0279_153038_909_auto.png with 10s timeout...
+[15:30:42] Screenshot screenshots/0279_153038_909_auto.png pushed successfully.
+[15:30:43] Taking screenshot: screenshots/0280_153043_910_auto.png
+[15:30:44] Pushing screenshot screenshots/0280_153043_910_auto.png with 10s timeout...
