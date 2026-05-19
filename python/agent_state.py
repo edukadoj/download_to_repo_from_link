@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.7.9
-#   - refresh_known_handles() now detects removed window handles and includes
-#     them in the autonomous Tabs: report (so the client sees closed tabs).
-#   - url_monitor_worker periodically checks for handle changes and triggers
-#     refresh_known_handles(), ensuring spontaneous tab closes are reported.
+# agent_state.py – Version 2.7.10
+#   - Fixed "cannot access local variable 'ACTIVE_TAB_INDEX'" error in
+#     refresh_known_handles() by adding the missing 'global' declaration.
+#   - All other functionality unchanged.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -749,7 +748,7 @@ def refresh_known_handles():
     as an autonomous report.  Called after navigation, tab switches, and
     periodically by url_monitor_worker.
     """
-    global _known_handles
+    global _known_handles, ACTIVE_TAB_INDEX
     try:
         with driver_lock:
             handles = list(driver.window_handles)
