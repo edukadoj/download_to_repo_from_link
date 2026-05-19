@@ -223,3 +223,5 @@
 [13:54:39] New autonomous report: AUT-15-1779198879 -> Tabs: 1: Welcome
 [13:54:39] Executed APP-52271-20260519135313 -> OK humanclick(0.7244,0.6309)
 [13:54:39] Screenshot screenshots/0036_135436_129_auto.png pushed successfully.
+[13:54:41] Fetcher detected new App Commands comment.
+[13:54:41] Re‑enqueued existing report for APP-52271-20260519135313
