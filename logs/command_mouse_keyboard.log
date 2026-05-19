@@ -8069,3 +8069,7 @@ Stacktrace:
 [15:31:56] Execution loop: processing APP-52369-20260519153024: (0.862605,0.254700)
 [15:31:56] Screenshot screenshots/0293_153150_637_auto.png pushed successfully.
 [15:31:56] Taking screenshot: screenshots/0294_153156_162_auto.png
+[15:31:56] Cursor moved to (1804, 119)
+[15:31:56] New autonomous report: AUT-124-1779204716 -> Tabs: 1: X
+[15:31:56] Executed APP-52370-20260519153024 -> OK move(0.9415,0.1493)
+[15:31:56] Execution loop: processing APP-52371-20260519153024: (0.982168,0.089168)
