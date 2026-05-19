@@ -138,3 +138,29 @@ Stacktrace:
 [02:41:33] Screenshot screenshots/0017_024130_153_auto.png pushed successfully.
 [02:41:35] Taking screenshot: screenshots/0018_024135_153_auto.png
 [02:41:35] Pushing screenshot screenshots/0018_024135_153_auto.png with 10s timeout...
+[02:41:38] Screenshot screenshots/0018_024135_153_auto.png pushed successfully.
+[02:41:39] Fetcher detected new App Commands comment.
+[02:41:39] Execution loop: processing APP-52246-20260519024023: (0.990000,0.990000)
+[02:41:39] Enqueued for execution: APP-52246-20260519024023
+[02:41:39] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x558b02f1e22a <unknown>
+#1 0x558b0291c870 <unknown>
+#2 0x558b029c2aa2 <unknown>
+#3 0x558b029b9116 <unknown>
+#4 0x558b02964662 <unknown>
+#5 0x558b02965451 <unknown>
+#6 0x558b02ee1d8b <unknown>
+#7 0x558b02ee4c65 <unknown>
+#8 0x558b02ece458 <unknown>
+#9 0x558b02ee57f0 <unknown>
+#10 0x558b02eb51c0 <unknown>
+#11 0x558b02f0b168 <unknown>
+#12 0x558b02f0b305 <unknown>
+#13 0x558b02f1cc5e <unknown>
+#14 0x7f226389caa4 <unknown>
+#15 0x7f2263929c6c <unknown>
+
+[02:41:39] New autonomous report: AUT-9-1779158499 -> Tabs: 1: YouTube
+[02:41:39] Executed APP-52246-20260519024023 -> ERR move to (1899,982) failed
