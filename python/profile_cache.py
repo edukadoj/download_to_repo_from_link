@@ -1,104 +1,14 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# profile_cache.py – Version 1.0.0
-#   - Handles browser profile cache saving and loading.
-#   - Uses direct GitHub API uploads for each chunk, with size verification.
-#   - No git stash/push involved – avoids chunk loss.
+# profile_cache.py – Version 1.1.0
+#   - Uses downloader.upload_chunk_to_repo for reliable chunk upload.
+#   - Paired with uploader.py for reassembly.
 # ==============================================================================
 
-import os, time, base64, hashlib, json, subprocess, re, tempfile, shutil, tarfile, io, glob, threading
+import os, time, base64, hashlib, json, subprocess, re, tempfile, shutil, tarfile, io, glob
 from cryptography.fernet import Fernet
 from uploader import reassemble_flat
-
-
-# ── Helper: get remote file size (bytes) via GitHub API ──
-def _remote_file_size(repo, path, pat=None):
-    env = os.environ.copy()
-    if pat:
-        env["GITHUB_TOKEN"] = pat
-    try:
-        out = subprocess.run(
-            ["gh", "api", f"repos/{repo}/contents/{path}", "--jq", ".size"],
-            capture_output=True, text=True, check=True, env=env,
-        )
-        size_str = out.stdout.strip()
-        if size_str.isdigit():
-            return int(size_str)
-    except Exception:
-        pass
-    return None
-
-
-# ── Helper: delete a remote file by path (uses SHA) ──
-def _delete_remote_file(repo, path, pat=None):
-    env = os.environ.copy()
-    if pat:
-        env["GITHUB_TOKEN"] = pat
-    try:
-        sha_out = subprocess.run(
-            ["gh", "api", f"repos/{repo}/contents/{path}", "--jq", ".sha"],
-            capture_output=True, text=True, check=True, env=env,
-        )
-        sha = sha_out.stdout.strip()
-        if not sha:
-            return
-        payload = json.dumps({"message": "delete corrupt chunk", "sha": sha, "branch": "main"})
-        subprocess.run(
-            ["gh", "api", f"repos/{repo}/contents/{path}", "--method", "DELETE", "--input", "-"],
-            input=payload, capture_output=True, text=True, check=True, env=env,
-        )
-    except Exception:
-        pass
-
-
-# ── Helper: upload a single file directly via GitHub API (base64) ──
-def _upload_single_file_to_repo(repo, local_path, remote_path, pat=None, max_retries=5):
-    env = os.environ.copy()
-    if pat:
-        env["GITHUB_TOKEN"] = pat
-    with open(local_path, "rb") as f:
-        content_bytes = f.read()
-    b64_content = base64.b64encode(content_bytes).decode()
-    payload = json.dumps({
-        "message": f"Upload {remote_path}",
-        "content": b64_content,
-        "branch": "main"
-    })
-
-    api_url = f"repos/{repo}/contents/{remote_path}"
-
-    for attempt in range(1, max_retries + 1):
-        try:
-            # Check if file exists to get SHA for update
-            sha = None
-            sha_out = subprocess.run(
-                ["gh", "api", api_url, "--jq", ".sha"],
-                capture_output=True, text=True, env=env,
-            )
-            if sha_out.returncode == 0 and sha_out.stdout.strip():
-                sha = sha_out.stdout.strip()
-                payload_dict = json.loads(payload)
-                payload_dict["sha"] = sha
-                payload = json.dumps(payload_dict)
-
-            result = subprocess.run(
-                ["gh", "api", api_url, "--method", "PUT", "--input", "-"],
-                input=payload, capture_output=True, text=True, env=env,
-            )
-            if result.returncode == 0:
-                remote_size = _remote_file_size(repo, remote_path, pat)
-                if remote_size == len(content_bytes):
-                    return True
-                else:
-                    _delete_remote_file(repo, remote_path, pat)
-            else:
-                if attempt < max_retries:
-                    _delete_remote_file(repo, remote_path, pat)
-                    time.sleep(1)
-        except Exception:
-            pass
-        time.sleep(0.5)
-    return False
+from downloader import upload_chunk_to_repo, get_remote_file_size, delete_remote_file
 
 
 def load_profile(cache_dir, profile_dir, encryption_key, repo, report_callback=None):
@@ -137,7 +47,6 @@ def load_profile(cache_dir, profile_dir, encryption_key, repo, report_callback=N
             tarfile.open(fileobj=io.BytesIO(decrypted), mode='r:gz').extractall('/tmp')
             return True
         except Exception as e:
-            # Delete the corrupted cache directory so it won't be tried again
             shutil.rmtree(cache_path, ignore_errors=True)
             if report_callback:
                 report_callback("cachecorrupted", f"Profile cache {dirname} is corrupted and has been deleted.")
@@ -150,8 +59,9 @@ def load_profile(cache_dir, profile_dir, encryption_key, repo, report_callback=N
 def save_profile(cache_dir, profile_dir, encryption_key, repo, pat, chunk_size_mb=20):
     """
     Encrypt the current browser profile, split into chunks, upload each chunk
-    directly via GitHub API (with size verification), and delete old caches.
-
+    directly via downloader.upload_chunk_to_repo (with size verification),
+    and delete old caches.
+    
     Returns (success: bool, message: str).
     Does NOT acquire any locks – the caller must handle concurrency.
     """
@@ -198,28 +108,22 @@ def save_profile(cache_dir, profile_dir, encryption_key, repo, pat, chunk_size_m
             shutil.rmtree(cache_subdir, ignore_errors=True)
             return (False, "Chunking produced empty or missing parts.")
 
-        # Build a dictionary of part_name -> local_size
-        part_sizes = {}
+        # Upload each chunk via downloader.upload_chunk_to_repo
         for part_path in local_parts:
             part_name = os.path.basename(part_path)
-            part_sizes[part_name] = os.path.getsize(part_path)
-
-        # Upload each chunk directly via API, verifying remote size
-        for part_name, local_size in part_sizes.items():
-            local_path = os.path.join(cache_subdir, part_name)
             remote_path = f".profile_cache/{ts}/{part_name}"
+            local_size = os.path.getsize(part_path)
 
-            # If remote file already exists with correct size, skip upload
-            remote_size = _remote_file_size(repo, remote_path, pat)
+            # If remote already matches, skip
+            remote_size = get_remote_file_size(repo, remote_path, pat)
             if remote_size == local_size:
                 continue
 
-            # Otherwise delete any existing (likely corrupt) remote file and upload fresh
+            # Delete any existing (likely corrupt) remote file and upload
             if remote_size is not None:
-                _delete_remote_file(repo, remote_path, pat)
+                delete_remote_file(repo, remote_path, pat)
 
-            success = _upload_single_file_to_repo(repo, local_path, remote_path, pat)
-            if not success:
+            if not upload_chunk_to_repo(repo, part_path, remote_path, pat):
                 shutil.rmtree(cache_subdir, ignore_errors=True)
                 return (False, f"Failed to upload chunk {part_name}")
 
