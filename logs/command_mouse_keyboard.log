@@ -136,3 +136,5 @@
 [22:05:10] Agent alive
 [22:05:12] Screenshot screenshots/0022_220509_292_auto.png pushed successfully.
 [22:05:12] Sender published response comment.
+[22:05:14] Taking screenshot: screenshots/0023_220514_292_auto.png
+[22:05:14] Pushing screenshot screenshots/0023_220514_292_auto.png with 10s timeout...
