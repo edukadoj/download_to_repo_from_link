@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# screenshot_manager.py – Version 1.1.0
-#   - Screenshot data is now encrypted before being pushed to the repository.
-#     Uses the same XOR‑with‑SHA256 keystream as crypto_utils, then Base64.
-#     The client will decrypt after download.
+# screenshot_manager.py – Version 1.1.1
+#   - After three consecutive health‑check failures, calls a restart callback
+#     to recover the browser instead of trying forever.
 # ==============================================================================
 
 import os, time, threading, traceback, base64, hashlib
@@ -27,11 +26,9 @@ def _find_watermark_font():
     except Exception:
         return None
 
-# Module‑level font
 _watermark_font = _find_watermark_font()
 
 def _encrypt_bytes(data: bytes, key: str) -> bytes:
-    """Encrypt binary data with XOR keystream, then Base64‑encode."""
     key_bytes = key.encode("utf-8")
     result = bytearray()
     for i, b in enumerate(data):
@@ -40,7 +37,6 @@ def _encrypt_bytes(data: bytes, key: str) -> bytes:
     return base64.b64encode(bytes(result))
 
 def _driver_health_check(driver, driver_lock, timeout=3):
-    """Return True if the browser responds within *timeout* seconds."""
     def check():
         with driver_lock:
             driver.title
@@ -50,10 +46,6 @@ def _driver_health_check(driver, driver_lock, timeout=3):
     return not t.is_alive()
 
 def _safe_save_screenshot(driver, filename, driver_lock, timeout=10):
-    """
-    Save a screenshot in a separate thread, with a timeout.
-    Returns True on success, False on timeout or error.
-    """
     result = [False]
     def save():
         try:
@@ -68,14 +60,11 @@ def _safe_save_screenshot(driver, filename, driver_lock, timeout=10):
     return result[0] and not t.is_alive()
 
 class ScreenshotWorker:
-    """
-    Object that holds all state for the screenshot loop.
-    Use start() to begin the daemon thread.
-    """
     def __init__(self, stop_event, driver, driver_lock, agent_state,
                  sync_repo, log_func, push_logs_func,
                  comm_interval_getter, slow_mode_getter,
-                 encryption_key: str):
+                 encryption_key: str,
+                 restart_browser_callback=None):
         self._stop = stop_event
         self._driver = driver
         self._driver_lock = driver_lock
@@ -86,12 +75,13 @@ class ScreenshotWorker:
         self._get_comm_interval = comm_interval_getter
         self._get_slow_mode = slow_mode_getter
         self._encryption_key = encryption_key
+        self._restart_browser = restart_browser_callback
         self._counter = 0
         self._font = _watermark_font
         self._thread = None
+        self._consecutive_health_fails = 0
 
     def _take_screenshot(self, desc="auto", push=False):
-        """Capture, draw, watermark, encrypt. Returns filename or None."""
         self._counter += 1
         now = datetime.now()
         ms = now.microsecond // 1000
@@ -99,12 +89,17 @@ class ScreenshotWorker:
         filename = f"screenshots/{self._counter:04d}_{now.strftime('%H%M%S')}_{ms:03d}_{desc}.png"
         self._log(f"Taking screenshot: {filename}")
 
-        # Health check
         if not _driver_health_check(self._driver, self._driver_lock, timeout=3):
             self._log("Browser health check failed – skipping screenshot.")
+            self._consecutive_health_fails += 1
+            if self._consecutive_health_fails >= 3 and self._restart_browser:
+                self._log("Three consecutive health failures – restarting browser.")
+                self._restart_browser()
+                self._consecutive_health_fails = 0
             return None
+        else:
+            self._consecutive_health_fails = 0
 
-        # Save with timeout
         if not _safe_save_screenshot(self._driver, filename, self._driver_lock, timeout=10):
             self._log(f"Screenshot save timed out or failed: {filename}")
             return None
@@ -113,7 +108,6 @@ class ScreenshotWorker:
             self._log(f"Screenshot file not created: {filename}")
             return None
 
-        # Overlay
         try:
             img = Image.open(filename).convert("RGBA")
             draw = ImageDraw.Draw(img)
@@ -135,7 +129,6 @@ class ScreenshotWorker:
             self._log(f"Screenshot image processing error: {e}")
             return None
 
-        # Encrypt the final PNG before push
         try:
             with open(filename, "rb") as f:
                 raw = f.read()
@@ -153,7 +146,6 @@ class ScreenshotWorker:
         return filename
 
     def _push_screenshot(self, filename):
-        """Push with timeout, return success."""
         self._log(f"Pushing screenshot {filename} with 10s timeout...")
         try:
             ok = self._sync_repo.push_screenshots_now([filename], timeout=10)
@@ -166,7 +158,6 @@ class ScreenshotWorker:
         self._log("Screenshot worker started.")
         while not self._stop.is_set():
             try:
-                # Initial pause
                 self._stop.wait(2)
                 while not self._stop.is_set():
                     start = time.time()
@@ -184,7 +175,6 @@ class ScreenshotWorker:
                     else:
                         self._log(f"Screenshot push failed or timed out for {filename}.")
 
-                    # Always push log after a screenshot attempt
                     self._push_logs()
 
                     elapsed = time.time() - start
