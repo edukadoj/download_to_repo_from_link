@@ -195,3 +195,6 @@
 [13:54:15] Screenshot screenshots/0032_135410_775_auto.png pushed successfully.
 [13:54:15] Taking screenshot: screenshots/0033_135415_927_auto.png
 [13:54:16] Agent alive
+[13:54:26] push_screenshots_now timed out
+[13:54:26] Screenshot push failed or timed out for screenshots/0033_135415_927_auto.png.
+[13:54:26] Taking screenshot: screenshots/0034_135426_128_auto.png
