@@ -272,3 +272,8 @@
 [18:23:58] Screenshot screenshots/0042_182355_040_auto.png pushed successfully.
 [18:24:00] Taking screenshot: screenshots/0043_182400_040_auto.png
 [18:24:00] Pushing screenshot screenshots/0043_182400_040_auto.png with 10s timeout...
+[18:24:06] Screenshot screenshots/0043_182400_040_auto.png pushed successfully.
+[18:24:06] Taking screenshot: screenshots/0044_182406_387_auto.png
+[18:24:06] Pushing screenshot screenshots/0044_182406_387_auto.png with 10s timeout...
+[18:24:07] push_screenshots_now failed: Command '['git', 'commit', '-m', 'Screenshots & log']' returned non-zero exit status 1.
+[18:24:07] Screenshot push failed or timed out for screenshots/0044_182406_387_auto.png.
