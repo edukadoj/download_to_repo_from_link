@@ -164,3 +164,5 @@ Stacktrace:
 
 [02:41:39] New autonomous report: AUT-9-1779158499 -> Tabs: 1: YouTube
 [02:41:39] Executed APP-52246-20260519024023 -> ERR move to (1899,982) failed
+[02:41:40] Taking screenshot: screenshots/0019_024140_153_auto.png
+[02:41:40] Pushing screenshot screenshots/0019_024140_153_auto.png with 10s timeout...
