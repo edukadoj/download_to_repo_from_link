@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.7.6
-#   - Fixed probe_clickable_bounds(): set W,H to a temporary valid size
-#     (CSS rough guess) before starting the probing moves, so that
-#     move_cursor_absolute does not reject them due to invalid dimensions.
+# agent_state.py – Version 2.7.7
+#   - Fixed probe_clickable_bounds() to detect the true clickable bounds
+#     by checking whether the cursor_x / cursor_y after a move equal the
+#     requested coordinate. If they differ, clamping occurred and the
+#     previous successful coordinate is the maximum.
+#   - Temporary W, H are set from CSS before probing.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -41,19 +43,17 @@ ACTIVE_TAB_INDEX = 1
 
 def probe_clickable_bounds():
     """
-    Discover the maximum clickable X and Y by testing moves.
+    Discover the maximum clickable X and Y by testing moves and checking
+    whether the driver clamps the coordinate to a smaller value.
     
-    1.  Get a rough guess from window.innerWidth/innerHeight.
-    2.  Temporarily set W,H to this guess so that move_cursor_absolute will work.
-    3.  For X: test move_cursor_absolute(x, 1) starting from the rough guess.
-        - If it succeeds, increment x and test until failure – the last
-          successful x is W.
-        - If it fails, decrement x and test until success – that x is W.
-    4.  For Y: test move_cursor_absolute(1, y) starting from the rough guess.
-        - Same logic: increment on success, decrement on failure.
-    5.  Assign the found W and H to the global variables.
-    6.  Send the autonomous report 'viewsize:WxH'.
-    7.  Move cursor to percentage (0.5, 0.5) to leave a safe state.
+    1.  Get a rough guess from window.innerWidth / innerHeight.
+    2.  Temporarily set W, H to that guess so move_cursor_absolute works.
+    3.  For X: start from guess-5, move to (rx, 1). If the resulting
+        cursor_x equals rx, increment until cursor_x < requested x.
+        The last successful full move gives the true max X.
+        If the very first move already clamps, decrement until no clamp.
+    4.  For Y: same logic with (1, ry).
+    5.  Assign final W, H, send viewsize report, and move cursor to centre.
     """
     global W, H
     if driver is None:
@@ -76,30 +76,38 @@ def probe_clickable_bounds():
 
     log(f"CSS rough guess: {css_w}x{css_h}")
 
-    # ── Temporary valid size so that move_cursor_absolute will work ──
+    # ── Temporary valid size so that move_cursor_absolute works ──
     W, H = css_w, css_h
 
     # ── Find max X ──────────────────────────────────────────────
-    rx = css_w - 5       # start a few pixels inside
+    rx = css_w - 5
     if rx < 1:
         rx = 1
 
-    if move_cursor_absolute(rx, 1):
-        # increment until failure
+    # Helper: move and check if clamping occurred
+    def move_and_get_x(x):
+        move_cursor_absolute(x, 1)
+        return cursor_x
+
+    achieved = move_and_get_x(rx)
+    if achieved == rx:
+        # No clamp – can go further
         x = rx
         while True:
             x += 1
-            if not move_cursor_absolute(x, 1):
-                x -= 1    # last successful
+            achieved = move_and_get_x(x)
+            if achieved < x:      # clamping happened
+                x -= 1            # last full move was the max
                 break
         W = x
         log(f"Max clickable X (incrementing) = {W}")
     else:
-        # decrement until success
+        # Already clamped – go backwards
         x = rx
         while x > 0:
             x -= 1
-            if move_cursor_absolute(x, 1):
+            achieved = move_and_get_x(x)
+            if achieved == x:
                 W = x
                 log(f"Max clickable X (decrementing) = {W}")
                 break
@@ -111,27 +119,32 @@ def probe_clickable_bounds():
     if ry < 1:
         ry = 1
 
-    if move_cursor_absolute(1, ry):
-        # increment until failure
+    def move_and_get_y(y):
+        move_cursor_absolute(1, y)
+        return cursor_y
+
+    achieved = move_and_get_y(ry)
+    if achieved == ry:
         y = ry
         while True:
             y += 1
-            if not move_cursor_absolute(1, y):
+            achieved = move_and_get_y(y)
+            if achieved < y:
                 y -= 1
                 break
         H = y
         log(f"Max clickable Y (incrementing) = {H}")
     else:
-        # decrement until success
         y = ry
         while y > 0:
             y -= 1
-            if move_cursor_absolute(1, y):
+            achieved = move_and_get_y(y)
+            if achieved == y:
                 H = y
                 log(f"Max clickable Y (decrementing) = {H}")
                 break
         else:
-            H = 1   # extreme fallback
+            H = 1
 
     log(f"Final clickable bounds: {W}x{H}")
 
