@@ -2,7 +2,7 @@
 # ==============================================================================
 # command_mouse_keyboard.py – Version 39.39.1
 #   - Deletes the old "## Remote Agent Responses" comment at startup.
-#   - Moved the main loop functions to agent_loops.py to reduce size.
+#   - Uses agent_loops.py for the main loop functions.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -377,7 +377,7 @@ def restart_browser():
 
 # ---------- Main ----------
 def main():
-    global app_cmd_id, last_app_body_hash
+    global app_cmd_id
     safe_log("STEP 1: Loading start URL...")
     try:
         with driver_lock:
@@ -448,9 +448,9 @@ def main():
     )
     screenshot_worker.start()
 
-    # Start the loops (imported from agent_loops)
+    # ── Start loops (imported from agent_loops) ──
     fetcher_thread = threading.Thread(target=fetcher_loop, kwargs={
-        'app_cmd_id': app_cmd_id, 'last_app_body_hash': None,
+        'app_cmd_id': app_cmd_id,
         'sync_repo': sync_repo, 'COMM_INTERVAL': COMM_INTERVAL, 'slow_mode': slow_mode,
         'execution_queue': execution_queue, 'heavy_execution_queue': heavy_execution_queue,
         'save_lock': save_lock, 'upload_lock': upload_lock,
@@ -486,7 +486,7 @@ def main():
         'add_autonomous_report': add_autonomous_report,
         'refresh_known_handles': refresh_known_handles,
         'get_upload_paths': get_upload_paths,
-        'save_profile': save_profile,
+        'save_profile_func': save_profile,
         '_file_registry': _file_registry, '_upload_file_paths': _upload_file_paths,
         'pyperclip': pyperclip, 'encrypt_string': encrypt_string,
         'sync_repo': sync_repo,
@@ -523,7 +523,7 @@ def main():
         'add_autonomous_report': add_autonomous_report,
         'refresh_known_handles': refresh_known_handles,
         'get_upload_paths': get_upload_paths,
-        'save_profile': save_profile,
+        'save_profile_func': save_profile,
         '_file_registry': _file_registry, '_upload_file_paths': _upload_file_paths,
         'pyperclip': pyperclip, 'encrypt_string': encrypt_string,
         'sync_repo': sync_repo,
@@ -534,16 +534,16 @@ def main():
         'add_to_report_queue': add_to_report_queue,
         'CACHE_DIR': CACHE_DIR, 'PROFILE_DIR': PROFILE_DIR,
         'ENCRYPTION_KEY_PROFILE': ENCRYPTION_KEY, 'PAT': PAT,
-        'CHUNK_SIZE_MB': CHUNK_SIZE_MB
+        'CHUNK_SIZE_MB': CHUNK_SIZE_MB,
+        'save_lock': save_lock, 'upload_lock': upload_lock
     }, daemon=True)
 
     sender_thread = threading.Thread(target=sender_loop, kwargs={
         'sync_repo': sync_repo, 'COMM_INTERVAL': COMM_INTERVAL, 'slow_mode': slow_mode,
         'report_queue': report_queue, '_report_queue_lock': _report_queue_lock,
-        'cull_timed_out_reports': cull_timed_out_reports,
         'get_report_queue_snapshot': get_report_queue_snapshot,
+        'cull_timed_out_reports': cull_timed_out_reports,
         'add_autonomous_report': add_autonomous_report,
-        'remove_from_report_queue': remove_from_report_queue,
         'safe_log': safe_log, 'push_logs': push_logs, '_sender_stop': _sender_stop
     }, daemon=True)
 
