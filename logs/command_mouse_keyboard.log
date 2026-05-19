@@ -862,3 +862,5 @@
 [01:45:05] New autonomous report: AUT-42-1779155105 -> Tabs: 1: YouTube
 [01:45:05] Executed APP-52198-20260519014346 -> OK scroll(up,120) [window]
 [01:45:06] Screenshot screenshots/0235_014503_163_auto.png pushed successfully.
+[01:45:08] Taking screenshot: screenshots/0236_014508_163_auto.png
+[01:45:08] Pushing screenshot screenshots/0236_014508_163_auto.png with 10s timeout...
