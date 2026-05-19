@@ -8351,3 +8351,13 @@ Stacktrace:
 [15:37:48] Screenshot screenshots/0362_153745_503_auto.png pushed successfully.
 [15:37:50] Taking screenshot: screenshots/0363_153750_503_auto.png
 [15:37:50] Pushing screenshot screenshots/0363_153750_503_auto.png with 10s timeout...
+[15:37:51] Fetcher detected new App Commands comment.
+[15:37:51] Execution loop: processing APP-52380-20260519153632: upload
+[15:37:51] Enqueued for execution: APP-52380-20260519153632
+[15:37:52] New autonomous report: AUT-140-1779205072 -> New file: اثری ازم مونده باشه.mp4
+[15:37:52] New autonomous report: AUT-141-1779205072 -> Files: 1: اثری ازم مونده باشه.mp4
+[15:37:52] New autonomous report: AUT-142-1779205072 -> Tabs: 1: X
+[15:37:52] Executed APP-52380-20260519153632 -> OK upload(1 files) (ready – use 'uploadtoyoutube')
+[15:37:53] Screenshot screenshots/0363_153750_503_auto.png pushed successfully.
+[15:37:54] Sender published response comment.
+[15:37:55] Taking screenshot: screenshots/0364_153755_503_auto.png
