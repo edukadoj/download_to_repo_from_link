@@ -198,3 +198,4 @@
 [13:54:26] push_screenshots_now timed out
 [13:54:26] Screenshot push failed or timed out for screenshots/0033_135415_927_auto.png.
 [13:54:26] Taking screenshot: screenshots/0034_135426_128_auto.png
+[13:54:26] Pushing screenshot screenshots/0034_135426_128_auto.png with 10s timeout...
