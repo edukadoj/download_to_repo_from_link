@@ -104,3 +104,7 @@ Stacktrace:
 [20:52:23] Screenshot screenshots/0007_205219_165_auto.png pushed successfully.
 [20:52:24] Taking screenshot: screenshots/0008_205224_165_auto.png
 [20:52:24] Pushing screenshot screenshots/0008_205224_165_auto.png with 10s timeout...
+[20:52:24] push_screenshots_now failed: Command '['git', 'add', 'screenshots/0008_205224_165_auto.png']' returned non-zero exit status 128.
+[20:52:24] Screenshot push failed or timed out for screenshots/0008_205224_165_auto.png.
+[20:52:29] Taking screenshot: screenshots/0009_205229_165_auto.png
+[20:52:29] Pushing screenshot screenshots/0009_205229_165_auto.png with 10s timeout...
