@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_handlers.py – Version 1.16.4
-#   - Move/click responses now include the original percentage coordinates
-#     alongside the absolute pixel coordinates.
+# command_handlers.py – Version 1.16.5
+#   - Move/click responses now show only percentage coordinates (e.g.
+#     OK move(0.9885,0.9909)) without absolute pixel values.
+#   - All other handlers unchanged.
 # ==============================================================================
 import os, time, subprocess, glob, shutil, re, tempfile, random
 from uploader import reassemble
@@ -44,10 +45,10 @@ def _scroll_element_or_window(driver, amount, cursor_x, cursor_y):
         return f"OK scroll({direction},{abs(scroll_amount)}) [window]"
 
 def _make_result(cmd_type, x, y, W, H):
-    """Build a result string that includes both absolute and percentage coordinates."""
+    """Build a result string containing only the percentage coordinates."""
     pctx = x / (W - 1) if W > 1 else 0.0
     pcty = y / (H - 1) if H > 1 else 0.0
-    return f"OK {cmd_type}({x},{y}) ~ ({pctx:.4f},{pcty:.4f})"
+    return f"OK {cmd_type}({pctx:.4f},{pcty:.4f})"
 
 def execute_one_command(
     cmd, arg,
@@ -97,7 +98,7 @@ def execute_one_command(
         dx, dy = arg
         ok = move_cursor_relative(dx, dy)
         if ok:
-            result = _make_result("moveby", agent_state.cursor_x, agent_state.cursor_y, W, H) + f" (delta {dx},{dy})"
+            result = _make_result("moveby", agent_state.cursor_x, agent_state.cursor_y, W, H)
         else:
             result = f"ERR moveby({dx},{dy}) failed"
 
@@ -109,7 +110,8 @@ def execute_one_command(
     elif cmd == "humanclick":
         agent_state.ensure_active_tab()
         res = human_click_callable()
-        result = f"Human click at ({agent_state.cursor_x},{agent_state.cursor_y})"
+        # humanclick at current position – report percentage of where the click actually happened
+        result = _make_result("humanclick", agent_state.cursor_x, agent_state.cursor_y, W, H)
     elif cmd == "humanclick_at":
         agent_state.ensure_active_tab()
         x, y = arg
@@ -207,6 +209,8 @@ def execute_one_command(
         agent_state.ensure_active_tab()
         x1, y1, x2, y2 = arg
         drag_from_to(x1, y1, x2, y2)
+        # Report percentages for both start and end
+        pct_start = _make_result("drag", x1, y1, W, H)  # just for info, we'll override
         result = f"OK drag({x1},{y1})->({x2},{y2})"
     elif cmd == "filedrop":
         agent_state.ensure_active_tab()
