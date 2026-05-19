@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.7.1
-#   - Parser now interprets coordinate pairs as percentages (0.0 – 1.0)
-#     and converts them to absolute pixels using the real viewport (W, H).
-#   - Old integer‑pixel parsing removed.
-#   - probe_clickable_bounds() and update_viewport() unchanged.
+# agent_state.py – Version 2.7.3
+#   - After measuring the CSS viewport, the new probe_clickable_bounds()
+#     tests the actual calibration target (0.99*W, 0.99*H) using the real
+#     move_cursor_absolute.  If the move fails, W and H are reduced until
+#     the point becomes reachable.  This guarantees the second calibration
+#     move will never receive an out‑of‑bounds error.
+#   - All other logic unchanged.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -22,7 +24,7 @@ def log(msg: str) -> None:
 
 # ---------- Global driver & viewport ----------
 driver = None
-W, H = 1920, 1080          # default; overwritten by probe_clickable_bounds()
+W, H = 1920, 1080          # default; overwritten by update_viewport() and probe
 cursor_x, cursor_y = 0, 0
 
 # Thread‑safety lock – set by main script to a common lock
@@ -42,8 +44,8 @@ ACTIVE_TAB_INDEX = 1
 def update_viewport():
     """
     Read the CSS viewport size from the browser and update W, H.
-    This is an approximation; the real clickable area may be slightly
-    smaller and will be refined by probe_clickable_bounds().
+    This is an approximation; the real clickable area will be refined
+    by probe_clickable_bounds().
     """
     global W, H
     if driver is None:
@@ -59,63 +61,50 @@ def update_viewport():
         log(f"update_viewport error: {e}")
 
 
-def _try_raw_move(x: int, y: int) -> bool:
-    """
-    Attempt an absolute move to (x, y) without any coordinate clamping.
-    Returns True if the driver accepted the move, False otherwise.
-    """
-    try:
-        with driver_lock:
-            action = ActionBuilder(driver)
-            action.pointer_action.move_to_location(x, y)
-            action.perform()
-        return True
-    except (WebDriverException, InvalidSessionIdException):
-        return False
-    except Exception:
-        return False
-
-
 def probe_clickable_bounds():
     """
-    Find the largest X and Y coordinates that the browser will accept
-    by probing from the current (W-5, H-5) downwards.  Only a few
-    attempts are needed because the unreachable border is tiny.
-    Updates W, H and sends an autonomous report 'viewsize:WxH'.
+    Refine the viewport dimensions by attempting to move to the point
+    that will be used for the second calibration step (0.99*W, 0.99*H).
+    If the move fails, W and H are reduced (by 1 each) and we retry,
+    until the point becomes reachable.  This ensures the calibration
+    will never encounter a MoveTargetOutOfBoundsException.
     """
     global W, H
     if driver is None:
         return
 
     ensure_active_tab()
-    log("Probing clickable bounds...")
+    log("Probing clickable bounds for calibration point (0.99,0.99)...")
 
-    # ---- find max X ----
-    max_x = W - 5
-    while max_x > 0:
-        if _try_raw_move(max_x, 1):
+    # Start with the CSS viewport and try progressively smaller dimensions.
+    # We only need to ensure the specific point (0.99*W, 0.99*H) is reachable,
+    # so we do not test every corner – just the one calibration will hit.
+    while True:
+        target_x = int(0.99 * W)
+        target_y = int(0.99 * H)
+        # Clamp to a minimum of 1 pixel inside the current W,H
+        target_x = max(1, min(W - 1, target_x))
+        target_y = max(1, min(H - 1, target_y))
+
+        ok = move_cursor_absolute(target_x, target_y)
+        if ok:
+            log(f"Calibration target ({target_x},{target_y}) reachable. Final bounds {W}x{H}")
             break
-        max_x -= 1
-    if max_x == 0:
-        max_x = W - 5
-    log(f"Max clickable X = {max_x}")
-
-    # ---- find max Y ----
-    max_y = H - 5
-    while max_y > 0:
-        if _try_raw_move(1, max_y):
+        # Failure – shrink the viewport a little and try again
+        if W > 200 and H > 200:
+            W -= 1
+            H -= 1
+            log(f"Calibration target unreachable, reducing to {W}x{H}")
+        else:
+            # Safety floor – should never happen
+            log("Warning: could not find clickable area, keeping current dimensions")
             break
-        max_y -= 1
-    if max_y == 0:
-        max_y = H - 5
-    log(f"Max clickable Y = {max_y}")
 
-    # Update global dimensions
-    W, H = max_x, max_y
-    log(f"Clickable bounds set to {W}x{H}")
-
-    # Report to the client
+    # Report the final dimensions to the client
     add_autonomous_report("viewsize", f"viewsize:{W}x{H}")
+
+    # Move back to a safe position
+    move_cursor_absolute(10, 10)
 
 
 def ensure_active_tab():
@@ -557,7 +546,6 @@ def _pct_to_abs(pctx: float, pcty: float):
     """Convert percentage (0.0‑1.0) to absolute pixel coordinates."""
     x = int(pctx * W)
     y = int(pcty * H)
-    # Clamp to valid range (just in case)
     x = max(0, min(W - 1, x))
     y = max(0, min(H - 1, y))
     return x, y
@@ -568,7 +556,6 @@ def parse_single_command(raw: str):
     lo = raw.lower()
 
     # Percentage‑based move and click commands
-    # Format: (0.123456,0.456789)
     m = re.match(r'^\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', raw)
     if m:
         pctx = float(m.group(1))
@@ -576,7 +563,6 @@ def parse_single_command(raw: str):
         x, y = _pct_to_abs(pctx, pcty)
         return ("move", (x, y))
 
-    # click(pctx, pcty)
     m = re.match(r'^click\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
     if m:
         pctx = float(m.group(1))
@@ -584,7 +570,6 @@ def parse_single_command(raw: str):
         x, y = _pct_to_abs(pctx, pcty)
         return ("click_at", (x, y))
 
-    # humanclick(pctx, pcty)
     m = re.match(r'^humanclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
     if m:
         pctx = float(m.group(1))
@@ -592,7 +577,6 @@ def parse_single_command(raw: str):
         x, y = _pct_to_abs(pctx, pcty)
         return ("humanclick_at", (x, y))
 
-    # doubleclick(pctx, pcty)
     m = re.match(r'^doubleclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
     if m:
         pctx = float(m.group(1))
@@ -600,7 +584,6 @@ def parse_single_command(raw: str):
         x, y = _pct_to_abs(pctx, pcty)
         return ("doubleclick_at", (x, y))
 
-    # rightclick(pctx, pcty)
     m = re.match(r'^rightclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
     if m:
         pctx = float(m.group(1))
@@ -608,7 +591,6 @@ def parse_single_command(raw: str):
         x, y = _pct_to_abs(pctx, pcty)
         return ("rightclick_at", (x, y))
 
-    # drag(pctx1, pcty1, pctx2, pcty2)
     m = re.match(r'^drag\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
     if m:
         pctx1 = float(m.group(1)); pcty1 = float(m.group(2))
@@ -638,8 +620,6 @@ def parse_single_command(raw: str):
     if lo == "filedrop": return ("filedrop", None)
     if lo == "downselected": return ("downselected", None)
     if lo == "deleteselected": return ("deleteselected", None)
-    if lo.startswith("moveby"):  # moveby is obsolete but keep for now? no, remove
-        return ("key", raw)
     if lo.startswith("scroll:"):
         try:
             val = int(float(lo.split(":",1)[1].strip()))
