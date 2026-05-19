@@ -433,3 +433,75 @@ Stacktrace:
 #15 0x7f8b8be9caa4 <unknown>
 #16 0x7f8b8bf29c6c <unknown>
 
+[18:25:29] Taking screenshot: screenshots/0060_182529_726_auto.png
+[18:25:29] Screenshot save timed out or failed: screenshots/0060_182529_726_auto.png
+[18:25:29] Screenshot capture failed – will retry after interval.
+[18:25:30] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:25:32] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:25:34] Taking screenshot: screenshots/0061_182534_726_auto.png
+[18:25:34] Screenshot save timed out or failed: screenshots/0061_182534_726_auto.png
+[18:25:34] Screenshot capture failed – will retry after interval.
+[18:25:34] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
