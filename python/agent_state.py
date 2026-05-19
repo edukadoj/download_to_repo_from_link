@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.7.4
+# agent_state.py – Version 2.7.5
 #   - W and H start as -1 (invalid).  probe_clickable_bounds() discovers
 #     the real clickable maximums by testing moves with move_cursor_absolute.
-#   - Uses the exact algorithm: start from a CSS rough guess, then increment
-#     on success or decrement on failure until the true maximum is found.
-#   - Sends viewsize:WxH autonomous report and moves cursor to (0.5, 0.5).
+#   - move_cursor_absolute now returns False immediately if W or H are
+#     still invalid, preventing crashes from stale commands.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -152,8 +151,6 @@ def ensure_active_tab():
     """
     Make sure the browser is pointing to the expected tab.
     Never raises – all driver exceptions are caught and logged.
-    IMPORTANT: No JavaScript execution is performed here, so the call
-    will never block the driver thread.
     """
     global ACTIVE_TAB_INDEX
     if driver is None:
@@ -306,13 +303,19 @@ def move_cursor_absolute(x: int, y: int) -> bool:
     Move the cursor to (x, y), clamped to the current clickable bounds.
     Returns True if the driver operation succeeded, False otherwise.
     On success, global cursor_x/cursor_y are updated.
+    If W or H are still invalid (-1), returns False immediately without
+    attempting the move, preventing crashes from stale commands.
     """
     ensure_active_tab()
     global cursor_x, cursor_y
-    if W > 0:
-        x = max(0, min(W - 1, x))
-    if H > 0:
-        y = max(0, min(H - 1, y))
+
+    # Guard: if dimensions are not yet probed, reject the move safely
+    if W <= 0 or H <= 0:
+        log(f"move_cursor_absolute rejected: W={W}, H={H} (not probed yet)")
+        return False
+
+    x = max(0, min(W - 1, x))
+    y = max(0, min(H - 1, y))
     try:
         with driver_lock:
             action = ActionBuilder(driver)
@@ -332,8 +335,10 @@ def move_cursor_absolute(x: int, y: int) -> bool:
 def move_cursor_relative(dx: int, dy: int) -> bool:
     ensure_active_tab()
     global cursor_x, cursor_y
-    new_x = max(0, min(W - 1, cursor_x + dx)) if W > 0 else cursor_x + dx
-    new_y = max(0, min(H - 1, cursor_y + dy)) if H > 0 else cursor_y + dy
+    if W <= 0 or H <= 0:
+        return False
+    new_x = max(0, min(W - 1, cursor_x + dx))
+    new_y = max(0, min(H - 1, cursor_y + dy))
     return move_cursor_absolute(new_x, new_y)
 
 
