@@ -6984,3 +6984,9 @@ Stacktrace:
 [15:24:31] Re‑enqueued existing report for APP-52325-20260519152305
 [15:24:33] Screenshot screenshots/0208_152430_002_auto.png pushed successfully.
 [15:24:35] Sender published response comment.
+[15:24:36] Fetcher detected new App Commands comment.
+[15:24:36] Enqueued for execution: APP-52326-20260519152312
+[15:24:36] Execution loop: processing APP-52326-20260519152312: humanclick(0.569627,0.512099)
+[15:24:36] Agent alive
+[15:24:37] Cursor moved to (1091, 426)
+[15:24:37] Cursor moved to (1091, 426)
