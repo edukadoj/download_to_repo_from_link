@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# screenshot_manager.py – Version 1.1.1
-#   - After three consecutive health‑check failures, calls a restart callback
-#     to recover the browser instead of trying forever.
+# screenshot_manager.py – Version 1.2.0
+#   - Screenshots are now uploaded directly via the GitHub API (base64 content),
+#     bypassing git entirely.  This prevents push failures from crashing the
+#     screenshot worker.
+#   - Upload retries with exponential backoff (1 s, 2 s, 4 s, 8 s, 16 s) and
+#     verifies only the remote file size for speed.
+#   - The worker loop is fully protected; any exception is logged and the loop
+#     continues after a short sleep.
 # ==============================================================================
 
-import os, time, threading, traceback, base64, hashlib
+import os, time, threading, traceback, base64, hashlib, json, subprocess
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 
@@ -59,6 +64,72 @@ def _safe_save_screenshot(driver, filename, driver_lock, timeout=10):
     t.join(timeout)
     return result[0] and not t.is_alive()
 
+
+# ── Direct API upload helper (same pattern as downloader.py) ────────
+def _push_screenshot_via_api(repo: str, local_path: str, remote_path: str,
+                             pat: str, max_retries: int = 5) -> bool:
+    """Upload a screenshot file directly to the repository using the GitHub API.
+    Retries with exponential backoff, and only checks remote file size (fast)."""
+    env = os.environ.copy()
+    if pat:
+        env["GITHUB_TOKEN"] = pat
+
+    with open(local_path, "rb") as f:
+        content = f.read()
+    local_size = len(content)
+    b64 = base64.b64encode(content).decode()
+
+    url = f"repos/{repo}/contents/{remote_path}"
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            # Check if file already exists to get SHA (needed for update)
+            sha = None
+            sha_result = subprocess.run(
+                ["gh", "api", url, "--jq", ".sha"],
+                capture_output=True, text=True, env=env,
+            )
+            if sha_result.returncode == 0 and sha_result.stdout.strip():
+                sha = sha_result.stdout.strip()
+
+            payload = {
+                "message": f"Screenshot {remote_path}",
+                "content": b64,
+                "branch": "main"
+            }
+            if sha:
+                payload["sha"] = sha
+
+            result = subprocess.run(
+                ["gh", "api", url, "--method", "PUT", "--input", "-"],
+                input=json.dumps(payload), capture_output=True, text=True, env=env,
+            )
+
+            if result.returncode == 0:
+                # Fast verification: check remote file size
+                size_result = subprocess.run(
+                    ["gh", "api", url, "--jq", ".size"],
+                    capture_output=True, text=True, env=env,
+                )
+                if size_result.returncode == 0:
+                    remote_size_str = size_result.stdout.strip()
+                    if remote_size_str.isdigit() and int(remote_size_str) == local_size:
+                        return True
+                    # Size mismatch – delete and retry
+                    subprocess.run(
+                        ["gh", "api", url, "--method", "DELETE", "--input", "-"],
+                        input=json.dumps({"message": "size mismatch", "sha": sha or "", "branch": "main"}),
+                        capture_output=True, text=True, env=env,
+                    )
+            # Exponential backoff before retry
+            if attempt < max_retries:
+                time.sleep(2 ** (attempt - 1))
+        except Exception:
+            if attempt < max_retries:
+                time.sleep(2 ** (attempt - 1))
+    return False
+
+
 class ScreenshotWorker:
     def __init__(self, stop_event, driver, driver_lock, agent_state,
                  sync_repo, log_func, push_logs_func,
@@ -69,7 +140,7 @@ class ScreenshotWorker:
         self._driver = driver
         self._driver_lock = driver_lock
         self._agent_state = agent_state
-        self._sync_repo = sync_repo
+        self._sync_repo = sync_repo          # still used for log push etc.
         self._log = log_func
         self._push_logs = push_logs_func
         self._get_comm_interval = comm_interval_getter
@@ -80,6 +151,10 @@ class ScreenshotWorker:
         self._font = _watermark_font
         self._thread = None
         self._consecutive_health_fails = 0
+
+        # Repo info for API calls
+        self._repo = os.environ.get("GITHUB_REPOSITORY", "")
+        self._pat = os.environ.get("PAT", "")
 
     def _take_screenshot(self, desc="auto", push=False):
         self._counter += 1
@@ -141,27 +216,24 @@ class ScreenshotWorker:
 
         if push:
             self._log("Enqueuing screenshot for push...")
-            self._sync_repo.push_screenshots([filename])
-            self._log(f"Enqueued {filename} + log")
+            # Use the direct API upload
+            success = _push_screenshot_via_api(self._repo, filename, filename, self._pat)
+            if success:
+                self._log(f"Screenshot {filename} pushed successfully via API.")
+            else:
+                self._log(f"Screenshot API push failed for {filename}.")
+            return filename
         return filename
-
-    def _push_screenshot(self, filename):
-        self._log(f"Pushing screenshot {filename} with 10s timeout...")
-        try:
-            ok = self._sync_repo.push_screenshots_now([filename], timeout=10)
-            return ok
-        except Exception as e:
-            self._log(f"Screenshot push exception: {e}")
-            return False
 
     def _loop(self):
         self._log("Screenshot worker started.")
         while not self._stop.is_set():
             try:
+                # Small delay between cycles
                 self._stop.wait(2)
                 while not self._stop.is_set():
                     start = time.time()
-                    filename = self._take_screenshot("auto", push=False)
+                    filename = self._take_screenshot("auto", push=True)
                     if filename is None:
                         self._log("Screenshot capture failed – will retry after interval.")
                         self._push_logs()
@@ -169,14 +241,8 @@ class ScreenshotWorker:
                         self._stop.wait(interval)
                         continue
 
-                    push_ok = self._push_screenshot(filename)
-                    if push_ok:
-                        self._log(f"Screenshot {filename} pushed successfully.")
-                    else:
-                        self._log(f"Screenshot push failed or timed out for {filename}.")
-
+                    # Already pushed inside _take_screenshot with push=True
                     self._push_logs()
-
                     elapsed = time.time() - start
                     interval = max(0, self._get_comm_interval() * self._get_slow_mode() - elapsed)
                     self._stop.wait(interval)
