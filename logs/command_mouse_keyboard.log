@@ -89,3 +89,4 @@
 [13:52:24] Executed APP-52263-20260519135104 -> OK move(0.0099,0.0091)
 [13:52:26] Screenshot screenshots/0011_135219_045_auto.png pushed successfully.
 [13:52:26] Taking screenshot: screenshots/0012_135226_856_auto.png
+[13:52:27] Pushing screenshot screenshots/0012_135226_856_auto.png with 10s timeout...
