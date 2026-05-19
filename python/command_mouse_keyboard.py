@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.35.0
-#   - Blanks the App Commands comment at startup to prevent stale commands.
-#   - After probing clickable bounds, moves cursor to (10,10) to reset driver.
-#   - Passes a restart_browser callback to the screenshot worker for recovery.
+# command_mouse_keyboard.py – Version 39.36.0
+#   - Profile cache now saved only on explicit 'save' command.
+#   - Caches are stored in timestamped subdirectories under .profile_cache/.
+#   - On load, the newest timestamped cache is used.
+#   - Old caches are cleaned up after a successful push.
+#   - Removed all automatic cache saves on shutdown / signals.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -49,11 +51,10 @@ from agent_state import (
     update_viewport, probe_clickable_bounds
 )
 
-# ---------- Signal handlers ----------
+# ---------- Signal handlers (no auto-save) ----------
 def _signal_handler(signum, frame):
-    safe_log("Received signal, performing emergency save...")
+    safe_log("Received signal, performing emergency push of logs only.")
     push_logs()
-    save_profile()
     sys.exit(0)
 
 signal.signal(signal.SIGTERM, _signal_handler)
@@ -90,7 +91,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.35.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.36.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -143,6 +144,10 @@ class SyncRepo:
     def report_memory(self):
         self._rw.report_memory()
 
+    # New: push a directory tree to the repo
+    def push_directory(self, dir_path, commit_message="Profile cache"):
+        self._rw.push_directory(dir_path, commit_message)
+
 # ---------- Repo and SyncRepo setup ----------
 ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER","4").strip()
 START_URL = os.environ.get("START_URL") or "https://studio.youtube.com"
@@ -172,64 +177,122 @@ except Exception as e:
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 def load_profile():
-    if not glob.glob(os.path.join(CACHE_DIR, "*.part*")):
-        safe_log("⚠️ No profile cache chunks found – starting with fresh browser profile.")
+    """
+    Find the newest timestamped cache directory, reassemble, decrypt,
+    and extract the browser profile.
+    Returns True if a cache was loaded successfully.
+    """
+    # Find all timestamp subdirectories
+    subdirs = []
+    if os.path.isdir(CACHE_DIR):
+        for name in os.listdir(CACHE_DIR):
+            subpath = os.path.join(CACHE_DIR, name)
+            if os.path.isdir(subpath) and re.match(r'^\d{8}_\d{6}$', name):
+                subdirs.append(name)
+    subdirs.sort(reverse=True)  # newest first
+
+    if not subdirs:
+        safe_log("⚠️ No profile cache found – starting with fresh browser profile.")
         return False
-    safe_log("♻️  Reassembling profile cache chunks …")
-    tmp_reassemble = tempfile.mkdtemp(prefix="profile_reassemble_")
-    try:
-        count = reassemble_flat(CACHE_DIR, tmp_reassemble)
-        if count == 0:
-            safe_log("⚠️ Reassembly produced no file – starting fresh.")
-            return False
-        files = [f for f in os.listdir(tmp_reassemble) if os.path.isfile(os.path.join(tmp_reassemble, f))]
-        if not files:
-            safe_log("⚠️ No reassembled file found.")
-            return False
-        reassembled_path = os.path.join(tmp_reassemble, files[0])
-        safe_log(f"   Reassembled: {files[0]} ({os.path.getsize(reassembled_path)} bytes)")
-        with open(reassembled_path, "rb") as f:
-            encrypted = f.read()
-        decrypted = Fernet(ENCRYPTION_KEY).decrypt(encrypted)
-        shutil.rmtree(PROFILE_DIR, ignore_errors=True)
-        tarfile.open(fileobj=io.BytesIO(decrypted), mode='r:gz').extractall('/tmp')
-        safe_log("Profile cache loaded successfully.")
-        for f in glob.glob(os.path.join(CACHE_DIR, "*.part*")):
-            os.remove(f)
-        return True
-    except Exception as e:
-        safe_log(f"ERROR loading profile cache: {type(e).__name__}: {e}")
-        return False
-    finally:
-        shutil.rmtree(tmp_reassemble, ignore_errors=True)
+
+    # Try each directory from newest to oldest until reassembly succeeds
+    for dirname in subdirs:
+        cache_path = os.path.join(CACHE_DIR, dirname)
+        part_files = glob.glob(os.path.join(cache_path, "*.part*"))
+        if not part_files:
+            safe_log(f"⚠️ Cache directory {dirname} contains no part files – skipping.")
+            continue
+
+        safe_log(f"♻️  Reassembling profile cache from {dirname} …")
+        tmp_reassemble = tempfile.mkdtemp(prefix="profile_reassemble_")
+        try:
+            # Flat reassemble into temp directory
+            count = reassemble_flat(cache_path, tmp_reassemble)
+            if count == 0:
+                safe_log(f"⚠️ Reassembly of {dirname} produced no file – skipping.")
+                continue
+            files = [f for f in os.listdir(tmp_reassemble) if os.path.isfile(os.path.join(tmp_reassemble, f))]
+            if not files:
+                safe_log(f"⚠️ No reassembled file found in {dirname}.")
+                continue
+            reassembled_path = os.path.join(tmp_reassemble, files[0])
+            safe_log(f"   Reassembled: {files[0]} ({os.path.getsize(reassembled_path)} bytes)")
+            with open(reassembled_path, "rb") as f:
+                encrypted = f.read()
+            decrypted = Fernet(ENCRYPTION_KEY).decrypt(encrypted)
+            shutil.rmtree(PROFILE_DIR, ignore_errors=True)
+            tarfile.open(fileobj=io.BytesIO(decrypted), mode='r:gz').extractall('/tmp')
+            safe_log("Profile cache loaded successfully.")
+            return True
+        except Exception as e:
+            safe_log(f"ERROR loading profile cache from {dirname}: {type(e).__name__}: {e}")
+        finally:
+            shutil.rmtree(tmp_reassemble, ignore_errors=True)
+
+    safe_log("⚠️ All cache directories failed – starting fresh.")
+    return False
+
 
 def save_profile():
+    """
+    Encrypt the current browser profile, split into chunks, store in a
+    timestamped directory, push to the repository, and delete old caches.
+    Only called by the 'save' command.
+    """
     try:
         if not os.path.isdir(PROFILE_DIR):
             return (False, f"Profile directory not found: {PROFILE_DIR}")
+
+        # Create timestamped subdirectory
+        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        cache_subdir = os.path.join(CACHE_DIR, ts)
+        os.makedirs(cache_subdir, exist_ok=True)
+
+        # Create encrypted tar.gz
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             tar.add(PROFILE_DIR, arcname="chrome_profile")
         encrypted = Fernet(ENCRYPTION_KEY).encrypt(buf.getvalue())
+
+        # Write encrypted blob to a temporary file
         tmp_fd, tmp_path = tempfile.mkstemp(prefix="profile_", suffix=".dat")
         os.close(tmp_fd)
         with open(tmp_path, "wb") as f:
             f.write(encrypted)
-        for old in glob.glob(os.path.join(CACHE_DIR, "*.part*")):
-            os.remove(old)
+
+        # Run chunker into the timestamped directory
         chunker_script = "python/chunker.py"
         if not os.path.exists(chunker_script):
             os.remove(tmp_path)
             return (False, f"Chunker script not found: {chunker_script}")
-        cmd = ["python3", chunker_script, "--file", tmp_path, "--output-dir", CACHE_DIR, "--chunk-size", str(CHUNK_SIZE_MB)]
+
+        cmd = ["python3", chunker_script, "--file", tmp_path,
+               "--output-dir", cache_subdir, "--chunk-size", str(CHUNK_SIZE_MB)]
         safe_log(f"Running chunker: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         os.remove(tmp_path)
+
         if result.returncode != 0:
+            shutil.rmtree(cache_subdir, ignore_errors=True)
             return (False, f"chunker.py failed: {result.stderr.strip() or result.stdout.strip()}")
-        subprocess.run(["git", "config", "user.name", "github-actions[bot]"], capture_output=True)
-        subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], capture_output=True)
-        sync_repo.push_log_file()
+
+        # Verify that part files were created and are non‑zero
+        part_files = glob.glob(os.path.join(cache_subdir, "*.part*"))
+        if not part_files or any(os.path.getsize(p) == 0 for p in part_files):
+            shutil.rmtree(cache_subdir, ignore_errors=True)
+            return (False, "Chunking produced empty or missing parts.")
+
+        # Push the new cache directory to the repo
+        safe_log(f"Pushing profile cache {ts} …")
+        sync_repo.push_directory(cache_subdir, f"Profile cache {ts}")
+
+        # After a successful push, delete all older cache directories
+        for name in os.listdir(CACHE_DIR):
+            full = os.path.join(CACHE_DIR, name)
+            if os.path.isdir(full) and re.match(r'^\d{8}_\d{6}$', name) and name != ts:
+                shutil.rmtree(full, ignore_errors=True)
+                safe_log(f"Removed old cache: {name}")
+
         return (True, "Profile cache saved successfully.")
     except Exception as e:
         return (False, f"save_profile exception: {e}")
@@ -606,7 +669,7 @@ def executor_loop():
             safe_log("Navigation completed – probing clickable bounds...")
             update_viewport()
             probe_clickable_bounds()
-            move_cursor_absolute(10, 10)  # reset driver
+            move_cursor_absolute(10, 10)
 
         if is_tabswitch and (result.startswith("Switched") or result.startswith("Closed")):
             safe_log("Tab switched – probing clickable bounds...")
@@ -714,13 +777,11 @@ def main():
             return
     time.sleep(5)
 
-    # Detect real viewport size and clickable bounds
     safe_log("Detecting actual viewport size...")
     update_viewport()
     probe_clickable_bounds()
     safe_log(f"Clickable dimensions set to {agent_state.W}x{agent_state.H}")
 
-    # Reset driver cursor to safe position
     move_cursor_absolute(10, 10)
 
     safe_log("STEP 3: Scrolling to top")
@@ -730,10 +791,6 @@ def main():
     except Exception as e:
         safe_log(f"Warning: scrollTo failed: {e}")
     safe_log("STEP 4: Taking first screenshot")
-    try:
-        pass
-    except Exception as e:
-        safe_log(f"Warning: first screenshot push failed: {e}")
     push_logs()
     safe_log("STEP 5: First screenshot saved – pushing logs")
     safe_log("STEP 6: refresh_known_handles()")
@@ -758,18 +815,11 @@ def main():
     app_cmd = find_marker_comment(all_comments, "## App Commands")
     app_cmd_id = app_cmd["id"] if app_cmd else None
     if app_cmd_id:
-        # Blank the old comment to prevent stale commands from previous session
         safe_log("Blanking old App Commands comment...")
         sync_repo.edit_comment(app_cmd_id, "## App Commands\n")
     else:
         safe_log("No app command comment found – creating one? Not typical.")
 
-    # Start loops
-    fetcher_thread = threading.Thread(target=fetcher_loop, daemon=True)
-    executor_thread = threading.Thread(target=executor_loop, daemon=True)
-    sender_thread = threading.Thread(target=sender_loop, daemon=True)
-
-    # Screenshot worker with encryption key and restart callback
     screenshot_worker = ScreenshotWorker(
         _screenshot_stop, driver, driver_lock, agent_state,
         sync_repo, safe_log, push_logs,
@@ -778,6 +828,10 @@ def main():
         restart_browser_callback=lambda: restart_browser()
     )
     screenshot_worker.start()
+
+    fetcher_thread = threading.Thread(target=fetcher_loop, daemon=True)
+    executor_thread = threading.Thread(target=executor_loop, daemon=True)
+    sender_thread = threading.Thread(target=sender_loop, daemon=True)
 
     fetcher_thread.start()
     executor_thread.start()
@@ -800,8 +854,7 @@ def main():
         _log_pusher_stop.set()
         _heartbeat_stop.set()
         time.sleep(2)
-        ok, msg = save_profile()
-        safe_log(f"Final profile save: {msg}")
+        # Do NOT save profile cache automatically – only on explicit 'save' command
         push_logs()
         try:
             with driver_lock:
