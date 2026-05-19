@@ -478,3 +478,18 @@
 [15:17:58] Pushing screenshot screenshots/0133_151758_317_auto.png with 10s timeout...
 [15:18:00] Screenshot screenshots/0133_151758_317_auto.png pushed successfully.
 [15:18:03] Cursor moved to (1913, 1)
+[15:18:04] Cursor moved to (1914, 1)
+[15:18:04] Cursor moved to (1915, 1)
+[15:18:04] Cursor moved to (1916, 1)
+[15:18:04] Cursor moved to (1917, 1)
+[15:18:05] Cursor moved to (1917, 1)
+[15:18:05] Max clickable X (incrementing) = 1917
+[15:18:05] Cursor moved to (1, 986)
+[15:18:05] Cursor moved to (1, 987)
+[15:18:05] Cursor moved to (1, 988)
+[15:18:06] Cursor moved to (1, 989)
+[15:18:06] Cursor moved to (1, 990)
+[15:18:06] Cursor moved to (1, 990)
+[15:18:06] Max clickable Y (incrementing) = 990
+[15:18:06] Final clickable bounds: 1917x990
+[15:18:06] New autonomous report: AUT-14-1779203886 -> viewsize:1917x990
