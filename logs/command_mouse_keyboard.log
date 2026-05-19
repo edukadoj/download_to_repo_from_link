@@ -7058,3 +7058,7 @@ Stacktrace:
 [15:25:36] Screenshot screenshots/0220_152532_941_auto.png pushed successfully.
 [15:25:36] Agent alive
 [15:25:37] Taking screenshot: screenshots/0221_152537_941_auto.png
+<<<<<<< Updated upstream
+=======
+[15:25:38] Pushing screenshot screenshots/0221_152537_941_auto.png with 10s timeout...
+>>>>>>> Stashed changes
