@@ -643,3 +643,4 @@
 [01:18:46] New autonomous report: AUT-30-1779153526 -> Tabs: 1: YouTube
 [01:18:46] Executed APP-52177-20260519011729 -> OK move(19,9) ~ (0.0099,0.0091)
 [01:18:48] Taking screenshot: screenshots/0163_011848_542_auto.png
+[01:18:48] Pushing screenshot screenshots/0163_011848_542_auto.png with 10s timeout...
