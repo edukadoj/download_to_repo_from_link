@@ -8099,3 +8099,5 @@ Stacktrace:
 [15:31:57] Re‑enqueued existing report for APP-52373-20260519153024
 [15:32:01] Screenshot screenshots/0294_153156_162_auto.png pushed successfully.
 [15:32:01] Taking screenshot: screenshots/0295_153201_751_auto.png
+[15:32:01] Pushing screenshot screenshots/0295_153201_751_auto.png with 10s timeout...
+[15:32:01] Sender published response comment.
