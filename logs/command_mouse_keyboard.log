@@ -836,3 +836,7 @@
 [01:44:31] Screenshot screenshots/0228_014428_162_auto.png pushed successfully.
 [01:44:33] Taking screenshot: screenshots/0229_014433_162_auto.png
 [01:44:33] Pushing screenshot screenshots/0229_014433_162_auto.png with 10s timeout...
+[01:44:36] Screenshot screenshots/0229_014433_162_auto.png pushed successfully.
+[01:44:38] Taking screenshot: screenshots/0230_014438_162_auto.png
+[01:44:38] Pushing screenshot screenshots/0230_014438_162_auto.png with 10s timeout...
+[01:44:38] RepoWrapper slow error (push_log_file): Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
