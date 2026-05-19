@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# repo_wrapper.py – Version 1.2.3
-#   - Keep last 5 screenshots to avoid losing them before the client fetches.
-#   - Safer git stash/pull/pop sequence during screenshot push.
-#   - NOTE: Screenshot pushes and profile saves both use git; concurrent
-#     operations may cause push failures.  Future improvement: use a single
-#     git serialisation queue.
+# repo_wrapper.py – Version 1.2.4
+#   - Added push_directory() for pushing an entire directory tree (used by
+#     the profile cache saver).
+#   - All other functionality unchanged.
 # ==============================================================================
 
 import os, time, subprocess, json, re, glob, threading, queue as queue_module, urllib.request
@@ -95,6 +93,12 @@ class RepoWrapper:
             return False
         return result[0]
 
+    def push_directory(self, dir_path: str, commit_message: str = "Directory update") -> None:
+        """
+        Stage, commit, and push an entire directory tree.
+        """
+        self._slow_queue.put(("push_directory", (dir_path, commit_message), None))
+
     def list_screenshot_files(self, callback: Callable[[List[str]], None]) -> None:
         self._fast_queue.put(("list_screenshot_files", (), callback))
 
@@ -156,7 +160,7 @@ class RepoWrapper:
                 if self.error_log:
                     self.error_log(err_msg)
 
-    # ── Slow worker loop (screenshots / logs) ──────────────────
+    # ── Slow worker loop (screenshots / logs / directories) ─────
     def _slow_worker_loop(self) -> None:
         while not self._slow_stop.is_set():
             try:
@@ -171,6 +175,8 @@ class RepoWrapper:
                     self._push_log_file()
                 elif action == "push_screenshots_impl":
                     self._push_screenshots_impl(*args)
+                elif action == "push_directory":
+                    self._push_directory(*args)
                 elif action == "delete_file":
                     self._delete_file(*args)
             except Exception as e:
@@ -280,6 +286,26 @@ class RepoWrapper:
             self._git("commit", "-m", "Screenshots & log", check=True, capture_output=True)
             if self._git_push_with_retry():
                 self._purge_old_screenshots()
+
+    def _push_directory(self, dir_path: str, commit_message: str) -> None:
+        """Add an entire directory tree, commit, and push."""
+        if not os.path.isdir(dir_path):
+            if self.error_log:
+                self.error_log(f"push_directory: {dir_path} is not a directory")
+            return
+
+        self._git("stash", "--include-untracked", capture_output=True)
+        try:
+            self._git("pull", "--rebase", check=True, capture_output=True)
+        except Exception:
+            pass
+        self._git("stash", "pop", capture_output=True)
+
+        self._git("add", dir_path, check=True, capture_output=True)
+        diff = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
+        if diff.returncode != 0:
+            self._git("commit", "-m", commit_message, check=True, capture_output=True)
+            self._git_push_with_retry()
 
     def _push_file_to_repo(self, path: str, commit_msg: str) -> None:
         self._git("add", path, check=True, capture_output=True)
