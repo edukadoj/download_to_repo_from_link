@@ -7707,3 +7707,9 @@ Stacktrace:
 [15:29:39] Pushing screenshot screenshots/0267_152938_908_auto.png with 10s timeout...
 [15:29:39] RepoWrapper slow error (push_log_file): Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
 [15:29:39] RepoWrapper slow error (push_log_file): Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
+[15:29:39] push_screenshots_now failed: Command '['git', 'add', 'screenshots/0267_152938_908_auto.png']' returned non-zero exit status 128.
+[15:29:39] Screenshot push failed or timed out for screenshots/0267_152938_908_auto.png.
+[15:29:43] Taking screenshot: screenshots/0268_152943_908_auto.png
+[15:29:44] Pushing screenshot screenshots/0268_152943_908_auto.png with 10s timeout...
+[15:29:44] push_screenshots_now failed: Command '['git', 'commit', '-m', 'Screenshots & log']' returned non-zero exit status 128.
+[15:29:44] Screenshot push failed or timed out for screenshots/0268_152943_908_auto.png.
