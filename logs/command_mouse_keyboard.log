@@ -1,0 +1,38 @@
+============================================================
+  Remote Control v39.36.0 started at 2026-05-19 15:06:29 UTC
+============================================================
+[15:06:29] Virtual display started.
+[15:06:29] ♻️  Reassembling profile cache from 20260519_150338 …
+[15:06:29]    Reassembled: profile_gq_h4sgz.dat (110670904 bytes)
+[15:06:30] Profile cache loaded successfully.
+[15:06:36] Stealth JS injected.
+[15:06:36] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[15:06:36] Browser launched.
+[15:06:36] STEP 1: Loading start URL...
+[15:06:40] STEP 2: Start URL loaded – sleeping 5s
+[15:06:45] Detecting actual viewport size...
+[15:06:45] Probing clickable bounds...
+[15:06:45] Rough guess: 1918x991
+[15:06:45] Cursor moved to (1913, 1)
+[15:06:45] Cursor moved to (1914, 1)
+[15:06:46] Cursor moved to (1915, 1)
+[15:06:46] Cursor moved to (1916, 1)
+[15:06:46] Cursor moved to (1917, 1)
+[15:06:46] Cursor moved to (1917, 1)
+[15:06:46] Max clickable X (incrementing) = 1917
+[15:06:47] Cursor moved to (1, 986)
+[15:06:47] Cursor moved to (1, 987)
+[15:06:47] Cursor moved to (1, 988)
+[15:06:47] Cursor moved to (1, 989)
+[15:06:48] Cursor moved to (1, 990)
+[15:06:48] Cursor moved to (1, 990)
+[15:06:48] Max clickable Y (incrementing) = 990
+[15:06:48] Final clickable bounds: 1917x990
+[15:06:48] New autonomous report: AUT-1-1779203208 -> viewsize:1917x990
+[15:06:48] Cursor moved to (958, 495)
+[15:06:48] Clickable dimensions set to 1917x990
+[15:06:48] Cursor moved to (10, 10)
+[15:06:48] STEP 3: Scrolling to top
+[15:06:48] STEP 4: Taking first screenshot
+[15:06:48] STEP 5: First screenshot saved – pushing logs
+[15:06:48] STEP 6: refresh_known_handles()
