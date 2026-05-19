@@ -253,3 +253,8 @@
 [22:06:56] Sender published response comment.
 [22:06:56] Taking screenshot: screenshots/0042_220656_762_auto.png
 [22:06:56] Pushing screenshot screenshots/0042_220656_762_auto.png with 10s timeout...
+[22:06:58] Fetcher detected new App Commands comment.
+[22:06:58] Rejected duplicate save command APP-52530-20260519220528
+[22:07:00] Screenshot screenshots/0042_220656_762_auto.png pushed successfully.
+[22:07:01] Sender published response comment.
+[22:07:01] Taking screenshot: screenshots/0043_220701_762_auto.png
