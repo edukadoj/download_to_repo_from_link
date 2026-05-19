@@ -7816,3 +7816,51 @@ Stacktrace:
 #15 0x7f34e309caa4 <unknown>
 #16 0x7f34e3129c6c <unknown>
 
+[15:30:53] Sender published response comment.
+[15:30:53] Taking screenshot: screenshots/0282_153053_910_auto.png
+[15:30:53] Screenshot save timed out or failed: screenshots/0282_153053_910_auto.png
+[15:30:53] Screenshot capture failed – will retry after interval.
+[15:30:54] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66ab9 <unknown>
+#2 0x5585def39c68 <unknown>
+#3 0x5585defe8d28 <unknown>
+#4 0x5585df002ab8 <unknown>
+#5 0x5585defae662 <unknown>
+#6 0x5585defaf451 <unknown>
+#7 0x5585df52bd8b <unknown>
+#8 0x5585df52ec65 <unknown>
+#9 0x5585df518458 <unknown>
+#10 0x5585df52f7f0 <unknown>
+#11 0x5585df4ff1c0 <unknown>
+#12 0x5585df555168 <unknown>
+#13 0x5585df555305 <unknown>
+#14 0x5585df566c5e <unknown>
+#15 0x7f34e309caa4 <unknown>
+#16 0x7f34e3129c6c <unknown>
+
+[15:30:56] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66ab9 <unknown>
+#2 0x5585def39c68 <unknown>
+#3 0x5585defe8d28 <unknown>
+#4 0x5585df002ab8 <unknown>
+#5 0x5585defae662 <unknown>
+#6 0x5585defaf451 <unknown>
+#7 0x5585df52bd8b <unknown>
+#8 0x5585df52ec65 <unknown>
+#9 0x5585df518458 <unknown>
+#10 0x5585df52f7f0 <unknown>
+#11 0x5585df4ff1c0 <unknown>
+#12 0x5585df555168 <unknown>
+#13 0x5585df555305 <unknown>
+#14 0x5585df566c5e <unknown>
+#15 0x7f34e309caa4 <unknown>
+#16 0x7f34e3129c6c <unknown>
+
