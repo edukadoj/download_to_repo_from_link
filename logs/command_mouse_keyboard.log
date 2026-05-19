@@ -360,3 +360,8 @@
 [21:25:40] Executed APP-52506-20260519212231 -> ERR timeout: command exceeded 15 seconds
 [21:25:40] Execution loop: processing APP-52506-20260519212231: humanclick(0.619232,0.572742)
 [21:25:42] Screenshot screenshots/0062_212539_129_auto.png pushed successfully.
+[21:25:43] Fetcher detected new App Commands comment.
+[21:25:43] Enqueued for execution: APP-52510-20260519212420
+[21:25:44] Taking screenshot: screenshots/0063_212544_129_auto.png
+[21:25:44] Sender published response comment.
+[21:25:44] Pushing screenshot screenshots/0063_212544_129_auto.png with 10s timeout...
