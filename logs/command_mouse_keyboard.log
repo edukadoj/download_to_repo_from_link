@@ -1683,3 +1683,5 @@ Stacktrace:
 [18:31:16] Executed APP-52480-20260519182955 -> Files: (empty)
 [18:31:18] Sender published response comment.
 [18:31:18] Screenshot screenshots/0127_183113_682_auto.png pushed successfully.
+[18:31:18] Taking screenshot: screenshots/0128_183118_682_auto.png
+[18:31:19] Pushing screenshot screenshots/0128_183118_682_auto.png with 10s timeout...
