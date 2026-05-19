@@ -730,3 +730,627 @@
 [15:21:57] Taking screenshot: screenshots/0179_152157_218_auto.png
 [15:21:57] Pushing screenshot screenshots/0179_152157_218_auto.png with 10s timeout...
 [15:22:01] Screenshot screenshots/0179_152157_218_auto.png pushed successfully.
+[15:22:02] Cursor moved to (1917, 1)
+[15:22:03] Cursor moved to (1917, 1)
+[15:22:03] Max clickable X (incrementing) = 1917
+[15:22:03] New autonomous report: AUT-37-1779204123 -> navigate(https://accounts.google.com/v3/signin/accountchooser?as=TLyD4I82txbL-K-bhtpSGoG2lO6_eeQt-2s-1wwAErg&client_id=49625052041-kgt0hghf445lmcmhijv46b715m2mpbct.apps.googleusercontent.com&display=popup&gis_params=GAcqK1RMeUQ0STgydHhiTC1LLWJodHBTR29HMmxPNl9lZVF0LTJzLTF3d0FFcmc4AUJAMWIwMWZmYzcwMjlhYThiNWY3ZGExNDFkOTQxOTViNmYyMmMyZDgyNjcxZWFiZWMyNDdmODZlZDU3OWE3ZGY3Zg&gsiwebsdk=gis_attributes&origin=https%3A%2F%2Fx.com&prompt=select_account&redirect_uri=gis_transform&response_mode=form_post&response_type=id_token&scope=openid+email+profile&dsh=TLyD4I82txbL-K-bhtpSGoG2lO6_eeQt-2s-1wwAErg&o2v=1&service=lso&flowName=GeneralOAuthFlow&opparams=%253Fgis_params%253DGAcqK1RMeUQ0STgydHhiTC1LLWJodHBTR29HMmxPNl9lZVF0LTJzLTF3d0FFcmc4AUJAMWIwMWZmYzcwMjlhYThiNWY3ZGExNDFkOTQxOTViNmYyMmMyZDgyNjcxZWFiZWMyNDdmODZlZDU3OWE3ZGY3Zg%2526response_mode%253Dform_post&continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Fconsent%3Fauthuser%3Dunknown%26part%3DAJi8hAMeHNV9dl-gxQGPoKcKEV6y_GU-yXuE8auYY-T1rfqcaJGtJz0k86VfJnbapBdu2exJsSwwOWiCXqZsaXChdpmO4s9RB2ADJEXJ0zxA_z-JdqKjyeVb8SfU5z9mPsSuW-oJMkNlVo4Vb4jEDCM_LylrsHXO29dpmTD4-Nu2gINEGP1CO3a9Q4_uOko3P1qZSPXxHevfya87iQUExeLZhWnvmEw097FbyA94u5iEdo9BtXXaGYkJ4O8yNIy9GOTCS66cQJrXaJXKlYaQgH8lKHra6MR2tAgSfAahvewl48v1ZrkejEjUcCRpZv9K8jDUki4aEF4QsijLhjCLtI5scwDRZzV-BooY4EFT6hpmS_q3oYc1zLXtUzyhJWogO5FbGmB0OMKkKcpgcbGEDj5pa3AjbSdIsp6RAPk91NwUoLemDpAHs_x0oS-9zfp61fUuylo3OTkxwrLILbfOEpVPzwTFZ-XM9g%26flowName%3DGeneralOAuthFlow%26as%3DTLyD4I82txbL-K-bhtpSGoG2lO6_eeQt-2s-1wwAErg%26client_id%3D49625052041-kgt0hghf445lmcmhijv46b715m2mpbct.apps.googleusercontent.com%26requestPath%3D%252Fsignin%252Foauth%252Fconsent%23&app_domain=https%3A%2F%2Fx.com)
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
+[15:22:03] move_cursor_absolute driver error: Message: move target out of bounds
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66870 <unknown>
+#2 0x5585df00caa2 <unknown>
+#3 0x5585df003116 <unknown>
+#4 0x5585defae662 <unknown>
+#5 0x5585defaf451 <unknown>
+#6 0x5585df52bd8b <unknown>
+#7 0x5585df52ec65 <unknown>
+#8 0x5585df518458 <unknown>
+#9 0x5585df52f7f0 <unknown>
+#10 0x5585df4ff1c0 <unknown>
+#11 0x5585df555168 <unknown>
+#12 0x5585df555305 <unknown>
+#13 0x5585df566c5e <unknown>
+#14 0x7f34e309caa4 <unknown>
+#15 0x7f34e3129c6c <unknown>
+
