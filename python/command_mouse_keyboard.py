@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.37.0
-#   - Robust profile cache save: verifies every chunk’s remote size after push,
-#     re‑uploads any missing/corrupted chunks directly via GitHub API.
-#   - On load, if Chrome fails to start, the corrupted cache is deleted and
-#     the agent falls back to the next cache or starts fresh, reporting the
-#     failure as an autonomous message.
-#   - Profile cache is never saved automatically; only on explicit 'save'.
+# command_mouse_keyboard.py – Version 39.38.0
+#   - Extracted profile cache logic into profile_cache.py.
+#   - After tab switch or navigation, cursor is moved to center (W//2, H//2)
+#     instead of top‑left (10,10), so the red crosshair appears centered.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -25,6 +22,7 @@ from uploader import reassemble_flat
 from command_handlers import execute_one_command
 from repo_wrapper import RepoWrapper
 from screenshot_manager import ScreenshotWorker
+from profile_cache import load_profile, save_profile   # <-- new import
 
 from agent_state import (
     driver as state_driver, W as state_W, H as state_H,
@@ -91,7 +89,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.37.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.38.0 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -161,7 +159,7 @@ def _autonomous_callback(report_type, text):
     add_autonomous_report(report_type, text)
 repo_wrapper.report_callback = _autonomous_callback
 
-# ---------- Profile cache (robust save/load) ----------
+# ---------- Profile cache constants (used by profile_cache functions) ----------
 PROFILE_DIR = "/tmp/chrome_profile"
 CACHE_DIR = ".profile_cache"
 CHUNK_SIZE_MB = 20
@@ -172,229 +170,8 @@ try:
 except Exception as e:
     safe_log(f"PROFILE KEY ERROR: {e}")
     raise
-
+PAT = os.environ.get("PAT", "")
 os.makedirs(CACHE_DIR, exist_ok=True)
-
-# ── Helper: get remote file size (bytes) via GitHub API ──
-def _remote_file_size(repo, path, pat=None):
-    env = os.environ.copy()
-    if pat:
-        env["GITHUB_TOKEN"] = pat
-    try:
-        out = subprocess.run(
-            ["gh", "api", f"repos/{repo}/contents/{path}", "--jq", ".size"],
-            capture_output=True, text=True, check=True, env=env
-        )
-        size_str = out.stdout.strip()
-        if size_str.isdigit():
-            return int(size_str)
-    except Exception:
-        pass
-    return None
-
-# ── Helper: delete a remote file by path (uses SHA) ──
-def _delete_remote_file(repo, path, pat=None):
-    env = os.environ.copy()
-    if pat:
-        env["GITHUB_TOKEN"] = pat
-    try:
-        sha_out = subprocess.run(
-            ["gh", "api", f"repos/{repo}/contents/{path}", "--jq", ".sha"],
-            capture_output=True, text=True, check=True, env=env
-        )
-        sha = sha_out.stdout.strip()
-        if not sha:
-            return
-        payload = json.dumps({"message": "delete corrupt chunk", "sha": sha, "branch": "main"})
-        subprocess.run(
-            ["gh", "api", f"repos/{repo}/contents/{path}", "--method", "DELETE", "--input", "-"],
-            input=payload, capture_output=True, text=True, check=True, env=env
-        )
-        safe_log(f"Deleted remote file {path}")
-    except Exception:
-        pass
-
-# ── Helper: upload a single file directly via GitHub API (base64) ──
-def _upload_single_file_to_repo(repo, local_path, remote_path, pat=None, max_retries=5):
-    env = os.environ.copy()
-    if pat:
-        env["GITHUB_TOKEN"] = pat
-    with open(local_path, "rb") as f:
-        content_bytes = f.read()
-    b64_content = base64.b64encode(content_bytes).decode()
-    payload = json.dumps({
-        "message": f"Upload {remote_path}",
-        "content": b64_content,
-        "branch": "main"
-    })
-
-    api_url = f"repos/{repo}/contents/{remote_path}"
-
-    for attempt in range(1, max_retries + 1):
-        try:
-            sha = None
-            sha_out = subprocess.run(
-                ["gh", "api", api_url, "--jq", ".sha"],
-                capture_output=True, text=True, env=env
-            )
-            if sha_out.returncode == 0 and sha_out.stdout.strip():
-                sha = sha_out.stdout.strip()
-                payload_dict = json.loads(payload)
-                payload_dict["sha"] = sha
-                payload = json.dumps(payload_dict)
-
-            result = subprocess.run(
-                ["gh", "api", api_url, "--method", "PUT", "--input", "-"],
-                input=payload, capture_output=True, text=True, env=env
-            )
-            if result.returncode == 0:
-                remote_size = _remote_file_size(repo, remote_path, pat)
-                if remote_size == len(content_bytes):
-                    safe_log(f"Uploaded {remote_path} ({len(content_bytes)} bytes) verified")
-                    return True
-                else:
-                    safe_log(f"Size mismatch after upload {remote_path}: local {len(content_bytes)} remote {remote_size}, retrying...")
-                    _delete_remote_file(repo, remote_path, pat)
-            else:
-                safe_log(f"Upload {remote_path} attempt {attempt} failed: {result.stderr}")
-                if attempt < max_retries:
-                    _delete_remote_file(repo, remote_path, pat)
-                    time.sleep(1)
-        except Exception as e:
-            safe_log(f"Upload exception: {e}")
-        time.sleep(0.5)
-    return False
-
-def load_profile():
-    """
-    Find the newest timestamped cache directory, reassemble, decrypt, extract.
-    Returns True if a profile was loaded successfully.
-    """
-    subdirs = []
-    if os.path.isdir(CACHE_DIR):
-        for name in os.listdir(CACHE_DIR):
-            subpath = os.path.join(CACHE_DIR, name)
-            if os.path.isdir(subpath) and re.match(r'^\d{8}_\d{6}$', name):
-                subdirs.append(name)
-    subdirs.sort(reverse=True)
-
-    for dirname in subdirs:
-        cache_path = os.path.join(CACHE_DIR, dirname)
-        part_files = glob.glob(os.path.join(cache_path, "*.part*"))
-        if not part_files:
-            safe_log(f"⚠️ Cache directory {dirname} contains no part files – skipping.")
-            continue
-
-        safe_log(f"♻️  Reassembling profile cache from {dirname} …")
-        tmp_reassemble = tempfile.mkdtemp(prefix="profile_reassemble_")
-        try:
-            count = reassemble_flat(cache_path, tmp_reassemble)
-            if count == 0:
-                safe_log(f"⚠️ Reassembly of {dirname} produced no file – skipping.")
-                continue
-            files = [f for f in os.listdir(tmp_reassemble) if os.path.isfile(os.path.join(tmp_reassemble, f))]
-            if not files:
-                continue
-            reassembled_path = os.path.join(tmp_reassemble, files[0])
-            safe_log(f"   Reassembled: {files[0]} ({os.path.getsize(reassembled_path)} bytes)")
-            with open(reassembled_path, "rb") as f:
-                encrypted = f.read()
-            decrypted = Fernet(ENCRYPTION_KEY).decrypt(encrypted)
-            shutil.rmtree(PROFILE_DIR, ignore_errors=True)
-            tarfile.open(fileobj=io.BytesIO(decrypted), mode='r:gz').extractall('/tmp')
-            safe_log("Profile cache loaded successfully.")
-            return True
-        except Exception as e:
-            safe_log(f"ERROR loading profile cache from {dirname}: {type(e).__name__}: {e}")
-            # Delete the corrupted cache directory so it won't be tried again
-            shutil.rmtree(cache_path, ignore_errors=True)
-            add_autonomous_report("cachecorrupted", f"Profile cache {dirname} is corrupted and has been deleted.")
-        finally:
-            shutil.rmtree(tmp_reassemble, ignore_errors=True)
-
-    safe_log("⚠️ No valid profile cache found – starting fresh.")
-    return False
-
-
-def save_profile():
-    """
-    Encrypt the current browser profile, split into chunks, push to repository,
-    verify every chunk’s remote size, and clean up old caches only after success.
-    """
-    try:
-        if not os.path.isdir(PROFILE_DIR):
-            return (False, f"Profile directory not found: {PROFILE_DIR}")
-
-        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        cache_subdir = os.path.join(CACHE_DIR, ts)
-        os.makedirs(cache_subdir, exist_ok=True)
-
-        # Create encrypted tar.gz
-        buf = io.BytesIO()
-        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-            tar.add(PROFILE_DIR, arcname="chrome_profile")
-        encrypted = Fernet(ENCRYPTION_KEY).encrypt(buf.getvalue())
-
-        tmp_fd, tmp_path = tempfile.mkstemp(prefix="profile_", suffix=".dat")
-        os.close(tmp_fd)
-        with open(tmp_path, "wb") as f:
-            f.write(encrypted)
-
-        chunker_script = "python/chunker.py"
-        if not os.path.exists(chunker_script):
-            os.remove(tmp_path)
-            return (False, f"Chunker script not found: {chunker_script}")
-
-        cmd = ["python3", chunker_script, "--file", tmp_path,
-               "--output-dir", cache_subdir, "--chunk-size", str(CHUNK_SIZE_MB)]
-        safe_log(f"Running chunker: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        os.remove(tmp_path)
-
-        if result.returncode != 0:
-            shutil.rmtree(cache_subdir, ignore_errors=True)
-            return (False, f"chunker.py failed: {result.stderr.strip() or result.stdout.strip()}")
-
-        local_parts = glob.glob(os.path.join(cache_subdir, "*.part*"))
-        if not local_parts or any(os.path.getsize(p) == 0 for p in local_parts):
-            shutil.rmtree(cache_subdir, ignore_errors=True)
-            return (False, "Chunking produced empty or missing parts.")
-
-        safe_log(f"Pushing profile cache {ts} …")
-        sync_repo.push_directory(cache_subdir, f"Profile cache {ts}")
-
-        # Verify every chunk individually
-        pat = os.environ.get("PAT", "")
-        all_verified = True
-        for part_path in local_parts:
-            part_name = os.path.basename(part_path)
-            remote_path = f".profile_cache/{ts}/{part_name}"
-            local_size = os.path.getsize(part_path)
-            remote_size = _remote_file_size(REPO, remote_path, pat)
-            if remote_size == local_size:
-                continue
-            safe_log(f"Chunk {part_name} size mismatch (local {local_size}, remote {remote_size}) – re‑uploading.")
-            _delete_remote_file(REPO, remote_path, pat)
-            if not _upload_single_file_to_repo(REPO, part_path, remote_path, pat):
-                safe_log(f"Failed to re‑upload chunk {part_name} after multiple attempts.")
-                all_verified = False
-                break
-
-        if not all_verified:
-            shutil.rmtree(cache_subdir, ignore_errors=True)
-            return (False, "Profile cache push failed verification; cache discarded.")
-
-        # Remove older caches
-        for name in os.listdir(CACHE_DIR):
-            full = os.path.join(CACHE_DIR, name)
-            if os.path.isdir(full) and re.match(r'^\d{8}_\d{6}$', name) and name != ts:
-                shutil.rmtree(full, ignore_errors=True)
-                safe_log(f"Removed old cache: {name}")
-
-        return (True, "Profile cache saved successfully.")
-    except Exception as e:
-        return (False, f"save_profile exception: {e}")
-
 
 # ---------- Browser startup with fallback on corrupted cache ----------
 DOWNLOAD_DIR = "/home/runner/downloads"
@@ -435,11 +212,12 @@ display = Display(visible=False, size=(1920,1080))
 display.start()
 safe_log("Virtual display started.")
 
-# Attempt to load a profile cache; if Chrome fails to start, delete the corrupt cache and retry
+# Attempt to load a profile cache; if Chrome fails, delete the corrupt cache and retry
 driver = None
 profile_loaded = False
 while True:
-    profile_loaded = load_profile()
+    profile_loaded = load_profile(CACHE_DIR, PROFILE_DIR, ENCRYPTION_KEY, REPO,
+                                  report_callback=_autonomous_callback)
     try:
         driver = create_driver()
         safe_log("Stealth JS injected.")
@@ -725,6 +503,11 @@ def executor_loop():
                     except Exception as e:
                         return f"ERR zoom: {e}"
 
+                # -------- save command: use profile_cache.save_profile --------
+                if is_save:
+                    ok, msg = save_profile(CACHE_DIR, PROFILE_DIR, ENCRYPTION_KEY, REPO, PAT, CHUNK_SIZE_MB)
+                    return f"OK save: {msg}" if ok else f"ERR save: {msg}"
+
                 cmd_type_final, arg = parse_single_command(ctext)
                 return execute_one_command(
                     cmd_type_final, arg,
@@ -778,17 +561,18 @@ def executor_loop():
             result = f"ERR unexpected: {ex}"
             safe_log(f"Command {cid} crashed: {ex}")
 
+        # After a successful navigate or tab switch, center the cursor
         if is_navigate and result.startswith("OK navigate"):
             safe_log("Navigation completed – probing clickable bounds...")
             update_viewport()
             probe_clickable_bounds()
-            move_cursor_absolute(10, 10)
+            move_cursor_absolute(agent_state.W // 2, agent_state.H // 2)
 
         if is_tabswitch and (result.startswith("Switched") or result.startswith("Closed")):
             safe_log("Tab switched – probing clickable bounds...")
             update_viewport()
             probe_clickable_bounds()
-            move_cursor_absolute(10, 10)
+            move_cursor_absolute(agent_state.W // 2, agent_state.H // 2)
 
         ts = int(time.time() * 1_000_000)
         seq_num = 0
@@ -915,7 +699,7 @@ def main():
     probe_clickable_bounds()
     safe_log(f"Clickable dimensions set to {agent_state.W}x{agent_state.H}")
 
-    move_cursor_absolute(10, 10)
+    move_cursor_absolute(agent_state.W // 2, agent_state.H // 2)   # center
 
     safe_log("STEP 3: Scrolling to top")
     try:
@@ -987,7 +771,7 @@ def main():
         _log_pusher_stop.set()
         _heartbeat_stop.set()
         time.sleep(2)
-        # Do NOT save profile cache automatically – only on explicit 'save' command
+        # Do NOT save profile cache automatically
         push_logs()
         try:
             with driver_lock:
