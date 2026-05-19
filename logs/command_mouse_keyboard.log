@@ -1408,3 +1408,7 @@ Stacktrace:
 [15:23:11] Screenshot screenshots/0193_152308_339_auto.png pushed successfully.
 [15:23:13] Taking screenshot: screenshots/0194_152313_339_auto.png
 [15:23:13] Pushing screenshot screenshots/0194_152313_339_auto.png with 10s timeout...
+[15:23:16] Screenshot screenshots/0194_152313_339_auto.png pushed successfully.
+[15:23:18] Taking screenshot: screenshots/0195_152318_339_auto.png
+[15:23:18] Pushing screenshot screenshots/0195_152318_339_auto.png with 10s timeout...
+[15:23:18] RepoWrapper slow error (push_log_file): Command '['git', 'commit', '-m', 'Log update']' returned non-zero exit status 128.
