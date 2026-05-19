@@ -170,3 +170,6 @@
 [21:22:12] Fetcher detected new App Commands comment.
 [21:22:12] Re‑enqueued existing report for APP-52500-20260519212047
 [21:22:14] Screenshot screenshots/0025_212212_214_auto.png pushed successfully.
+[21:22:16] Sender published response comment.
+[21:22:17] Taking screenshot: screenshots/0026_212217_215_auto.png
+[21:22:17] Pushing screenshot screenshots/0026_212217_215_auto.png with 10s timeout...
