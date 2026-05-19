@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.7.3
-#   - After measuring the CSS viewport, the new probe_clickable_bounds()
-#     tests the actual calibration target (0.99*W, 0.99*H) using the real
-#     move_cursor_absolute.  If the move fails, W and H are reduced until
-#     the point becomes reachable.  This guarantees the second calibration
-#     move will never receive an out‑of‑bounds error.
-#   - All other logic unchanged.
+# agent_state.py – Version 2.7.4
+#   - W and H start as -1 (invalid).  probe_clickable_bounds() discovers
+#     the real clickable maximums by testing moves with move_cursor_absolute.
+#   - Uses the exact algorithm: start from a CSS rough guess, then increment
+#     on success or decrement on failure until the true maximum is found.
+#   - Sends viewsize:WxH autonomous report and moves cursor to (0.5, 0.5).
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64
@@ -24,7 +23,7 @@ def log(msg: str) -> None:
 
 # ---------- Global driver & viewport ----------
 driver = None
-W, H = 1920, 1080          # default; overwritten by update_viewport() and probe
+W, H = -1, -1              # invalid until probe_clickable_bounds() completes
 cursor_x, cursor_y = 0, 0
 
 # Thread‑safety lock – set by main script to a common lock
@@ -41,70 +40,112 @@ allowed_secrets = []
 # ---------- Active tab tracking (1‑based index) ----------
 ACTIVE_TAB_INDEX = 1
 
-def update_viewport():
-    """
-    Read the CSS viewport size from the browser and update W, H.
-    This is an approximation; the real clickable area will be refined
-    by probe_clickable_bounds().
-    """
-    global W, H
-    if driver is None:
-        return
-    try:
-        with driver_lock:
-            w = driver.execute_script("return window.innerWidth;")
-            h = driver.execute_script("return window.innerHeight;")
-            if w and h:
-                W, H = int(w), int(h)
-                log(f"Viewport CSS size updated to {W}x{H}")
-    except Exception as e:
-        log(f"update_viewport error: {e}")
-
 
 def probe_clickable_bounds():
     """
-    Refine the viewport dimensions by attempting to move to the point
-    that will be used for the second calibration step (0.99*W, 0.99*H).
-    If the move fails, W and H are reduced (by 1 each) and we retry,
-    until the point becomes reachable.  This ensures the calibration
-    will never encounter a MoveTargetOutOfBoundsException.
+    Discover the maximum clickable X and Y by testing moves.
+    
+    1.  Get a rough guess from window.innerWidth/innerHeight.
+    2.  For X: test move_cursor_absolute(x, 1) starting from the rough guess.
+        - If it succeeds, increment x and test until failure – the last
+          successful x is W.
+        - If it fails, decrement x and test until success – that x is W.
+    3.  For Y: test move_cursor_absolute(1, y) starting from the rough guess.
+        - Same logic: increment on success, decrement on failure.
+    4.  Assign the found W and H to the global variables.
+    5.  Send the autonomous report 'viewsize:WxH'.
+    6.  Move cursor to percentage (0.5, 0.5) to leave a safe state.
     """
     global W, H
     if driver is None:
         return
 
     ensure_active_tab()
-    log("Probing clickable bounds for calibration point (0.99,0.99)...")
+    log("Probing clickable bounds...")
 
-    # Start with the CSS viewport and try progressively smaller dimensions.
-    # We only need to ensure the specific point (0.99*W, 0.99*H) is reachable,
-    # so we do not test every corner – just the one calibration will hit.
-    while True:
-        target_x = int(0.99 * W)
-        target_y = int(0.99 * H)
-        # Clamp to a minimum of 1 pixel inside the current W,H
-        target_x = max(1, min(W - 1, target_x))
-        target_y = max(1, min(H - 1, target_y))
+    # ── Rough CSS guess ──────────────────────────────────────────
+    try:
+        with driver_lock:
+            css_w = driver.execute_script("return window.innerWidth;")
+            css_h = driver.execute_script("return window.innerHeight;")
+            if css_w and css_h:
+                css_w, css_h = int(css_w), int(css_h)
+            else:
+                css_w, css_h = 1920, 1080   # fallback
+    except Exception:
+        css_w, css_h = 1920, 1080
 
-        ok = move_cursor_absolute(target_x, target_y)
-        if ok:
-            log(f"Calibration target ({target_x},{target_y}) reachable. Final bounds {W}x{H}")
-            break
-        # Failure – shrink the viewport a little and try again
-        if W > 200 and H > 200:
-            W -= 1
-            H -= 1
-            log(f"Calibration target unreachable, reducing to {W}x{H}")
+    log(f"CSS rough guess: {css_w}x{css_h}")
+
+    # ── Find max X ──────────────────────────────────────────────
+    rx = css_w - 5       # start a few pixels inside
+    if rx < 1:
+        rx = 1
+
+    if move_cursor_absolute(rx, 1):
+        # increment until failure
+        x = rx
+        while True:
+            x += 1
+            if not move_cursor_absolute(x, 1):
+                x -= 1    # last successful
+                break
+        W = x
+        log(f"Max clickable X (incrementing) = {W}")
+    else:
+        # decrement until success
+        x = rx
+        while x > 0:
+            x -= 1
+            if move_cursor_absolute(x, 1):
+                W = x
+                log(f"Max clickable X (decrementing) = {W}")
+                break
         else:
-            # Safety floor – should never happen
-            log("Warning: could not find clickable area, keeping current dimensions")
-            break
+            W = 1   # extreme fallback
 
-    # Report the final dimensions to the client
+    # ── Find max Y ──────────────────────────────────────────────
+    ry = css_h - 5
+    if ry < 1:
+        ry = 1
+
+    if move_cursor_absolute(1, ry):
+        # increment until failure
+        y = ry
+        while True:
+            y += 1
+            if not move_cursor_absolute(1, y):
+                y -= 1
+                break
+        H = y
+        log(f"Max clickable Y (incrementing) = {H}")
+    else:
+        # decrement until success
+        y = ry
+        while y > 0:
+            y -= 1
+            if move_cursor_absolute(1, y):
+                H = y
+                log(f"Max clickable Y (decrementing) = {H}")
+                break
+        else:
+            H = 1   # extreme fallback
+
+    log(f"Final clickable bounds: {W}x{H}")
+
+    # ── Report to client ─────────────────────────────────────────
     add_autonomous_report("viewsize", f"viewsize:{W}x{H}")
 
-    # Move back to a safe position
-    move_cursor_absolute(10, 10)
+    # ── Move to a safe neutral position ──────────────────────────
+    move_cursor_absolute(W // 2, H // 2)
+
+
+def update_viewport():
+    """
+    Legacy function – no longer used.  Kept only for compatibility.
+    The real viewport is now discovered by probe_clickable_bounds().
+    """
+    pass
 
 
 def ensure_active_tab():
@@ -137,7 +178,6 @@ def ensure_active_tab():
                         driver.set_window_size(W, H)
                     except Exception:
                         pass
-            # Viewport detection is intentionally NOT called here.
     except (WebDriverException, InvalidSessionIdException) as e:
         log(f"ensure_active_tab driver error: {e}")
     except Exception as e:
@@ -269,8 +309,10 @@ def move_cursor_absolute(x: int, y: int) -> bool:
     """
     ensure_active_tab()
     global cursor_x, cursor_y
-    x = max(0, min(W-1, x))
-    y = max(0, min(H-1, y))
+    if W > 0:
+        x = max(0, min(W - 1, x))
+    if H > 0:
+        y = max(0, min(H - 1, y))
     try:
         with driver_lock:
             action = ActionBuilder(driver)
@@ -290,8 +332,8 @@ def move_cursor_absolute(x: int, y: int) -> bool:
 def move_cursor_relative(dx: int, dy: int) -> bool:
     ensure_active_tab()
     global cursor_x, cursor_y
-    new_x = max(0, min(W-1, cursor_x + dx))
-    new_y = max(0, min(H-1, cursor_y + dy))
+    new_x = max(0, min(W - 1, cursor_x + dx)) if W > 0 else cursor_x + dx
+    new_y = max(0, min(H - 1, cursor_y + dy)) if H > 0 else cursor_y + dy
     return move_cursor_absolute(new_x, new_y)
 
 
@@ -544,6 +586,8 @@ def type_secret(name: str) -> bool:
 # ---------- COMMAND PARSER – percentage coordinates ----------
 def _pct_to_abs(pctx: float, pcty: float):
     """Convert percentage (0.0‑1.0) to absolute pixel coordinates."""
+    if W <= 0 or H <= 0:
+        return 0, 0
     x = int(pctx * W)
     y = int(pcty * H)
     x = max(0, min(W - 1, x))
@@ -555,7 +599,6 @@ def parse_single_command(raw: str):
     raw = raw.strip()
     lo = raw.lower()
 
-    # Percentage‑based move and click commands
     m = re.match(r'^\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', raw)
     if m:
         pctx = float(m.group(1))
@@ -621,26 +664,17 @@ def parse_single_command(raw: str):
     if lo == "downselected": return ("downselected", None)
     if lo == "deleteselected": return ("deleteselected", None)
     if lo.startswith("scroll:"):
-        try:
-            val = int(float(lo.split(":",1)[1].strip()))
-            return ("scroll", val)
-        except:
-            return ("key", raw)
+        try: val = int(float(lo.split(":",1)[1].strip())); return ("scroll", val)
+        except: return ("key", raw)
     if lo.startswith("wait:"):
-        try:
-            val = float(lo.split(":",1)[1].strip())
-            return ("wait", val)
-        except:
-            return ("key", raw)
-    if lo.startswith("key:"):
-        return ("key", raw.split(":",1)[1].strip())
-    if lo.startswith("combo:"):
-        return ("combo", raw.split(":",1)[1].strip())
+        try: val = float(lo.split(":",1)[1].strip()); return ("wait", val)
+        except: return ("key", raw)
+    if lo.startswith("key:"): return ("key", raw.split(":",1)[1].strip())
+    if lo.startswith("combo:"): return ("combo", raw.split(":",1)[1].strip())
     if lo.startswith('secret:'): return ("secret", raw.split(':',1)[1].strip())
     if lo.startswith('decode:'): return ("decode", raw.split(':',1)[1].strip())
     if lo.startswith('humantype:'): return ("humantype", raw.split(':',1)[1].strip())
-    if lo.startswith("navigate:"):
-        return ("navigate", raw.split(":",1)[1].strip())
+    if lo.startswith("navigate:"): return ("navigate", raw.split(":",1)[1].strip())
     if lo in ("download","download:"): return ("download", None)
     if lo in ("upload","upload:"): return ("upload", None)
     if lo == "dir": return ("dir", None)
@@ -651,14 +685,9 @@ def parse_single_command(raw: str):
     if lo.startswith("uploadnumber:"): return ("uploadnumber", raw.split(":",1)[1].strip())
     if lo == "savestate": return ("savestate", None)
     if lo.startswith("setinterval:"):
-        try:
-            val = float(lo.split(":",1)[1].strip())
-            return ("setinterval", val)
-        except:
-            return ("key", raw)
-    if lo.startswith("zoom:"):
-        return ("zoom", raw.split(":",1)[1].strip())
-
+        try: val = float(lo.split(":",1)[1].strip()); return ("setinterval", val)
+        except: return ("key", raw)
+    if lo.startswith("zoom:"): return ("zoom", raw.split(":",1)[1].strip())
     return ("key", raw)
 
 
