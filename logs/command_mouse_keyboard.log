@@ -7762,3 +7762,57 @@ Stacktrace:
 [15:30:46] Execution loop: processing APP-52343-20260519152925: humanclick(0.572312,0.379449)
 [15:30:47] Cursor moved to (1097, 302)
 [15:30:47] Screenshot screenshots/0280_153043_910_auto.png pushed successfully.
+[15:30:47] Cursor moved to (1097, 302)
+[15:30:47] Cursor moved to (1095, 300)
+[15:30:48] Cursor moved to (1094, 299)
+[15:30:48] Cursor moved to (1096, 299)
+[15:30:48] Cursor moved to (1094, 302)
+[15:30:48] New autonomous report: AUT-83-1779204648 -> Tabs: 1: X | 2: Sign in - Google Accounts
+[15:30:48] Executed APP-52343-20260519152925 -> OK humanclick(0.5710,0.3789)
+[15:30:48] Taking screenshot: screenshots/0281_153048_910_auto.png
+[15:30:49] Screenshot save timed out or failed: screenshots/0281_153048_910_auto.png
+[15:30:49] Screenshot capture failed – will retry after interval.
+[15:30:50] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66ab9 <unknown>
+#2 0x5585def39c68 <unknown>
+#3 0x5585defe8d28 <unknown>
+#4 0x5585df002ab8 <unknown>
+#5 0x5585defae662 <unknown>
+#6 0x5585defaf451 <unknown>
+#7 0x5585df52bd8b <unknown>
+#8 0x5585df52ec65 <unknown>
+#9 0x5585df518458 <unknown>
+#10 0x5585df52f7f0 <unknown>
+#11 0x5585df4ff1c0 <unknown>
+#12 0x5585df555168 <unknown>
+#13 0x5585df555305 <unknown>
+#14 0x5585df566c5e <unknown>
+#15 0x7f34e309caa4 <unknown>
+#16 0x7f34e3129c6c <unknown>
+
+[15:30:52] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5585df56822a <unknown>
+#1 0x5585def66ab9 <unknown>
+#2 0x5585def39c68 <unknown>
+#3 0x5585defe8d28 <unknown>
+#4 0x5585df002ab8 <unknown>
+#5 0x5585defae662 <unknown>
+#6 0x5585defaf451 <unknown>
+#7 0x5585df52bd8b <unknown>
+#8 0x5585df52ec65 <unknown>
+#9 0x5585df518458 <unknown>
+#10 0x5585df52f7f0 <unknown>
+#11 0x5585df4ff1c0 <unknown>
+#12 0x5585df555168 <unknown>
+#13 0x5585df555305 <unknown>
+#14 0x5585df566c5e <unknown>
+#15 0x7f34e309caa4 <unknown>
+#16 0x7f34e3129c6c <unknown>
+
