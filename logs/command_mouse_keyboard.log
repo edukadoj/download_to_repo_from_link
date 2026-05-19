@@ -8291,3 +8291,5 @@ Stacktrace:
 [15:36:30] Screenshot screenshots/0347_153627_560_auto.png pushed successfully.
 [15:36:32] Taking screenshot: screenshots/0348_153632_560_auto.png
 [15:36:32] Pushing screenshot screenshots/0348_153632_560_auto.png with 10s timeout...
+[15:36:35] Screenshot screenshots/0348_153632_560_auto.png pushed successfully.
+[15:36:36] Agent alive
