@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_handlers.py – Version 1.16.2
-#   - Move commands now check the return value of move_cursor_absolute and
-#     report an error if the move failed.
-#   - All other handlers remain unchanged.
+# command_handlers.py – Version 1.16.3
+#   - No functional changes; all coordinate handling is now done via
+#     the parser in agent_state.py, which converts percentage strings
+#     to absolute pixels before this module sees them.
 # ==============================================================================
 import os, time, subprocess, glob, shutil, re, tempfile, random
 from uploader import reassemble
@@ -78,7 +78,7 @@ def execute_one_command(
 
     result = ""
 
-    # ── Move commands ──
+    # ── Move commands (args are already absolute pixels from the parser) ──
     if cmd == "move":
         agent_state.ensure_active_tab()
         x, y = arg
@@ -96,7 +96,7 @@ def execute_one_command(
         else:
             result = f"ERR moveby({dx},{dy}) failed"
 
-    # ── Click commands ──
+    # ── Click commands (args are absolute pixels) ──
     elif cmd == "click_at":
         agent_state.ensure_active_tab()
         x, y = arg; move_cursor_absolute(x, y); left_click()
@@ -127,7 +127,7 @@ def execute_one_command(
         middle_button_up();  result = "OK middleup"
 
     # ── Other basic commands ──
-    elif cmd == "exit": 
+    elif cmd == "exit":
         result = "OK exit"
     elif cmd == "screenshot":
         if callable(ss):
