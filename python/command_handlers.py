@@ -259,32 +259,6 @@ def execute_one_command(
             _upload_file_paths.clear()
             refresh_file_registry()
             result = f"OK deleteselected({count} files deleted)"
-    elif cmd == "download":
-        downloaded = glob.glob(os.path.join(DOWNLOAD_DIR, "*"))
-        if not downloaded: result = "ERR download: no files in download folder"
-        else:
-            success_count = 0
-            fail_count = 0
-            for fpath in downloaded:
-                if os.path.isfile(fpath):
-                    fname = os.path.basename(fpath)
-                    out_dir = os.path.join("downloaded_chunks", fname)
-                    os.makedirs(out_dir, exist_ok=True)
-                    subprocess.run(["python3", "chunker.py", "--file", fpath, "--output-dir", out_dir, "--chunk-size", "20"], check=True)
-                    chunks = glob.glob(os.path.join(out_dir, "*.part*"))
-                    for chunk_path in chunks:
-                        chunk_name = os.path.basename(chunk_path)
-                        remote_path = f"downloaded_chunks/{fname}/{chunk_name}"
-                        if upload_chunk_to_repo(REPO, chunk_path, remote_path, pat=os.environ.get("PAT", "")):
-                            success_count += 1
-                        else:
-                            fail_count += 1
-                    bat_path = os.path.join(out_dir, "reassemble.bat")
-                    if os.path.isfile(bat_path):
-                        upload_chunk_to_repo(REPO, bat_path, f"downloaded_chunks/{fname}/reassemble.bat", pat=os.environ.get("PAT", ""))
-            result = f"OK download({len(downloaded)} files, {success_count} chunks uploaded, {fail_count} failed)"
-        refresh_file_registry()
-        _ensure_selection(_file_registry, _upload_file_paths)
     elif cmd == "upload":
         log_func = None
         try: log_func = __import__("sys").modules["__main__"].log
