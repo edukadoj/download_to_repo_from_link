@@ -468,3 +468,4 @@
 [01:35:39] New autonomous report: AUT-25-1779154539 -> Available memory: 14761 MB
 [01:35:40] Screenshot screenshots/0122_013536_779_auto.png pushed successfully.
 [01:35:41] Taking screenshot: screenshots/0123_013541_779_auto.png
+[01:35:41] Pushing screenshot screenshots/0123_013541_779_auto.png with 10s timeout...
