@@ -121,3 +121,4 @@
 [21:21:30] Executed APP-52494-20260519212008 -> OK humanclick(0.5548,0.4196)
 [21:21:32] Screenshot screenshots/0016_212124_546_auto.png pushed successfully.
 [21:21:32] Taking screenshot: screenshots/0017_212132_213_auto.png
+[21:21:32] Pushing screenshot screenshots/0017_212132_213_auto.png with 10s timeout...
