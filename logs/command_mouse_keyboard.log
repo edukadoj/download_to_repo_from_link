@@ -55,3 +55,13 @@ Stacktrace:
 [20:51:46] STEP 4: Taking first screenshot
 [20:51:46] STEP 5: First screenshot saved – pushing logs
 [20:51:46] STEP 6: refresh_known_handles()
+[20:51:46] New autonomous report: AUT-4-1779223906 -> New tab/window handle: 4260641A6BAAE6EB83672E7C0B012DF7
+[20:51:46] refresh_known_handles unexpected error: cannot access local variable 'ACTIVE_TAB_INDEX' where it is not associated with a value
+[20:51:46] STEP 7: Set last known URL
+[20:51:46] STEP 8: Start URL monitor
+[20:51:46] STEP 9: URL monitor started
+[20:51:47] Blanking old App Commands comment...
+[20:51:47] Screenshot worker started.
+[20:51:47] Fetcher loop started.
+[20:51:47] Execution loop started.
+[20:51:47] Sender loop started.
