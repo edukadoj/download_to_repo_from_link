@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_handlers.py – Version 1.16.3
-#   - No functional changes; all coordinate handling is now done via
-#     the parser in agent_state.py, which converts percentage strings
-#     to absolute pixels before this module sees them.
+# command_handlers.py – Version 1.16.4
+#   - Move/click responses now include the original percentage coordinates
+#     alongside the absolute pixel coordinates.
 # ==============================================================================
 import os, time, subprocess, glob, shutil, re, tempfile, random
 from uploader import reassemble
@@ -44,6 +43,12 @@ def _scroll_element_or_window(driver, amount, cursor_x, cursor_y):
         driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
         return f"OK scroll({direction},{abs(scroll_amount)}) [window]"
 
+def _make_result(cmd_type, x, y, W, H):
+    """Build a result string that includes both absolute and percentage coordinates."""
+    pctx = x / (W - 1) if W > 1 else 0.0
+    pcty = y / (H - 1) if H > 1 else 0.0
+    return f"OK {cmd_type}({x},{y}) ~ ({pctx:.4f},{pcty:.4f})"
+
 def execute_one_command(
     cmd, arg,
     driver, cursor_x, cursor_y, W, H,
@@ -78,13 +83,13 @@ def execute_one_command(
 
     result = ""
 
-    # ── Move commands (args are already absolute pixels from the parser) ──
+    # ── Move commands ──
     if cmd == "move":
         agent_state.ensure_active_tab()
         x, y = arg
         ok = move_cursor_absolute(x, y)
         if ok:
-            result = f"OK move({agent_state.cursor_x},{agent_state.cursor_y})"
+            result = _make_result("move", agent_state.cursor_x, agent_state.cursor_y, W, H)
         else:
             result = f"ERR move to ({x},{y}) failed"
     elif cmd == "moveby":
@@ -92,21 +97,24 @@ def execute_one_command(
         dx, dy = arg
         ok = move_cursor_relative(dx, dy)
         if ok:
-            result = f"OK moveby({dx},{dy})->({agent_state.cursor_x},{agent_state.cursor_y})"
+            result = _make_result("moveby", agent_state.cursor_x, agent_state.cursor_y, W, H) + f" (delta {dx},{dy})"
         else:
             result = f"ERR moveby({dx},{dy}) failed"
 
-    # ── Click commands (args are absolute pixels) ──
+    # ── Click commands ──
     elif cmd == "click_at":
         agent_state.ensure_active_tab()
         x, y = arg; move_cursor_absolute(x, y); left_click()
-        result = f"OK click({agent_state.cursor_x},{agent_state.cursor_y})"
+        result = _make_result("click", agent_state.cursor_x, agent_state.cursor_y, W, H)
     elif cmd == "humanclick":
         agent_state.ensure_active_tab()
-        result = human_click_callable()
+        res = human_click_callable()
+        result = f"Human click at ({agent_state.cursor_x},{agent_state.cursor_y})"
     elif cmd == "humanclick_at":
         agent_state.ensure_active_tab()
-        x, y = arg; result = human_click_at_callable(x, y)
+        x, y = arg
+        res = human_click_at_callable(x, y)
+        result = _make_result("humanclick", agent_state.cursor_x, agent_state.cursor_y, W, H)
     elif cmd == "leftdown":
         agent_state.ensure_active_tab()
         left_button_down(); result = "OK leftdown"
@@ -127,7 +135,7 @@ def execute_one_command(
         middle_button_up();  result = "OK middleup"
 
     # ── Other basic commands ──
-    elif cmd == "exit":
+    elif cmd == "exit": 
         result = "OK exit"
     elif cmd == "screenshot":
         if callable(ss):
@@ -139,7 +147,7 @@ def execute_one_command(
         driver.refresh(); time.sleep(3); result = "OK refresh"
     elif cmd == "shoot":
         agent_state.ensure_active_tab()
-        left_click(); result = f"OK click({agent_state.cursor_x},{agent_state.cursor_y})"
+        left_click(); result = _make_result("click", agent_state.cursor_x, agent_state.cursor_y, W, H)
     elif cmd == "doubleshoot":
         agent_state.ensure_active_tab()
         double_click(); result = "OK doubleclick"
