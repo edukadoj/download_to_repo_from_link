@@ -349,6 +349,7 @@
 [01:12:17] Taking screenshot: screenshots/0086_011217_394_auto.png
 [01:12:17] Pushing screenshot screenshots/0086_011217_394_auto.png with 10s timeout...
 [01:12:19] Screenshot screenshots/0086_011217_394_auto.png pushed successfully.
+<<<<<<< Updated upstream
 [01:12:22] Screenshot screenshots/0087_011222_394_auto.png pushed successfully.
 [01:12:23] Agent alive
 [01:12:27] Taking screenshot: screenshots/0088_011227_394_auto.png
@@ -387,3 +388,7 @@
 [01:13:03] Taking screenshot: screenshots/0095_011303_198_auto.png
 [01:13:03] Pushing screenshot screenshots/0095_011303_198_auto.png with 10s timeout...
 [01:13:03] RepoWrapper slow error (push_log_file): Command '['git', 'add', 'logs/command_mouse_keyboard.log']' returned non-zero exit status 128.
+=======
+[01:12:22] Taking screenshot: screenshots/0087_011222_394_auto.png
+[01:12:22] Pushing screenshot screenshots/0087_011222_394_auto.png with 10s timeout...
+>>>>>>> Stashed changes
