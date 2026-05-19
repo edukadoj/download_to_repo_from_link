@@ -1,0 +1,36 @@
+============================================================
+  Remote Control v39.39.0 started at 2026-05-19 22:03:06 UTC
+============================================================
+[22:03:06] Virtual display started.
+[22:03:10] Stealth JS injected.
+[22:03:10] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[22:03:10] Browser launched.
+[22:03:10] STEP 1: Loading start URL...
+[22:03:11] STEP 2: Start URL loaded – sleeping 5s
+[22:03:16] Detecting actual viewport size...
+[22:03:16] Probing clickable bounds...
+[22:03:16] Rough guess: 1918x991
+[22:03:16] Cursor moved to (1913, 1)
+[22:03:16] Cursor moved to (1914, 1)
+[22:03:17] Cursor moved to (1915, 1)
+[22:03:17] Cursor moved to (1916, 1)
+[22:03:17] Cursor moved to (1917, 1)
+[22:03:18] Cursor moved to (1917, 1)
+[22:03:18] Max clickable X (incrementing) = 1917
+[22:03:18] Cursor moved to (1, 986)
+[22:03:18] Cursor moved to (1, 987)
+[22:03:18] Cursor moved to (1, 988)
+[22:03:19] Cursor moved to (1, 989)
+[22:03:19] Cursor moved to (1, 990)
+[22:03:19] Cursor moved to (1, 990)
+[22:03:19] Max clickable Y (incrementing) = 990
+[22:03:19] Final clickable bounds: 1917x990
+[22:03:19] New autonomous report: AUT-2-1779228199 -> viewsize:1917x990
+[22:03:19] Cursor moved to (958, 495)
+[22:03:19] Clickable dimensions set to 1917x990
+[22:03:20] Cursor moved to (958, 495)
+[22:03:20] STEP 3: Scrolling to top
+[22:03:20] STEP 4: Taking first screenshot
+[22:03:20] STEP 5: First screenshot saved – pushing logs
+[22:03:20] STEP 6: refresh_known_handles()
+[22:03:20] New autonomous report: AUT-3-1779228200 -> New tab/window handle: 97443E3311419880B822B57CA66DE19E
