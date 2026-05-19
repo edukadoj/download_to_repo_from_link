@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_loops.py – Version 1.0.0
-#   - Contains the four main agent loops, accepting globals as parameters.
-#   - Used by command_mouse_keyboard.py to keep that file slim.
+# agent_loops.py – Version 1.0.1
+#   - Fixed parameter lists and removed unused imports.
+#   - Heavy executor now uses the real save_lock / upload_lock.
 # ==============================================================================
 
 import time, re, hashlib, json, threading, traceback, queue as queue_module
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 
-from selenium.common.exceptions import WebDriverException, InvalidSessionIdException
-
 from command_handlers import execute_one_command
 from comments import find_marker_comment
-from profile_cache import save_profile
+from profile_cache import save_profile as profile_save   # renamed to avoid clash
 from agent_state import (
     parse_single_command, move_cursor_absolute, update_viewport, probe_clickable_bounds,
     refresh_file_registry, get_upload_paths, refresh_known_handles,
-    add_autonomous_report, cull_expired_autonomous_reports,
-    _file_registry, _upload_file_paths,
+    add_autonomous_report,
     HAS_GEMINI, HAS_PYPERCLIP, pyperclip, allowed_secrets,
     human_click, human_click_at, _try_gemini_click, left_click, left_button_down, left_button_up,
     right_button_down, right_button_up, middle_button_down, middle_button_up,
@@ -29,7 +26,7 @@ from crypto_utils import encrypt_string, decode_string
 
 # ---------- Fetcher Loop ----------
 def fetcher_loop(
-    app_cmd_id, last_app_body_hash,
+    app_cmd_id,
     sync_repo, COMM_INTERVAL, slow_mode,
     execution_queue, heavy_execution_queue,
     save_lock, upload_lock,
@@ -186,7 +183,7 @@ def executor_loop(
     double_click, right_click, middle_click, scroll_by, drag_from_to,
     press_key, press_combo, type_secret, decode_string,
     refresh_file_registry, add_autonomous_report, refresh_known_handles,
-    get_upload_paths, save_profile, _file_registry, _upload_file_paths,
+    get_upload_paths, save_profile_func, _file_registry, _upload_file_paths,
     pyperclip, encrypt_string, sync_repo, COMM_INTERVAL, slow_mode,
     report_history, _report_history_lock, save_report_history, add_to_report_queue
 ):
@@ -229,7 +226,7 @@ def executor_loop(
                     refresh_file_registry=refresh_file_registry,
                     add_autonomous_report=add_autonomous_report,
                     refresh_known_handles=refresh_known_handles,
-                    get_upload_paths=get_upload_paths, save_profile=save_profile,
+                    get_upload_paths=get_upload_paths, save_profile=save_profile_func,
                     _file_registry=_file_registry, _upload_file_paths=_upload_file_paths,
                     pyperclip=pyperclip if HAS_PYPERCLIP else None,
                     upload_reassemble=None,
@@ -301,10 +298,11 @@ def heavy_executor_loop(
     double_click, right_click, middle_click, scroll_by, drag_from_to,
     press_key, press_combo, type_secret, decode_string,
     refresh_file_registry, add_autonomous_report, refresh_known_handles,
-    get_upload_paths, save_profile, _file_registry, _upload_file_paths,
+    get_upload_paths, save_profile_func, _file_registry, _upload_file_paths,
     pyperclip, encrypt_string, sync_repo, COMM_INTERVAL, slow_mode,
     report_history, _report_history_lock, save_report_history, add_to_report_queue,
-    CACHE_DIR, PROFILE_DIR, ENCRYPTION_KEY_PROFILE, REPO, PAT, CHUNK_SIZE_MB
+    CACHE_DIR, PROFILE_DIR, ENCRYPTION_KEY_PROFILE, PAT, CHUNK_SIZE_MB,
+    save_lock, upload_lock   # <-- shared locks
 ):
     safe_log("Heavy execution loop started (timeout=300s).")
     executor_pool = ThreadPoolExecutor(max_workers=1)
@@ -320,15 +318,14 @@ def heavy_executor_loop(
         timeout = 300
 
         def run_command():
+            # Use the shared locks, not new ones
             if cmd_type == "save":
-                save_lock_local = threading.Lock()   # not used; save_lock is passed and handled in fetcher
-                save_lock_local.acquire()
+                save_lock.acquire()
             elif cmd_type in ("upload", "uploadtoyoutube"):
-                upload_lock_local = threading.Lock()
-                upload_lock_local.acquire()
+                upload_lock.acquire()
             try:
                 if cmd_type == "save":
-                    ok, msg = save_profile(CACHE_DIR, PROFILE_DIR, ENCRYPTION_KEY_PROFILE, REPO, PAT, CHUNK_SIZE_MB)
+                    ok, msg = profile_save(CACHE_DIR, PROFILE_DIR, ENCRYPTION_KEY_PROFILE, REPO, PAT, CHUNK_SIZE_MB)
                     return f"OK save: {msg}" if ok else f"ERR save: {msg}"
 
                 cmd_type_final, arg = parse_single_command(ctext)
@@ -355,7 +352,7 @@ def heavy_executor_loop(
                     refresh_file_registry=refresh_file_registry,
                     add_autonomous_report=add_autonomous_report,
                     refresh_known_handles=refresh_known_handles,
-                    get_upload_paths=get_upload_paths, save_profile=save_profile,
+                    get_upload_paths=get_upload_paths, save_profile=save_profile_func,
                     _file_registry=_file_registry, _upload_file_paths=_upload_file_paths,
                     pyperclip=pyperclip if HAS_PYPERCLIP else None,
                     upload_reassemble=None,
@@ -370,9 +367,9 @@ def heavy_executor_loop(
                 )
             finally:
                 if cmd_type == "save":
-                    save_lock_local.release()
+                    save_lock.release()
                 elif cmd_type in ("upload", "uploadtoyoutube"):
-                    upload_lock_local.release()
+                    upload_lock.release()
 
         try:
             future = executor_pool.submit(run_command)
@@ -409,8 +406,8 @@ def heavy_executor_loop(
 def sender_loop(
     sync_repo, COMM_INTERVAL, slow_mode,
     report_queue, _report_queue_lock,
-    cull_timed_out_reports, get_report_queue_snapshot,
-    add_autonomous_report, remove_from_report_queue,
+    get_report_queue_snapshot, cull_timed_out_reports,
+    add_autonomous_report,
     safe_log, push_logs, _sender_stop
 ):
     safe_log("Sender loop started.")
