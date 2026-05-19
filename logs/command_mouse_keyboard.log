@@ -829,3 +829,564 @@ Stacktrace:
 #15 0x7f8b8be9caa4 <unknown>
 #16 0x7f8b8bf29c6c <unknown>
 
+[18:26:04] Taking screenshot: screenshots/0067_182604_727_auto.png
+[18:26:04] Screenshot save timed out or failed: screenshots/0067_182604_727_auto.png
+[18:26:04] Screenshot capture failed – will retry after interval.
+[18:26:04] url_monitor driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] Fetcher detected new App Commands comment.
+[18:26:06] Execution loop: processing APP-52469-20260519182443: humanclick(0.553340,0.451505)
+[18:26:06] Enqueued for execution: APP-52469-20260519182443
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] move_cursor_absolute driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] move_cursor_absolute driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] move_cursor_absolute driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] move_cursor_absolute driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] move_cursor_absolute driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] Driver action error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] move_cursor_absolute driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] ensure_active_tab driver error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34af408 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] Driver action error: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=148.0.7778.167)
+Stacktrace:
+#0 0x5559c3a2522a <unknown>
+#1 0x5559c3423ab9 <unknown>
+#2 0x5559c33f6c68 <unknown>
+#3 0x5559c34a5d28 <unknown>
+#4 0x5559c34bfab8 <unknown>
+#5 0x5559c346b662 <unknown>
+#6 0x5559c346c451 <unknown>
+#7 0x5559c39e8d8b <unknown>
+#8 0x5559c39ebc65 <unknown>
+#9 0x5559c39d5458 <unknown>
+#10 0x5559c39ec7f0 <unknown>
+#11 0x5559c39bc1c0 <unknown>
+#12 0x5559c3a12168 <unknown>
+#13 0x5559c3a12305 <unknown>
+#14 0x5559c3a23c5e <unknown>
+#15 0x7f8b8be9caa4 <unknown>
+#16 0x7f8b8bf29c6c <unknown>
+
+[18:26:06] New autonomous report: AUT-37-1779215166 -> Tabs: 1: (1) Home / X
+[18:26:06] Executed APP-52469-20260519182443 -> OK humanclick(0.5538,0.4398)
+[18:26:06] New autonomous report: AUT-38-1779215166 -> navigate(https://x.com/home)
+[18:26:08] Sender published response comment.
+[18:26:09] Taking screenshot: screenshots/0068_182609_727_auto.png
