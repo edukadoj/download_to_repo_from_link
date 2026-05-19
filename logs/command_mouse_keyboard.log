@@ -689,3 +689,7 @@ Stacktrace:
 [01:19:03] Taking screenshot: screenshots/0166_011903_543_auto.png
 [01:19:03] Pushing screenshot screenshots/0166_011903_543_auto.png with 10s timeout...
 [01:19:06] Screenshot screenshots/0166_011903_543_auto.png pushed successfully.
+[01:19:08] Taking screenshot: screenshots/0167_011908_543_auto.png
+[01:19:08] Pushing screenshot screenshots/0167_011908_543_auto.png with 10s timeout...
+[01:19:09] push_screenshots_now failed: Command '['git', 'commit', '-m', 'Screenshots & log']' returned non-zero exit status 128.
+[01:19:09] Screenshot push failed or timed out for screenshots/0167_011908_543_auto.png.
