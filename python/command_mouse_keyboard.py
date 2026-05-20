@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# command_mouse_keyboard.py – Version 39.39.1
-#   - Deletes the old "## Remote Agent Responses" comment at startup.
-#   - Uses agent_loops.py for the main loop functions.
+# command_mouse_keyboard.py – Version 39.39.2
+#   - Empties (instead of deleting) the old "## Remote Agent Responses"
+#     comment to prevent 404s on the client side.
 # ==============================================================================
 
 import os, sys, time, subprocess, hashlib, base64, json, random, threading, traceback, io, shutil, tarfile, glob, re, tempfile, signal
@@ -88,7 +88,7 @@ def echo(msg: str) -> None:
     except Exception:
         pass
 
-echo(f"{'='*60}\n  Remote Control v39.39.1 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
+echo(f"{'='*60}\n  Remote Control v39.39.2 started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n{'='*60}")
 os.makedirs("screenshots", exist_ok=True)
 
 COMM_INTERVAL = 5.0
@@ -433,11 +433,11 @@ def main():
     else:
         safe_log("No app command comment found – creating one? Not typical.")
 
-    # Delete the old Remote Agent Responses comment to clear stale responses
+    # Empty the old response comment instead of deleting it
     old_resp = find_marker_comment(all_comments, "## Remote Agent Responses")
     if old_resp:
-        safe_log(f"Deleting old response comment {old_resp['id']}...")
-        sync_repo.delete_comment(old_resp["id"])
+        safe_log(f"Emptying old response comment {old_resp['id']}...")
+        sync_repo.edit_comment(old_resp["id"], "## Remote Agent Responses\n")
 
     screenshot_worker = ScreenshotWorker(
         _screenshot_stop, driver, driver_lock, agent_state,
