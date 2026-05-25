@@ -331,3 +331,6 @@
 [23:31:11] Execution loop: processing APP-58648-20260525232918: dir
 [23:31:11] Executed APP-58648-20260525232918 -> Files: (empty)
 [23:31:13] Sender published response comment.
+[23:31:14] Taking screenshot: screenshots/0048_1779751874410486_auto.png
+[23:31:14] Uploading screenshot synchronously: screenshots/0048_1779751874410486_auto.png
+[23:31:17] Screenshot screenshots/0048_1779751874410486_auto.png uploaded successfully.
