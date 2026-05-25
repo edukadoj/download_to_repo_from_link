@@ -1,0 +1,418 @@
+# create_google_ai_project.yml – version 3.2 (Dismiss spend‑cap popup + persistent shadow‑DOM click)
+name: Create Google AI Studio Project
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: 'Project name (default: gemini-project-script)'
+        required: false
+        type: string
+        default: 'gemini-project-script'
+
+jobs:
+  create-project:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      KEY: ${{ secrets.KEY }}
+      PYTHONUNBUFFERED: 1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "1) Clean log & screenshots"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          rm -f create_project.log
+          rm -rf screenshots
+          mkdir -p screenshots
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Clean start"
+          fi
+          git pull --rebase && git push || echo "Push failed (non‑critical)"
+
+      - name: "2) Restore cached Chrome profile"
+        uses: actions/cache/restore@v3
+        id: cache
+        with:
+          path: profile_cache.tar.enc
+          key: chrome-profile-v1
+
+      - name: "3) Install dependencies"
+        run: |
+          sudo apt update && sudo apt install -y wget gnupg python3-pip xvfb
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+          sudo apt update && sudo apt install -y google-chrome-stable
+          pip3 install selenium webdriver-manager requests cryptography pyvirtualdisplay
+
+      - name: "4) Create project (dismiss popup, then persistent click)"
+        timeout-minutes: 10
+        run: |
+          python3 << 'PYEOF'
+          import os, time, subprocess, hashlib, sys, base64, shutil, tarfile, io, re
+          from datetime import datetime
+          from pyvirtualdisplay import Display
+          from cryptography.fernet import Fernet
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+
+          # ---------- helpers ----------
+          def echo(msg):
+              print(msg, flush=True)
+
+          def stage(title):
+              echo(f"\n{'#'*55}\n#  STAGE: {title}\n{'#'*55}")
+
+          log_file = "create_project.log"
+          def log(msg):
+              now = datetime.now().strftime("%H:%M:%S")
+              line = f"[{now}] {msg}"
+              with open(log_file, "a") as f:
+                  f.write(line + "\n")
+              echo(line)
+
+          with open(log_file, "w") as f:
+              f.write(f"=== Project Creation started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')} ===\n\n")
+
+          os.makedirs("screenshots", exist_ok=True)
+
+          # ---------- reliable commit helper ----------
+          def git_add_and_commit(files, message):
+              subprocess.run(["git","add"] + files + [log_file], check=True)
+              try:
+                  subprocess.run(["git","diff","--cached","--quiet"], check=True)
+                  return
+              except subprocess.CalledProcessError:
+                  pass
+              subprocess.run(["git","commit","-m", message], check=True)
+              subprocess.run(["git","pull","--rebase"], check=True)
+              result = subprocess.run(["git","push"], capture_output=True, text=True)
+              if result.returncode != 0:
+                  echo(f"   ↳ Push failed: {result.stderr.strip()}")
+              else:
+                  echo("   ↳ pushed")
+
+          counter = [0]
+          def ss(desc, push=True):
+              counter[0] += 1
+              now = datetime.now().strftime("%H%M%S")
+              fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
+              driver.save_screenshot(fname)
+              echo(f"📸 {fname}" + ("" if push else " (private)"))
+              if not push:
+                  return
+              git_add_and_commit([fname], f"Screenshot {fname}")
+
+          # ---------- Aggressive popup closer for spend‑cap notification ----------
+          def close_spend_cap_popup(driver):
+              """
+              The page shows a notification like:
+                New: Control your API cost
+                Set a monthly spend cap to prevent accidental overspending
+                close          Create a spend cap
+              We need to click the 'close' link.
+              """
+              # 1. Try to find an element containing 'close' text inside a notification container
+              try:
+                  # Find all elements that contain the word 'close' and are near 'spend cap'
+                  elements = driver.find_elements(By.XPATH, "//*[contains(text(),'close')]")
+                  for el in elements:
+                      # Check if the element is inside a container mentioning 'spend cap'
+                      parent_text = el.find_element(By.XPATH, "..").text if el.get_attribute("tagName") != "BODY" else ""
+                      if "spend cap" in parent_text.lower() or "spend cap" in el.text.lower():
+                          try:
+                              el.click()
+                              log("Clicked 'close' link in spend‑cap notification.")
+                              time.sleep(1)
+                              return True
+                          except:
+                              continue
+              except:
+                  pass
+
+              # 2. Try a more generic approach: find any element containing 'close' and is inside a container that also contains 'spend cap'
+              try:
+                  driver.execute_script("""
+                  const all = document.querySelectorAll('*');
+                  for (const el of all) {
+                      if (el.textContent.toLowerCase().includes('close') &&
+                          el.textContent.toLowerCase().includes('spend cap')) {
+                          try { el.click(); return true; } catch(e) {}
+                      }
+                  }
+                  // fallback: just click any 'close' in a notification area
+                  const containers = document.querySelectorAll('div, section, aside');
+                  for (const c of containers) {
+                      if (c.textContent.includes('spend cap')) {
+                          const closeBtn = c.querySelector('button, a');
+                          if (closeBtn) { closeBtn.click(); return true; }
+                      }
+                  }
+                  return false;
+                  """)
+                  log("Attempted generic close via JS.")
+                  time.sleep(1)
+                  # Check if popup still visible
+                  if "spend cap" not in driver.page_source:
+                      return True
+              except:
+                  pass
+
+              # 3. ESC key as last resort
+              try:
+                  from selenium.webdriver.common.keys import Keys
+                  driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+                  log("Pressed ESC to attempt dismissal.")
+                  time.sleep(1)
+                  if "spend cap" not in driver.page_source:
+                      return True
+              except:
+                  pass
+
+              return False
+
+          # ---------- Deep recursive shadow‑DOM clicker ----------
+          def search_and_click_deep(driver, target_text, aria_label_pattern=None):
+              target_lower = target_text.lower()
+              script = """
+              const target = arguments[0].toLowerCase();
+              const ariaPat = arguments[1] || '';
+              function searchAndClick(root) {
+                  if (!root) return false;
+                  const all = root.querySelectorAll('*');
+                  for (const el of all) {
+                      if (el.offsetParent === null && el.tagName !== 'BODY') continue;
+                      const txt = (el.textContent || '').trim().toLowerCase();
+                      if (txt.includes(target)) {
+                          try { el.click(); return true; } catch(e) {}
+                      }
+                      if (ariaPat && (el.getAttribute('aria-label') || '').toLowerCase().includes(ariaPat.toLowerCase())) {
+                          try { el.click(); return true; } catch(e) {}
+                      }
+                  }
+                  for (const el of all) {
+                      if (el.shadowRoot) {
+                          if (searchAndClick(el.shadowRoot)) return true;
+                      }
+                  }
+                  return false;
+              }
+              if (searchAndClick(document.body)) return true;
+              const iframes = document.querySelectorAll('iframe');
+              for (const iframe of iframes) {
+                  try {
+                      const doc = iframe.contentDocument || iframe.contentWindow.document;
+                      if (searchAndClick(doc.body)) return true;
+                  } catch(e) {}
+              }
+              return false;
+              """
+              return driver.execute_script(script, target_text, aria_label_pattern or "")
+
+          def dialog_input_appeared(driver):
+              for sel in [
+                  "//input[@aria-label='Name your project']",
+                  "//input[contains(@aria-label,'Name your project')]",
+                  "//input[contains(@aria-label,'project name')]",
+                  "//div[@role='dialog']//input[not(@type='hidden')]",
+              ]:
+                  try:
+                      el = driver.find_element(By.XPATH, sel)
+                      if el.is_displayed() and el.is_enabled():
+                          return el
+                  except:
+                      continue
+              return None
+
+          # ---------- decrypt & restore Chrome profile ----------
+          if not os.path.exists("profile_cache.tar.enc"):
+              log("ERROR: No cached Chrome profile found. Run the Gmail workflow first.")
+              sys.exit(1)
+
+          stage("RESTORE CHROME PROFILE")
+          KEY = os.environ["KEY"]
+          ENCRYPTION_KEY = base64.urlsafe_b64encode(hashlib.sha256(KEY.encode()).digest())
+          def decrypt_data(data):
+              return Fernet(ENCRYPTION_KEY).decrypt(data)
+          with open("profile_cache.tar.enc","rb") as f:
+              encrypted = f.read()
+          decrypted = decrypt_data(encrypted)
+          PROFILE_DIR = "/tmp/chrome_profile"
+          shutil.rmtree(PROFILE_DIR, ignore_errors=True)
+          buf = io.BytesIO(decrypted)
+          with tarfile.open(fileobj=buf, mode='r:gz') as tar:
+              tar.extractall('/tmp')
+          log("Profile restored.")
+
+          # ---------- virtual display ----------
+          stage("START VIRTUAL DISPLAY")
+          display = Display(visible=False, size=(1920,1080))
+          display.start()
+          log("PyVirtualDisplay started.")
+
+          # ---------- launch Chrome ----------
+          opts = webdriver.ChromeOptions()
+          opts.add_argument("--no-sandbox")
+          opts.add_argument("--disable-gpu")
+          opts.add_argument("--disable-blink-features=AutomationControlled")
+          opts.add_argument("--window-size=1920,1080")
+          opts.add_argument(f"--user-data-dir={PROFILE_DIR}")
+          opts.add_argument("--profile-directory=Default")
+          opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+          opts.add_experimental_option('useAutomationExtension', False)
+
+          driver = webdriver.Chrome(options=opts)
+          driver.execute_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
+          wait = WebDriverWait(driver,30)
+          log("Chrome launched.")
+
+          PROJECT_NAME = "${{ github.event.inputs.project_name }}" or "gemini-project-script"
+          log(f"Will create project: {PROJECT_NAME}")
+
+          try:
+              # ---- 1. Navigate to Projects page ----
+              stage("NAVIGATE TO PROJECTS PAGE")
+              driver.get("https://aistudio.google.com/projects")
+              time.sleep(6)
+              ss("01_projects_page_loaded")
+
+              if "accounts.google.com" in driver.current_url:
+                  log("ERROR: Not signed in. Run the Gmail workflow first.")
+                  ss("99_not_signed_in")
+                  sys.exit(1)
+
+              # ---- 2. Dismiss the spend‑cap notification if present ----
+              stage("DISMISS SPEND‑CAP POPUP")
+              log("Checking for spend‑cap notification...")
+              if "spend cap" in driver.page_source:
+                  log("Spend‑cap popup detected. Closing...")
+                  if close_spend_cap_popup(driver):
+                      log("Pop‑up closed.")
+                      ss("02_popup_closed")
+                  else:
+                      log("Warning: Could not close spend‑cap popup. It may block clicks.")
+                      ss("02_popup_still_present")
+              else:
+                  log("No spend‑cap popup found.")
+
+              # ---- 3. Dump page text for debugging ----
+              stage("DUMP PAGE TEXT")
+              text_dump = driver.execute_script(
+                  "return document.body ? document.body.innerText.substring(0, 2000) : '(no body)';"
+              )
+              log(f"Page text:\n{text_dump}")
+              with open("page_text.txt", "w", encoding="utf-8") as f:
+                  f.write(text_dump)
+              git_add_and_commit(["page_text.txt"], "Page text dump")
+
+              # ---- 4. Persistent Shadow‑DOM click for "Create a new project" ----
+              stage("PERSISTENT SHADOW‑DOM CLICK")
+              log("Searching recursively through all shadow roots for 'Create a new project'...")
+              log("Will keep trying until the 'Name your project' dialog appears.")
+
+              text_patterns = [
+                  "Create a new project",
+                  "Create new project",
+                  "New project",
+                  "create a new",
+              ]
+              aria_patterns = [
+                  "Create a new project",
+                  "Create new project",
+                  "New project",
+                  "create",
+              ]
+
+              max_attempts = 30
+              name_input = None
+              for attempt in range(1, max_attempts + 1):
+                  if attempt > 1:
+                      log(f"--- Retry {attempt}/{max_attempts} ---")
+                  else:
+                      log(f"--- Attempt {attempt}/{max_attempts} ---")
+
+                  for pat in text_patterns:
+                      log(f"  Searching for text: '{pat}'")
+                      found = search_and_click_deep(driver, pat, "")
+                      if found:
+                          log(f"  ✅ Click triggered! Waiting for dialog...")
+                          time.sleep(2)
+                          name_input = dialog_input_appeared(driver)
+                          if name_input:
+                              log("🎉 Dialog appeared!")
+                              break
+                          else:
+                              log("  Click happened but no dialog yet. Continuing search...")
+                  else:
+                      for pat in aria_patterns:
+                          log(f"  Searching for aria-label: '{pat}'")
+                          found = search_and_click_deep(driver, "", pat)
+                          if found:
+                              log(f"  ✅ Click triggered! Waiting for dialog...")
+                              time.sleep(2)
+                              name_input = dialog_input_appeared(driver)
+                              if name_input:
+                                  log("🎉 Dialog appeared!")
+                                  break
+
+                  name_input = dialog_input_appeared(driver)
+                  if name_input:
+                      break
+
+                  if attempt % 5 == 0:
+                      log(f"  Still searching after {attempt} attempts. Dumping debug info...")
+                      driver.save_screenshot(f"screenshots/debug_attempt_{attempt:03d}.png")
+                      subprocess.run(["git","add",f"screenshots/debug_attempt_{attempt:03d}.png"], check=True)
+                      subprocess.run(["git","commit","-m",f"Debug screenshot attempt {attempt}"], check=True)
+                      subprocess.run(["git","push"], check=True)
+
+                  time.sleep(2)
+
+              if not name_input:
+                  ss("02_all_attempts_failed")
+                  with open("page_source.html", "w", encoding="utf-8") as f:
+                      f.write(driver.page_source)
+                  git_add_and_commit(["page_source.html"], "Page source after all attempts failed")
+                  log("ERROR: Could not trigger the project creation dialog after exhaustive search.")
+                  sys.exit(1)
+
+              log("Dialog is open. Filling project name...")
+              ss("02_dialog_opened")
+
+              # ---- 5. Fill project name ----
+              stage("FILL PROJECT NAME")
+              name_input = dialog_input_appeared(driver)
+              if not name_input:
+                  log("ERROR: Dialog input disappeared!")
+                  sys.exit(1)
+              name_input.clear()
+              name_input.send_keys(PROJECT_NAME)
+              log(f"Project name '{PROJECT_NAME}' typed in.")
+              ss("04_name_filled")
+
+              log("Project name entered. Ready for next step (stopping as requested).")
+              driver.save_screenshot("screenshots/05_ready.png")
+              git_add_and_commit(["screenshots/05_ready.png"], "Ready for next step")
+              echo("📸 Screenshot '05_ready' pushed to repo.")
+
+          except Exception as e:
+              log(f"ERROR: {e}")
+              try: ss("99_failure")
+              except: pass
+              raise
+          finally:
+              driver.quit()
+              display.stop()
+              log("Browser closed. Virtual display stopped.")
+
+          # final push
+          git_add_and_commit(["screenshots/"], "Project creation log")
+          echo("🎉 Workflow finished (name entered).")
+          PYEOF

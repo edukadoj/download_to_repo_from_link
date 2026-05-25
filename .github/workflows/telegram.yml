@@ -1,0 +1,285 @@
+# Version: 1.1.1
+# .github/workflows/telegram.yml
+name: Telegram – Encrypted Session + Login
+
+on:
+  workflow_dispatch:
+
+jobs:
+  telegram:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      PHONE:    ${{ secrets.PHONE }}             # e.g. +9893...
+      TELPASS:  ${{ secrets.TELPASS }}           # 2FA password (leave empty if not set)
+      ENCRYPTION_PASSWORD: ${{ secrets.ENCRYPTION_PASSWORD }}
+      PYTHONUNBUFFERED: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------- CLEAN START ----------
+      - name: "Clean old run data"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          rm -rf screenshots telegram.log bestlog.txt
+          mkdir -p screenshots
+          git add -A
+          git commit -m "Clean start" || echo "Nothing to commit"
+          git pull --rebase && git push || echo "Push failed in clean step, continuing"
+
+      # ---------- RESTORE ENCRYPTED PROFILE ----------
+      - name: Download previous encrypted browser profile
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: chrome-profile
+          path: ./profile_encrypted
+
+      - name: Decrypt and extract browser profile
+        run: |
+          if [ -f ./profile_encrypted/chrome-profile.tar.gpg ]; then
+            echo "Decrypting profile..."
+            mkdir -p /tmp/chrome-shared-profile
+            gpg --batch --yes --passphrase "$ENCRYPTION_PASSWORD" \
+                --decrypt ./profile_encrypted/chrome-profile.tar.gpg 2>/dev/null | tar -x -C /tmp/chrome-shared-profile
+            echo "Profile restored."
+          else
+            echo "No previous profile found – fresh login will be performed."
+          fi
+
+      # ---------- INSTALL DEPENDENCIES ----------
+      - name: Install Google Chrome + tools
+        run: |
+          sudo apt update
+          sudo apt install -y wget gnupg python3-pip \
+            libxss1 libnss3 libnspr4 libatk-bridge2.0-0 libatspi2.0-0 \
+            libxcomposite1 libxdamage1 libxrandr2 libgbm1 \
+            xdg-utils fonts-liberation
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt update && sudo apt install -y google-chrome-stable
+          pip3 install selenium webdriver-manager requests
+
+      # ---------- MAIN AUTOMATION ----------
+      - name: "Login (if needed) + download"
+        timeout-minutes: 30
+        run: |
+          exec > >(tee -a telegram.log) 2>&1
+          python3 << 'PYEOF'
+          import os, sys, time, re, requests, subprocess, traceback, glob
+          from datetime import datetime
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.common.keys import Keys
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+          from selenium.webdriver.chrome.options import Options
+          from selenium.common.exceptions import TimeoutException
+
+          echo = lambda m: print(f"[{datetime.now().strftime('%H:%M:%S')}] {m}", flush=True)
+          counter = [0]
+
+          def commit_everything(msg="Auto commit"):
+              try:
+                  subprocess.run(["git", "pull", "--rebase"], capture_output=True)
+                  subprocess.run(["git", "add", "-A"], check=True)
+                  diff = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
+                  if diff.returncode != 0:
+                      subprocess.run(["git", "commit", "-m", msg], check=True)
+                      subprocess.run(["git", "push"], check=True)
+                      echo("  ↗  Pushed to repository")
+              except Exception as e:
+                  echo(f"  ⚠️  Commit failed (non‑fatal): {e}")
+
+          def ss(desc):
+              if not driver:
+                  return
+              counter[0] += 1
+              now = datetime.now().strftime("%H%M%S")
+              fname = f"screenshots/{counter[0]:03d}_{now}_{desc}.png"
+              try:
+                  driver.save_screenshot(fname)
+                  echo(f"📸 Screenshot saved: {fname}")
+                  commit_everything(f"Screenshot: {desc}")
+              except Exception as e:
+                  echo(f"⚠️  Screenshot error: {e}")
+
+          profile_dir = "/tmp/chrome-shared-profile"
+          os.makedirs(profile_dir, exist_ok=True)
+          for lockfile in glob.glob(os.path.join(profile_dir, "Singleton*")):
+              os.remove(lockfile)
+
+          opts = Options()
+          opts.add_argument("--no-sandbox")
+          opts.add_argument("--disable-dev-shm-usage")
+          opts.add_argument("--disable-setuid-sandbox")
+          opts.add_argument("--disable-extensions")
+          opts.add_argument("--disable-background-networking")
+          opts.add_argument("--window-size=1280,720")
+          opts.add_argument("--headless=new")
+          opts.add_argument("--user-data-dir=" + profile_dir)
+
+          driver = None
+          try:
+              echo("Launching Chrome …")
+              driver = webdriver.Chrome(options=opts)
+              wait = WebDriverWait(driver, 20)
+
+              # ── Check if already logged in ──
+              driver.get("https://web.telegram.org/k/")
+              time.sleep(5)
+              ss("01_initial")
+              try:
+                  driver.find_element(By.XPATH, "//div[contains(@class,'chat-list')] | //div[contains(@class,'Chat')]")
+                  echo("✅ Already logged in (session restored).")
+                  logged_in = True
+              except:
+                  logged_in = False
+
+              if not logged_in:
+                  # ── Click "Log in by phone number" (PROVEN SELECTOR) ──
+                  echo("Need to log in.")
+                  try:
+                      login_link = wait.until(EC.element_to_be_clickable(
+                          (By.XPATH, "//a[contains(text(),'Log in by phone number')] | //button[contains(.,'Log in by phone number')] | //span[contains(text(),'Log in by phone number')]")
+                      ))
+                      login_link.click()
+                      echo("✅ Clicked 'Log in by phone number'.")
+                      time.sleep(5)   # wait for the modal to render
+                      ss("02_login_form")
+                  except TimeoutException:
+                      echo("⚠️ Link not found – maybe phone input already visible?")
+                      ss("02_no_link")
+
+                  # ── Phone number input (robust wildcard XPath + clear) ──
+                  PHONE = os.environ.get("PHONE", "").strip()
+                  if not PHONE:
+                      raise Exception("PHONE secret is not set.")
+                  echo(f"Entering phone number: {PHONE[:5]}...{PHONE[-3:]}")
+
+                  # Locate any visible input that likely holds a phone number
+                  phone_input = wait.until(EC.presence_of_element_located(
+                      (By.XPATH, "//input[contains(@class,'phone') or contains(@id,'phone') "
+                                 "or contains(@name,'phone') or contains(@placeholder,'phone') "
+                                 "or @type='tel']")
+                  ))
+                  driver.execute_script("arguments[0].scrollIntoView(true);", phone_input)
+                  time.sleep(0.5)
+                  phone_input.click()
+                  # Select all and delete (clears prefilled +1)
+                  phone_input.send_keys(Keys.CONTROL + "a")
+                  phone_input.send_keys(Keys.DELETE)
+                  time.sleep(0.2)
+                  phone_input.send_keys(PHONE)
+                  ss("03_phone_filled")
+
+                  # Click blue "Next" button
+                  next_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(.,'Next')]")))
+                  next_btn.click()
+                  time.sleep(5)
+                  ss("04_after_phone")
+
+                  # ── SMS code waiting ──
+                  try:
+                      sms_link = driver.find_element(By.XPATH, "//span[contains(text(),'Send code via SMS')]")
+                      echo("Clicking 'Send code via SMS'...")
+                      sms_link.click()
+                      time.sleep(3)
+                      ss("05_sms_clicked")
+                  except: echo("SMS option not present.")
+
+                  with open("bestlog.txt","w") as f: f.write("")
+                  commit_everything("Waiting for SMS code")
+                  raw_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/main/bestlog.txt"
+
+                  code = None
+                  while not code:
+                      echo("⏳ Waiting for 5-digit SMS code in bestlog.txt...")
+                      time.sleep(15)
+                      try:
+                          r = requests.get(raw_url, timeout=10)
+                          if r.status_code == 200:
+                              nums = re.findall(r'\d', r.text)
+                              if len(nums) >= 5:
+                                  code = ''.join(nums[:5])
+                                  echo(f"✅ Found code: {code}")
+                      except: pass
+
+                  code_input = None
+                  for sel in ["input[name='code']", "#code", "input[type='number']"]:
+                      try:
+                          code_input = driver.find_element(By.CSS_SELECTOR, sel)
+                          if code_input.is_displayed():
+                              break
+                      except: continue
+                  if not code_input:
+                      raise Exception("Code input field not found.")
+                  code_input.send_keys(code)
+                  ss("06_code_entered")
+                  driver.find_element(By.XPATH, "//button[contains(.,'Next')]").click()
+                  time.sleep(5)
+                  ss("07_after_code")
+
+                  # ── 2FA password ──
+                  try:
+                      pwd_input = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='password']")))
+                      echo("2FA password prompt detected.")
+                      TELPASS = os.environ.get("TELPASS","").strip()
+                      if not TELPASS:
+                          raise Exception("TELPASS secret not set, but 2FA is enabled.")
+                      pwd_input.send_keys(TELPASS)
+                      ss("08_password_entered")
+                      driver.find_element(By.XPATH, "//button[contains(.,'Next')]").click()
+                      time.sleep(5)
+                      ss("09_after_password")
+                  except TimeoutException: echo("No 2FA prompt.")
+
+                  echo("✅ Login completed successfully.")
+
+              # ── DOWNLOAD PLACEHOLDER ──
+              echo("Navigating to public channel...")
+              driver.get("https://web.telegram.org/k/#@your_public_channel")
+              time.sleep(5)
+              ss("10_channel_loaded")
+              echo("Script finished – ready for download logic.")
+
+          except Exception:
+              echo("❌ FATAL ERROR: " + traceback.format_exc())
+              if driver:
+                  try: ss("99_fatal_error")
+                  except: pass
+              sys.exit(1)
+          finally:
+              if driver:
+                  driver.quit()
+          PYEOF
+
+      # ---------- ENCRYPT AND SAVE PROFILE ----------
+      - name: Encrypt Chrome profile and upload artifact
+        if: success()
+        run: |
+          echo "Encrypting browser profile..."
+          tar -c -C /tmp chrome-shared-profile | \
+            gpg --batch --yes --passphrase "$ENCRYPTION_PASSWORD" --symmetric --cipher-algo AES256 -o chrome-profile.tar.gpg
+          mkdir -p profile_encrypted
+          mv chrome-profile.tar.gpg profile_encrypted/
+
+      - name: Upload encrypted profile artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-profile
+          path: profile_encrypted/chrome-profile.tar.gpg
+          retention-days: 30
+
+      # ---------- FINAL SAVE ----------
+      - name: "Commit logs and screenshots (always)"
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A || true
+          git commit -m "Telegram run logs & screenshots" || echo "Nothing to commit"
+          git push || echo "Push failed"

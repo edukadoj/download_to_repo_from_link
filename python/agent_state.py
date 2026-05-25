@@ -1,0 +1,1010 @@
+#!/usr/bin/env python3
+# ==============================================================================
+# agent_state.py – Version 2.9.5
+#   - refresh_known_handles() now uses a short script timeout (2 s) to avoid
+#     blocking forever on slow‑loading pages (e.g. MediaFire).
+#   - All other functionality unchanged.
+# ==============================================================================
+
+import os, time, re, glob, threading, traceback, random, base64, json
+import urllib.request, urllib.error
+from datetime import datetime
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.common.actions.pointer_input import PointerInput
+from selenium.common.exceptions import WebDriverException, InvalidSessionIdException, TimeoutException
+
+# ---------- Log helper (will be overridden by main) ----------
+def log(msg: str) -> None:
+    pass
+
+# ---------- Global driver & viewport ----------
+driver = None
+W, H = -1, -1              # invalid until probe_clickable_bounds() completes
+cursor_x, cursor_y = 0, 0
+
+# Thread‑safety lock – set by main script to a common lock
+driver_lock = threading.Lock()
+
+# ---------- Optional modules ----------
+HAS_GEMINI = False
+HAS_PYPERCLIP = False
+pyperclip = None
+
+# ---------- Allowed secrets ----------
+allowed_secrets = []
+
+# ---------- Active tab tracking (1‑based index) ----------
+ACTIVE_TAB_INDEX = 1
+
+# ---------- Lock for autonomous reports list ----------
+_auto_lock = threading.Lock()
+
+# ── callback to push autonomous reports directly into the report queue ──
+_report_queue_callback = None
+
+def set_autonomous_report_callback(cb):
+    """Set a callback(key, timestamp, seq_num, text) that the sender loop can consume."""
+    global _report_queue_callback
+    _report_queue_callback = cb
+
+# ── Stop event for the download folder watcher ──────────────────
+_download_watcher_stop = threading.Event()
+
+# ---------- Raw CDP send helper (adapted from upload_injector) ----------
+def _cdp_send(method: str, params: dict = None, timeout: int = 5):
+    """Send a raw CDP command via the debugger URL. Returns parsed result dict."""
+    if driver is None:
+        return None
+    try:
+        debugger_url = driver.command_executor._url
+        base = debugger_url.rsplit("/", 1)[0]
+        session_id = driver.session_id
+        cdp_url = f"{base}/session/{session_id}/chromium/send_command_and_get_result"
+        payload = json.dumps({"cmd": method, "params": params or {}}).encode("utf-8")
+        req = urllib.request.Request(cdp_url, data=payload,
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return None
+
+# ---------- CDP tab monitor (raw HTTP polling) ----------
+_tab_monitor_started = False
+
+def start_tab_monitor(drv):
+    """
+    Start a background thread that periodically polls Chrome's list of page
+    targets via the raw DevTools Protocol.  When a new page target is detected
+    (tab, window, or popup), a `tabopened` autonomous report is sent and the
+    full tab list is refreshed automatically.
+    This function does NOT rely on the `selenium.devtools` module.
+    """
+    global _tab_monitor_started, driver
+    if _tab_monitor_started:
+        return
+    _tab_monitor_started = True
+    driver = drv
+
+    known_target_ids = set()   # track target IDs we've already seen
+
+    def _monitor():
+        log("CDP tab monitor started (raw HTTP polling).")
+        while True:
+            time.sleep(2)
+            try:
+                resp = _cdp_send("Target.getTargets")
+                if resp is None or "result" not in resp:
+                    continue
+                targets = resp["result"].get("targetInfos", [])
+                current_ids = set()
+                for t in targets:
+                    if t.get("type") == "page":
+                        tid = t.get("targetId", "")
+                        current_ids.add(tid)
+                        if tid not in known_target_ids:
+                            known_target_ids.add(tid)
+                            log(f"New page target detected via CDP: {tid}")
+                            try:
+                                add_autonomous_report("tabopened",
+                                                      f"New browsing context: {tid}")
+                                # Refresh the full tab list so the client gets
+                                # the updated Tabs: report
+                                refresh_known_handles()
+                            except Exception as e:
+                                log(f"Error in CDP tab monitor handler: {e}")
+                # Remove IDs that no longer exist (target closed)
+                known_target_ids.intersection_update(current_ids)
+            except Exception as e:
+                log(f"CDP tab monitor polling error: {e}")
+
+    t = threading.Thread(target=_monitor, daemon=True)
+    t.start()
+
+
+def probe_clickable_bounds():
+    """
+    Discover the maximum clickable X and Y by testing moves and checking
+    whether the driver clamps the coordinate to a smaller value.
+    
+    1.  Start with a hard‑coded rough guess (1918 x 991).
+    2.  Temporarily set W, H to that guess so move_cursor_absolute works.
+    3.  For X: start from guess-5, move to (rx, 1). If the resulting
+        cursor_x equals rx, increment until cursor_x < requested x.
+        The last successful full move gives the true max X.
+        If the very first move already clamps, decrement until no clamp.
+    4.  For Y: same logic with (1, ry).
+    5.  Assign final W, H, send viewsize report, and move cursor to centre.
+    """
+    global W, H
+    if driver is None:
+        return
+
+    ensure_active_tab()
+    log("Probing clickable bounds...")
+
+    # ── Hard‑coded rough guess (no CSS viewport dimensions) ──────────
+    css_w, css_h = 1918, 991
+    log(f"Rough guess: {css_w}x{css_h}")
+
+    # ── Temporary valid size so that move_cursor_absolute works ──
+    W, H = css_w, css_h
+
+    # ── Find max X ──────────────────────────────────────────────
+    rx = css_w - 5
+    if rx < 1:
+        rx = 1
+
+    def move_and_get_x(x):
+        move_cursor_absolute(x, 1)
+        return cursor_x
+
+    achieved = move_and_get_x(rx)
+    if achieved == rx:
+        x = rx
+        while True:
+            x += 1
+            achieved = move_and_get_x(x)
+            if achieved < x:
+                x -= 1
+                break
+        W = x
+        log(f"Max clickable X (incrementing) = {W}")
+    else:
+        x = rx
+        while x > 0:
+            x -= 1
+            achieved = move_and_get_x(x)
+            if achieved == x:
+                W = x
+                log(f"Max clickable X (decrementing) = {W}")
+                break
+        else:
+            W = 1
+
+    # ── Find max Y ──────────────────────────────────────────────
+    ry = css_h - 5
+    if ry < 1:
+        ry = 1
+
+    def move_and_get_y(y):
+        move_cursor_absolute(1, y)
+        return cursor_y
+
+    achieved = move_and_get_y(ry)
+    if achieved == ry:
+        y = ry
+        while True:
+            y += 1
+            achieved = move_and_get_y(y)
+            if achieved < y:
+                y -= 1
+                break
+        H = y
+        log(f"Max clickable Y (incrementing) = {H}")
+    else:
+        y = ry
+        while y > 0:
+            y -= 1
+            achieved = move_and_get_y(y)
+            if achieved == y:
+                H = y
+                log(f"Max clickable Y (decrementing) = {H}")
+                break
+        else:
+            H = 1
+
+    log(f"Final clickable bounds: {W}x{H}")
+
+    # ── Report to client ─────────────────────────────────────────
+    add_autonomous_report("viewsize", f"viewsize:{W}x{H}")
+
+    # ── Move to a safe neutral position ──────────────────────────
+    move_cursor_absolute(W // 2, H // 2)
+
+
+def update_viewport():
+    """
+    Legacy function – no longer used.  Kept only for compatibility.
+    The real viewport is now discovered by probe_clickable_bounds().
+    """
+    pass
+
+
+def ensure_active_tab():
+    """
+    Make sure the browser is pointing to the expected tab.
+    Never raises – all driver exceptions are caught and logged.
+    Does NOT resize the window – window size is fixed after initial launch.
+    """
+    global ACTIVE_TAB_INDEX
+    if driver is None:
+        return
+    try:
+        with driver_lock:
+            handles = list(driver.window_handles)
+            if not handles:
+                return
+            idx = ACTIVE_TAB_INDEX - 1
+            if idx < 0 or idx >= len(handles):
+                current = driver.current_window_handle
+                if current in handles:
+                    ACTIVE_TAB_INDEX = handles.index(current) + 1
+                else:
+                    ACTIVE_TAB_INDEX = 1
+                    idx = 0
+            else:
+                if driver.current_window_handle != handles[idx]:
+                    driver.switch_to.window(handles[idx])
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"ensure_active_tab driver error: {e}")
+    except Exception as e:
+        log(f"ensure_active_tab unexpected error: {e}")
+
+
+# ---------- Improved drag‑and‑drop file injection ----------
+def drag_file_to_target(driver_ref, file_path, x, y):
+    try:
+        with driver_lock:
+            elements = driver_ref.execute_script(
+                "return document.elementsFromPoint(arguments[0], arguments[1]);",
+                x, y
+            )
+            if elements:
+                for el in elements:
+                    tag = driver_ref.execute_script("return arguments[0].tagName.toLowerCase();", el)
+                    type_attr = driver_ref.execute_script("return arguments[0].type;", el)
+                    if tag == "input" and type_attr == "file":
+                        el.send_keys(file_path)
+                        return True
+                parent_el = elements[0]
+                for _ in range(10):
+                    if parent_el is None:
+                        break
+                    file_inputs = driver_ref.execute_script(
+                        "return arguments[0].querySelectorAll('input[type=file]');",
+                        parent_el
+                    )
+                    if file_inputs and len(file_inputs) > 0:
+                        file_inputs[0].send_keys(file_path)
+                        return True
+                    parent_el = driver_ref.execute_script("return arguments[0].parentElement;", parent_el)
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"drag_file_to_target: driver error: {e}")
+    except Exception as e:
+        log(f"drag_file_to_target: unexpected error: {e}")
+
+    script = """
+    var x = arguments[0], y = arguments[1], filePath = arguments[2];
+    var elements = document.elementsFromPoint(x, y);
+    if (!elements || elements.length === 0) return false;
+    var target = null;
+    for (var i = 0; i < elements.length; i++) {
+        var el = elements[i];
+        if (el.tagName === 'INPUT' && el.type === 'file') {
+            target = el;
+            break;
+        }
+    }
+    if (!target) target = elements[0];
+    if (target.tagName === 'INPUT' && target.type === 'file') return false;
+
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.style.display = 'none';
+    fileInput.multiple = false;
+    fileInput.onchange = function() {
+        if (!fileInput.files.length) return;
+        var file = fileInput.files[0];
+        var dt = new DataTransfer();
+        dt.items.add(file);
+        var dragEnter = new DragEvent('dragenter', {bubbles: true, cancelable: true, dataTransfer: dt});
+        var dragOver = new DragEvent('dragover', {bubbles: true, cancelable: true, dataTransfer: dt});
+        var drop = new DragEvent('drop', {bubbles: true, cancelable: true, dataTransfer: dt});
+        target.dispatchEvent(dragEnter);
+        target.dispatchEvent(dragOver);
+        target.dispatchEvent(drop);
+        setTimeout(function() { document.body.removeChild(fileInput); }, 500);
+    };
+    document.body.appendChild(fileInput);
+    return fileInput;
+    """
+    try:
+        with driver_lock:
+            result = driver_ref.execute_script(script, x, y, file_path)
+            if result and not isinstance(result, bool):
+                result.send_keys(file_path)
+                return True
+        return False
+    except Exception as e:
+        log(f"drag_file_to_target fallback error: {e}")
+        return False
+
+
+# ---------- EXISTING UTILITY FUNCTIONS (with driver_lock) ----------
+
+def _try_gemini_click(prompt: str) -> bool:
+    if not HAS_GEMINI:
+        return False
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    if not api_key:
+        return False
+    try:
+        from google import genai
+        from google.genai.types import Tool, GenerateContentConfig
+        client = genai.Client(api_key=api_key)
+        computer_tool = Tool(computer_use={})
+        config = GenerateContentConfig(tools=[computer_tool])
+        tmp = "/tmp/gemini_click.png"
+        with driver_lock:
+            driver.save_screenshot(tmp)
+        with open(tmp, "rb") as f:
+            img_data = base64.b64encode(f.read()).decode()
+        resp = client.models.generate_content(
+            model="gemini-2.5-computer-use-preview-10-2025",
+            contents=[{"role":"user","parts":[{"text":prompt},{"inline_data":{"mime_type":"image/png","data":img_data}}]}],
+            config=config)
+        if not resp.candidates:
+            return False
+        fc = resp.candidates[0].content.parts[0].function_call
+        if fc.name == "click_at":
+            ax = int(fc.args["x"]/1000*W)
+            ay = int(fc.args["y"]/1000*H)
+            _perform_human_click_at(ax, ay)
+            return True
+        return False
+    except Exception as e:
+        log(f"Gemini click error: {e}")
+        return False
+
+
+# ── move_cursor_absolute – returns bool, uses safe W/H ─────────────────
+def move_cursor_absolute(x: int, y: int) -> bool:
+    """
+    Move the cursor to (x, y), clamped to the current clickable bounds.
+    Returns True if the driver operation succeeded, False otherwise.
+    On success, global cursor_x/cursor_y are updated.
+    If W or H are still invalid (-1), returns False immediately without
+    attempting the move, preventing crashes from stale commands.
+    """
+    ensure_active_tab()
+    global cursor_x, cursor_y
+
+    # Guard: if dimensions are not yet probed, reject the move safely
+    if W <= 0 or H <= 0:
+        log(f"move_cursor_absolute rejected: W={W}, H={H} (not probed yet)")
+        return False
+
+    x = max(0, min(W - 1, x))
+    y = max(0, min(H - 1, y))
+    try:
+        with driver_lock:
+            action = ActionBuilder(driver)
+            action.pointer_action.move_to_location(x, y)
+            action.perform()
+        cursor_x, cursor_y = x, y
+        log(f"Cursor moved to ({x}, {y})")
+        return True
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"move_cursor_absolute driver error: {e}")
+        return False
+    except Exception as e:
+        log(f"move_cursor_absolute unexpected error: {e}")
+        return False
+
+
+def move_cursor_relative(dx: int, dy: int) -> bool:
+    ensure_active_tab()
+    global cursor_x, cursor_y
+    if W <= 0 or H <= 0:
+        return False
+    new_x = max(0, min(W - 1, cursor_x + dx))
+    new_y = max(0, min(H - 1, cursor_y + dy))
+    return move_cursor_absolute(new_x, new_y)
+
+
+# ── Other interaction functions ────────────────────
+def _driver_action(func, *args, **kwargs):
+    """Wrapper to execute a driver action safely."""
+    try:
+        with driver_lock:
+            func(*args, **kwargs)
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"Driver action error: {e}")
+    except Exception as e:
+        log(f"Driver action unexpected error: {e}")
+
+
+def left_click() -> None:
+    ensure_active_tab()
+    _driver_action(lambda: ActionChains(driver).click().perform())
+
+
+def left_button_down() -> None:
+    ensure_active_tab()
+    def _do():
+        action = ActionBuilder(driver)
+        action.pointer_action.click_and_hold()
+        action.perform()
+    _driver_action(_do)
+
+
+def left_button_up() -> None:
+    ensure_active_tab()
+    def _do():
+        action = ActionBuilder(driver)
+        action.pointer_action.release()
+        action.perform()
+    _driver_action(_do)
+
+
+def right_button_down() -> None:
+    ensure_active_tab()
+    def _do():
+        action = ActionBuilder(driver)
+        action.pointer_action.pointer_down(PointerInput.Button.RIGHT)
+        action.perform()
+    _driver_action(_do)
+
+
+def right_button_up() -> None:
+    ensure_active_tab()
+    def _do():
+        action = ActionBuilder(driver)
+        action.pointer_action.pointer_up(PointerInput.Button.RIGHT)
+        action.perform()
+    _driver_action(_do)
+
+
+def middle_button_down() -> None:
+    ensure_active_tab()
+    def _do():
+        action = ActionBuilder(driver)
+        action.pointer_action.pointer_down(PointerInput.Button.MIDDLE)
+        action.perform()
+    _driver_action(_do)
+
+
+def middle_button_up() -> None:
+    ensure_active_tab()
+    def _do():
+        action = ActionBuilder(driver)
+        action.pointer_action.pointer_up(PointerInput.Button.MIDDLE)
+        action.perform()
+    _driver_action(_do)
+
+
+def double_click() -> None:
+    ensure_active_tab()
+    _driver_action(lambda: ActionChains(driver).double_click().perform())
+
+
+def right_click() -> None:
+    ensure_active_tab()
+    _driver_action(lambda: ActionChains(driver).context_click().perform())
+
+
+def middle_click() -> None:
+    ensure_active_tab()
+    def _do():
+        action = ActionBuilder(driver)
+        action.pointer_action.pointer_down(PointerInput.Button.MIDDLE)
+        action.pointer_action.pointer_up(PointerInput.Button.MIDDLE)
+        action.perform()
+    _driver_action(_do)
+
+
+def scroll_by(amount: int) -> None:
+    ensure_active_tab()
+    try:
+        with driver_lock:
+            scrollable = driver.execute_script("""
+                var elem = document.elementFromPoint(arguments[0], arguments[1]);
+                while (elem) {
+                    var overflowY = window.getComputedStyle(elem).overflowY;
+                    if (overflowY === 'auto' || overflowY === 'scroll') {
+                        if (elem.scrollHeight > elem.clientHeight) {
+                            return elem;
+                        }
+                    }
+                    elem = elem.parentElement;
+                }
+                return null;
+            """, cursor_x, cursor_y)
+            if scrollable:
+                driver.execute_script("arguments[0].scrollBy(0, arguments[1]);", scrollable, amount)
+            else:
+                driver.execute_script(f"window.scrollBy(0, {amount});")
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"scroll_by driver error: {e}")
+    except Exception as e:
+        log(f"scroll_by unexpected error: {e}")
+
+
+def drag_from_to(x1, y1, x2, y2) -> None:
+    ensure_active_tab()
+    move_cursor_absolute(x1, y1)
+    left_button_down()
+    time.sleep(0.1)
+    move_cursor_absolute(x2, y2)
+    time.sleep(0.1)
+    left_button_up()
+
+
+def _perform_human_click_at(x: int, y: int) -> None:
+    ensure_active_tab()
+    move_cursor_absolute(x, y)
+    time.sleep(0.1)
+    for _ in range(random.randint(1, 3)):
+        dx = random.randint(-2, 2)
+        dy = random.randint(-2, 2)
+        move_cursor_relative(dx, dy)
+        time.sleep(random.uniform(0.015, 0.040))
+    left_button_down()
+    time.sleep(random.uniform(0.030, 0.080))
+    dx = random.randint(1, 3) * (1 if random.random() > 0.5 else -1)
+    dy = random.randint(1, 3) * (1 if random.random() > 0.5 else -1)
+    move_cursor_relative(dx, dy)
+    time.sleep(random.uniform(0.010, 0.040))
+    left_button_up()
+
+
+def human_click(prompt: str = "Click the verify button") -> str:
+    ensure_active_tab()
+    if _try_gemini_click(prompt):
+        return f"Gemini click successful (prompt: {prompt})"
+    _perform_human_click_at(cursor_x, cursor_y)
+    return "Fallback human click at current cursor."
+
+
+def human_click_at(x: int, y: int) -> str:
+    ensure_active_tab()
+    move_cursor_absolute(x, y)
+    time.sleep(0.1)
+    if _try_gemini_click("Click the button at this position"):
+        return f"Gemini click at ({x},{y})"
+    _perform_human_click_at(x, y)
+    return f"Human click at ({x},{y})"
+
+
+KEY_MAP = {
+    "enter": Keys.ENTER, "tab": Keys.TAB, "escape": Keys.ESCAPE, "esc": Keys.ESCAPE,
+    "backspace": Keys.BACKSPACE, "delete": Keys.DELETE, "del": Keys.DELETE,
+    "home": Keys.HOME, "end": Keys.END, "pageup": Keys.PAGE_UP, "pagedown": Keys.PAGE_DOWN,
+    "arrowup": Keys.ARROW_UP, "arrowdown": Keys.ARROW_DOWN, "arrowleft": Keys.ARROW_LEFT, "arrowright": Keys.ARROW_RIGHT,
+    "space": Keys.SPACE, "insert": Keys.INSERT, "f1": Keys.F1, "f2": Keys.F2, "f3": Keys.F3, "f4": Keys.F4, "f5": Keys.F5, "f6": Keys.F6,
+    "f7": Keys.F7, "f8": Keys.F8, "f9": Keys.F9, "f10": Keys.F10, "f11": Keys.F11, "f12": Keys.F12,
+    "ctrl": Keys.CONTROL, "shift": Keys.SHIFT, "alt": Keys.ALT, "meta": Keys.META, "command": Keys.META
+}
+
+
+def press_key(key_name: str) -> None:
+    ensure_active_tab()
+    kn = key_name.strip().lower()
+    try:
+        with driver_lock:
+            if kn in KEY_MAP:
+                ActionChains(driver).send_keys(KEY_MAP[kn]).perform()
+            elif len(kn) == 1:
+                ActionChains(driver).send_keys(kn).perform()
+            else:
+                ActionChains(driver).send_keys(key_name).perform()
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"press_key driver error: {e}")
+    except Exception as e:
+        log(f"press_key unexpected error: {e}")
+
+
+def press_combo(combo_str: str) -> None:
+    ensure_active_tab()
+    parts = [p.strip() for p in combo_str.split('+')]
+    if len(parts) < 2:
+        press_key(combo_str)
+        return
+    mods = parts[:-1]
+    main = parts[-1]
+    try:
+        with driver_lock:
+            actions = ActionChains(driver)
+            for m in mods:
+                mk = m.lower()
+                if mk in KEY_MAP:
+                    actions = actions.key_down(KEY_MAP[mk])
+                else:
+                    actions = actions.key_down(m)
+            mk_main = main.lower()
+            if mk_main in KEY_MAP:
+                actions = actions.send_keys(KEY_MAP[mk_main])
+            else:
+                actions = actions.send_keys(main)
+            for m in reversed(mods):
+                mk = m.lower()
+                if mk in KEY_MAP:
+                    actions = actions.key_up(KEY_MAP[mk])
+                else:
+                    actions = actions.key_up(m)
+            actions.perform()
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"press_combo driver error: {e}")
+    except Exception as e:
+        log(f"press_combo unexpected error: {e}")
+
+
+def type_secret(name: str) -> bool:
+    ensure_active_tab()
+    if name not in allowed_secrets:
+        return False
+    val = os.environ.get(name, "")
+    if not val:
+        return False
+    try:
+        with driver_lock:
+            ActionChains(driver).send_keys(val).perform()
+        return True
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"type_secret driver error: {e}")
+        return False
+    except Exception as e:
+        log(f"type_secret unexpected error: {e}")
+        return False
+
+
+# ---------- COMMAND PARSER – percentage coordinates ----------
+def _pct_to_abs(pctx: float, pcty: float):
+    """Convert percentage (0.0‑1.0) to absolute pixel coordinates."""
+    if W <= 0 or H <= 0:
+        return 0, 0
+    x = int(pctx * W)
+    y = int(pcty * H)
+    x = max(0, min(W - 1, x))
+    y = max(0, min(H - 1, y))
+    return x, y
+
+
+def parse_single_command(raw: str):
+    raw = raw.strip()
+    lo = raw.lower()
+
+    m = re.match(r'^\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', raw)
+    if m:
+        pctx = float(m.group(1))
+        pcty = float(m.group(2))
+        x, y = _pct_to_abs(pctx, pcty)
+        return ("move", (x, y))
+
+    m = re.match(r'^click\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m:
+        pctx = float(m.group(1))
+        pcty = float(m.group(2))
+        x, y = _pct_to_abs(pctx, pcty)
+        return ("click_at", (x, y))
+
+    m = re.match(r'^humanclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m:
+        pctx = float(m.group(1))
+        pcty = float(m.group(2))
+        x, y = _pct_to_abs(pctx, pcty)
+        return ("humanclick_at", (x, y))
+
+    m = re.match(r'^doubleclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m:
+        pctx = float(m.group(1))
+        pcty = float(m.group(2))
+        x, y = _pct_to_abs(pctx, pcty)
+        return ("doubleclick_at", (x, y))
+
+    m = re.match(r'^rightclick\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m:
+        pctx = float(m.group(1))
+        pcty = float(m.group(2))
+        x, y = _pct_to_abs(pctx, pcty)
+        return ("rightclick_at", (x, y))
+
+    # ── drag with nested parentheses  drag((x1,y1),(x2,y2)) ──
+    m = re.match(r'^drag\(\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)\s*,\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)\s*\)$', lo)
+    if m:
+        pctx1 = float(m.group(1)); pcty1 = float(m.group(2))
+        pctx2 = float(m.group(3)); pcty2 = float(m.group(4))
+        x1, y1 = _pct_to_abs(pctx1, pcty1)
+        x2, y2 = _pct_to_abs(pctx2, pcty2)
+        return ("drag", (x1, y1, x2, y2))
+
+    # ── Original drag format: drag(x1,y1,x2,y2) ────────────────
+    m = re.match(r'^drag\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$', lo)
+    if m:
+        pctx1 = float(m.group(1)); pcty1 = float(m.group(2))
+        pctx2 = float(m.group(3)); pcty2 = float(m.group(4))
+        x1, y1 = _pct_to_abs(pctx1, pcty1)
+        x2, y2 = _pct_to_abs(pctx2, pcty2)
+        return ("drag", (x1, y1, x2, y2))
+
+    # ---------- other commands ----------
+    if lo == "exit": return ("exit", None)
+    if lo == "uploadtoyoutube": return ("uploadtoyoutube", None)
+    if lo == "screenshot": return ("screenshot", None)
+    if lo == "shoot": return ("shoot", None)
+    if lo == "humanclick": return ("humanclick", None)
+    if lo == "refresh": return ("refresh", None)
+    if lo == "paste": return ("paste", None)
+    if lo == "doubleshoot": return ("doubleshoot", None)
+    if lo == "rightshoot": return ("rightshoot", None)
+    if lo == "middleshoot": return ("middleshoot", None)
+    if lo in ("leftdown","leftmousedown"): return ("leftdown", None)
+    if lo in ("leftup","leftmouseup"): return ("leftup", None)
+    if lo in ("rightdown","rightmousedown"): return ("rightdown", None)
+    if lo in ("rightup","rightmouseup"): return ("rightup", None)
+    if lo in ("middledown","middle mousedown"): return ("middledown", None)
+    if lo in ("middleup","middle mouseup"): return ("middleup", None)
+    if lo == "save": return ("save", None)
+    if lo == "filedrop": return ("filedrop", None)
+    if lo == "download": return ("download", None)
+    if lo == "deleteselected": return ("deleteselected", None)
+    if lo == "back": return ("back", None)
+    if lo.startswith("scroll:"):
+        try: val = int(float(lo.split(":",1)[1].strip())); return ("scroll", val)
+        except: return ("key", raw)
+    if lo.startswith("wait:"):
+        try: val = float(lo.split(":",1)[1].strip()); return ("wait", val)
+        except: return ("key", raw)
+    if lo.startswith("key:"): return ("key", raw.split(":",1)[1].strip())
+    if lo.startswith("combo:"): return ("combo", raw.split(":",1)[1].strip())
+    if lo.startswith('secret:'): return ("secret", raw.split(':',1)[1].strip())
+    if lo.startswith('decode:'): return ("decode", raw.split(':',1)[1].strip())
+    if lo.startswith('humantype:'): return ("humantype", raw.split(':',1)[1].strip())
+    if lo.startswith("navigate:"): return ("navigate", raw.split(":",1)[1].strip())
+    if lo in ("upload","upload:"): return ("upload", None)
+    if lo == "dir": return ("dir", None)
+    if lo == "tabs": return ("tabs", None)
+    if lo.startswith("tabnumber:"): return ("tabnumber", raw.split(":",1)[1].strip())
+    if lo.startswith("closetab:"): return ("closetab", raw.split(":",1)[1].strip())
+    if lo == "lastdownload": return ("lastdownload", None)
+    if lo.startswith("uploadnumber:"): return ("uploadnumber", raw.split(":",1)[1].strip())
+    if lo == "savestate": return ("savestate", None)
+    if lo.startswith("setinterval:"):
+        try: val = float(lo.split(":",1)[1].strip()); return ("setinterval", val)
+        except: return ("key", raw)
+    if lo.startswith("zoom:"): return ("zoom", raw.split(":",1)[1].strip())
+    return ("key", raw)
+
+
+# ---------- FILE REGISTRY & UPLOAD PATHS ----------
+_file_registry = {}
+_previous_file_set = set()
+_upload_file_paths = []
+_last_reported_files_str = None
+
+DOWNLOAD_DIR = ""   # set by main
+
+def refresh_file_registry():
+    global _file_registry, _previous_file_set, _last_reported_files_str
+    try:
+        files = sorted([f for f in os.listdir(DOWNLOAD_DIR) if not f.endswith(".crdownload")])
+        new_set = set(files)
+        new_files = new_set - _previous_file_set
+        for nf in new_files:
+            add_autonomous_report("filedownloaded", f"New file: {nf}")
+        _previous_file_set = new_set
+
+        _file_registry.clear()
+        for i, fname in enumerate(files, start=1):
+            _file_registry[i] = fname
+
+        # ── Auto‑select newly added files ──────────────────────────
+        if new_files:
+            _upload_file_paths.clear()
+            _upload_file_paths.extend(new_files)
+            selected_ids = [fid for fid, fname in _file_registry.items() if fname in _upload_file_paths]
+            if selected_ids:
+                add_autonomous_report("selectfiles", f"selectfiles({','.join(str(i) for i in sorted(selected_ids))})")
+
+        # Send Files: report (with sizes)
+        if _file_registry:
+            lines = []
+            for fid, fname in sorted(_file_registry.items()):
+                fpath = os.path.join(DOWNLOAD_DIR, fname)
+                try:
+                    size_bytes = os.path.getsize(fpath)
+                except OSError:
+                    size_bytes = 0
+                size_str = _format_size(size_bytes)
+                lines.append(f"{fid}: {fname} ({size_str})")
+            current_str = "Files: " + " | ".join(lines)
+        else:
+            current_str = "Files: (empty)"
+
+        if current_str != _last_reported_files_str:
+            _last_reported_files_str = current_str
+            add_autonomous_report("files", current_str)
+
+    except Exception as e:
+        try: log(f"ERROR refreshing file registry: {e}")
+        except: pass
+
+
+def _format_size(size_bytes: int) -> str:
+    """Return a human‑readable size string, e.g. '56.2 MB'."""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        kb = size_bytes / 1024
+        return f"{kb:.1f} KB"
+    else:
+        mb = size_bytes / (1024 * 1024)
+        return f"{mb:.1f} MB"
+
+
+def get_upload_paths():
+    paths = []
+    for fname in _upload_file_paths:
+        paths.append(os.path.join(DOWNLOAD_DIR, fname))
+    if paths: return [paths[0]]
+    return []
+
+
+# ---------- Background download folder watcher ─────────────────
+def download_folder_watcher():
+    """Poll the download directory every 2 seconds and refresh the file
+    registry when changes are detected.  This makes browser downloads
+    appear automatically without a manual 'dir' command."""
+    log("Download folder watcher started.")
+    while not _download_watcher_stop.is_set():
+        try:
+            refresh_file_registry()
+        except Exception as e:
+            log(f"Download folder watcher error: {e}")
+        _download_watcher_stop.wait(2)
+
+
+# ---------- TAB HANDLE TRACKING ----------
+_known_handles = set()
+
+def refresh_known_handles():
+    """
+    Detect new and removed window handles, and report the full tab list
+    as an autonomous report.  Called after navigation, tab switches, and
+    periodically by url_monitor_worker and the CDP tab monitor.
+    """
+    global _known_handles, ACTIVE_TAB_INDEX
+    try:
+        with driver_lock:
+            handles = list(driver.window_handles)
+            old_handles = _known_handles
+            new_handles = set(handles) - old_handles
+            closed_handles = old_handles - set(handles)
+
+            for h in new_handles:
+                add_autonomous_report("tabopened", f"New tab/window handle: {h}")
+            for h in closed_handles:
+                add_autonomous_report("tabclosed", f"Tab/window closed: {h}")
+
+            _known_handles = set(handles)
+
+            # Build the Tabs: report string
+            tab_lines = []
+            # Use a short script timeout to avoid blocking on slow pages
+            old_script_timeout = None
+            try:
+                old_script_timeout = driver.timeouts.script
+            except Exception:
+                pass
+            try:
+                driver.set_script_timeout(2)
+            except Exception:
+                pass
+
+            for i, h in enumerate(handles):
+                try:
+                    driver.switch_to.window(h)
+                    try:
+                        title = driver.execute_script("return document.title || 'Untitled'")
+                    except TimeoutException:
+                        title = "(timed out)"
+                    except Exception:
+                        title = "(error)"
+                    title = (title or "Untitled")[:60]
+                except Exception:
+                    title = "(error)"
+                tab_lines.append(f"{i+1}: {title}")
+
+            # Restore original script timeout
+            if old_script_timeout is not None:
+                try:
+                    driver.set_script_timeout(old_script_timeout)
+                except Exception:
+                    pass
+
+            # Switch back to the expected active tab
+            idx = ACTIVE_TAB_INDEX - 1
+            if 0 <= idx < len(handles):
+                driver.switch_to.window(handles[idx])
+            elif handles:
+                driver.switch_to.window(handles[0])
+                ACTIVE_TAB_INDEX = 1
+
+            tab_report = "Tabs: " + " | ".join(tab_lines)
+            add_autonomous_report("tabs", tab_report)
+
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"refresh_known_handles driver error: {e}")
+    except Exception as e:
+        log(f"refresh_known_handles unexpected error: {e}")
+
+
+# ---------- URL MONITOR (also checks for closed tabs) ----------
+_last_known_url = ""
+_url_monitor_stop = threading.Event()
+
+def url_monitor_worker():
+    global _last_known_url
+    time.sleep(3)
+    while not _url_monitor_stop.is_set():
+        try:
+            with driver_lock:
+                # Check URL changes
+                cur = driver.current_url
+                if cur and cur != _last_known_url:
+                    _last_known_url = cur
+                    add_autonomous_report("navigate", f"navigate({cur})")
+
+                # Check for handle changes (tabs opened/closed spontaneously)
+                current_handles = set(driver.window_handles)
+                if current_handles != _known_handles:
+                    refresh_known_handles()
+
+        except (WebDriverException, InvalidSessionIdException) as e:
+            log(f"url_monitor driver error: {e}")
+        except Exception as e:
+            log(f"url_monitor unexpected error: {e}")
+        _url_monitor_stop.wait(2)
+
+
+# ---------- AUTONOMOUS REPORTS ----------
+autonomous_counter = 1
+pending_autonomous_reports = []
+AUTONOMOUS_TIMEOUT = 60
+
+def add_autonomous_report(report_type, text):
+    global autonomous_counter
+    now = int(time.time())
+    aut_id = f"AUT-{autonomous_counter}-{now}"
+    autonomous_counter += 1
+    with _auto_lock:
+        pending_autonomous_reports.append({"id":aut_id, "text":text, "timestamp":time.time()})
+    # ── Immediately push to the report queue if callback is set ──
+    if _report_queue_callback:
+        now_us = int(time.time() * 1_000_000)
+        _report_queue_callback(aut_id, now_us, 0, text)
+    try: log(f"New autonomous report: {aut_id} -> {text}")
+    except: pass
+
+
+def cull_expired_autonomous_reports():
+    now = time.time()
+    with _auto_lock:
+        before = len(pending_autonomous_reports)
+        pending_autonomous_reports[:] = [r for r in pending_autonomous_reports if now - r["timestamp"] < AUTONOMOUS_TIMEOUT]
+        if before > len(pending_autonomous_reports):
+            try: log(f"Culled {before - len(pending_autonomous_reports)} expired autonomous reports.")
+            except: pass

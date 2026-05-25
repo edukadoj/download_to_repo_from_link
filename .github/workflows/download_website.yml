@@ -1,0 +1,527 @@
+# =============================================================================
+# Workflow version: 2.2.2
+# Name: Make a website offline
+# Description: Downloads dynamic websites (including Telegram channels) using a
+#              headless browser with Cloudflare WARP, creates a self-contained
+#              offline copy, zips it using Python's built-in zipfile, splits if
+#              needed, and uploads everything directly to the repository via the
+#              GitHub API. A Windows batch file (reassemble.bat) is generated
+#              inside the folder.
+#
+# Changelog:
+#   2.2.2 – Removed system Chromium installation; puppeteer now manages its own
+#           Chromium binary, avoiding Snap Store issues.
+#   2.2.1 – Removed `zip unzip` from system dependencies; used Python zipfile.
+#   2.2.0 – Removed all password protection; ZIP is now unencrypted.
+#   2.1.0 – Added Cloudflare WARP, puppeteer-extra + stealth.
+# =============================================================================
+
+name: Make a website offline
+
+on:
+  workflow_dispatch:
+    inputs:
+      website_url:
+        description: 'Website or Telegram channel URL (required)'
+        required: true
+        type: string
+      max_depth:
+        description: 'Maximum link depth (1-5) – ignored for Telegram'
+        required: false
+        default: '2'
+        type: choice
+        options: ['1', '2', '3', '4', '5']
+      max_total_size:
+        description: 'Maximum total download size (e.g., 500M, 2G)'
+        required: false
+        default: '2G'
+        type: string
+      folder_name:
+        description: 'Output folder in the repository (default: offline_site)'
+        required: false
+        default: 'offline_site'
+        type: string
+      include_assets:
+        description: 'Download CSS/JS/images? (always true for headless)'
+        required: false
+        default: true
+        type: boolean
+      user_agent:
+        description: 'User-Agent string'
+        required: false
+        default: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        type: string
+      telegram_posts:
+        description: 'Number of recent Telegram posts (0 = not a Telegram URL)'
+        required: false
+        default: '20'
+        type: string
+
+jobs:
+  mirror-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: write
+
+    steps:
+      # -------------------------------------------------------------------
+      # Normalise the URL (add https:// if missing)
+      # -------------------------------------------------------------------
+      - name: Normalize URL
+        run: |
+          raw_url="${{ github.event.inputs.website_url }}"
+          if [[ ! "$raw_url" =~ ^https?:// ]]; then
+            normalized_url="https://${raw_url}"
+          else
+            normalized_url="$raw_url"
+          fi
+          echo "SITE_URL=$normalized_url" >> $GITHUB_ENV
+
+      # -------------------------------------------------------------------
+      # Setup Cloudflare WARP (bypass bot detection)
+      # -------------------------------------------------------------------
+      - name: Setup Cloudflare WARP
+        uses: viperadnan-git/setup-warp@v1
+        with:
+          mode: 'client'
+          stack: 'dual'
+          configure_docker: 'false'
+
+      - name: Verify WARP connection
+        run: |
+          echo "Checking WARP status..."
+          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
+          echo "WARP is active."
+
+      # -------------------------------------------------------------------
+      # Setup Node.js + cache
+      # -------------------------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache Node modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      # Puppeteer will download its own Chromium to ~/.cache/puppeteer – cache it
+      - name: Cache Puppeteer Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: ${{ runner.os }}-puppeteer-chrome-${{ hashFiles('package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-puppeteer-chrome-
+
+      # Install only the minimal system libraries that puppeteer needs
+      - name: Install system dependencies (for Puppeteer/Chromium)
+        run: |
+          sudo apt-get update
+          # These libraries are required by Chromium but already present on ubuntu-latest;
+          # install only if needed. Keeping the list explicit avoids snap.
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates \
+            fonts-liberation \
+            libasound2 \
+            libatk-bridge2.0-0 \
+            libatk1.0-0 \
+            libcups2 \
+            libdrm2 \
+            libgbm1 \
+            libgtk-3-0 \
+            libnspr4 \
+            libnss3 \
+            libu2f-udev \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxkbcommon0 \
+            libxrandr2 \
+            xdg-utils
+
+      - name: Install Node dependencies
+        run: |
+          npm install puppeteer-extra puppeteer-extra-plugin-stealth single-file-cli
+
+      # Install Puppeteer's own managed Chromium and any extra OS dependencies
+      - name: Install Chromium via Puppeteer
+        run: |
+          npx puppeteer browsers install chrome
+          # The command also checks and installs missing shared libraries
+          echo "Chromium installed by Puppeteer."
+
+      # -------------------------------------------------------------------
+      # Download the website (Puppeteer‑extra + stealth + single‑file)
+      # -------------------------------------------------------------------
+      - name: Download website with headless browser
+        env:
+          SITE_URL: ${{ env.SITE_URL }}
+          MAX_DEPTH: ${{ github.event.inputs.max_depth }}
+          MAX_SIZE: ${{ github.event.inputs.max_total_size }}
+          FOLDER: ${{ github.event.inputs.folder_name }}
+          INCLUDE_ASSETS: ${{ github.event.inputs.include_assets }}
+          USER_AGENT: ${{ github.event.inputs.user_agent }}
+          TELEGRAM_POSTS: ${{ github.event.inputs.telegram_posts }}
+        run: |
+          cat << 'SCRIPT' > crawl_and_save.js
+          const puppeteer = require('puppeteer-extra');
+          const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+          puppeteer.use(StealthPlugin());
+
+          const fs = require('fs');
+          const path = require('path');
+          const { execSync } = require('child_process');
+
+          const {
+            SITE_URL,
+            MAX_DEPTH = '2',
+            MAX_SIZE = '2G',
+            FOLDER,
+            USER_AGENT,
+            TELEGRAM_POSTS = '20'
+          } = process.env;
+
+          const maxDepth = parseInt(MAX_DEPTH, 10);
+          const maxBytes = parseSize(MAX_SIZE);
+          let downloadedBytes = 0;
+          const outDir = path.resolve(FOLDER);
+          if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+
+          const isTelegram = /^(https?:\/\/)?(www\.)?t(elegram)?\.me\//.test(SITE_URL) && parseInt(TELEGRAM_POSTS) > 0;
+
+          function parseSize(str) {
+            const match = str.match(/^(\d+(?:\.\d+)?)\s*(K|M|G|T)?B?$/i);
+            if (!match) return 2 * 1024 * 1024 * 1024;
+            const num = parseFloat(match[1]);
+            const unit = (match[2] || 'M').toUpperCase();
+            const multiplier = { K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 };
+            return num * multiplier[unit];
+          }
+
+          async function main() {
+            const browser = await puppeteer.launch({
+              headless: 'new',
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-blink-features=AutomationControlled'
+              ]
+            });
+
+            if (isTelegram) {
+              await handleTelegram(browser);
+            } else {
+              await handleGenericSite(browser);
+            }
+            await browser.close();
+          }
+
+          async function handleTelegram(browser) {
+            console.log('📡 Downloading Telegram channel...');
+            const page = await browser.newPage();
+            await page.setUserAgent(USER_AGENT);
+            await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
+            await page.goto(SITE_URL, { waitUntil: 'networkidle2', timeout: 60000 });
+
+            const postsToLoad = parseInt(TELEGRAM_POSTS, 10);
+            let prevScrollHeight = 0;
+            let loadedPosts = 0;
+            while (loadedPosts < postsToLoad) {
+              loadedPosts = await page.evaluate(() => document.querySelectorAll('.tgme_widget_message_wrap').length);
+              console.log(`Loaded ${loadedPosts} posts...`);
+              if (loadedPosts >= postsToLoad) break;
+              await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+              await new Promise(r => setTimeout(r, 2000));
+              const newScrollHeight = await page.evaluate(() => document.body.scrollHeight);
+              if (newScrollHeight === prevScrollHeight) break;
+              prevScrollHeight = newScrollHeight;
+            }
+
+            const posts = await page.evaluate((limit) => {
+              const wraps = document.querySelectorAll('.tgme_widget_message_wrap');
+              return Array.from(wraps).slice(0, limit).map(wrap => {
+                const textEl = wrap.querySelector('.tgme_widget_message_text');
+                const text = textEl ? textEl.innerText : '';
+                const dateEl = wrap.querySelector('.tgme_widget_message_date time');
+                const date = dateEl ? dateEl.getAttribute('datetime') : '';
+                const mediaEls = wrap.querySelectorAll('.tgme_widget_message_photo_wrap, .tgme_widget_message_video, .tgme_widget_message_document');
+                const media = Array.from(mediaEls).map(el => {
+                  if (el.classList.contains('tgme_widget_message_photo_wrap')) {
+                    const img = el.querySelector('img');
+                    return { type: 'photo', src: img ? img.src : '' };
+                  } else if (el.classList.contains('tgme_widget_message_video')) {
+                    const video = el.querySelector('video');
+                    return { type: 'video', src: video ? video.src : '', poster: video ? video.poster : '' };
+                  } else if (el.classList.contains('tgme_widget_message_document')) {
+                    const a = el.querySelector('.tgme_widget_message_document_wrap a');
+                    return { type: 'document', href: a ? a.href : '', title: a ? a.innerText : '' };
+                  }
+                  return null;
+                }).filter(Boolean);
+                return { text, date, media };
+              });
+            }, postsToLoad);
+
+            let html = `<html><head><meta charset="utf-8"><title>Telegram Channel Mirror</title><style>body{font-family:sans-serif;max-width:800px;margin:auto;padding:20px;}.post{border-bottom:1px solid #ccc;padding:15px 0;}</style></head><body><h1>Telegram Channel Mirror</h1>`;
+            for (const p of posts) {
+              html += `<div class="post">`;
+              if (p.date) html += `<p><small>${p.date}</small></p>`;
+              if (p.text) html += `<p>${p.text}</p>`;
+              for (const m of p.media) {
+                if (m.type === 'photo' && m.src) html += `<img src="${m.src}" style="max-width:100%;"><br>`;
+                if (m.type === 'video' && m.src) html += `<video src="${m.src}" controls style="max-width:100%;"></video><br>`;
+                if (m.type === 'document' && m.href) html += `<a href="${m.href}">📄 ${m.title || m.href}</a><br>`;
+              }
+              html += `</div>`;
+            }
+            html += `</body></html>`;
+
+            const filePath = path.join(outDir, 'telegram_channel.html');
+            fs.writeFileSync(filePath, html, 'utf8');
+            console.log(`Telegram channel saved to ${filePath}`);
+          }
+
+          async function handleGenericSite(browser) {
+            console.log('🌐 Crawling generic website (depth ' + maxDepth + ')...');
+            const visited = new Set();
+            const queue = [SITE_URL];
+            let depth = 0;
+
+            while (queue.length > 0 && depth <= maxDepth) {
+              const levelSize = queue.length;
+              for (let i = 0; i < levelSize; i++) {
+                const url = queue.shift();
+                if (visited.has(url)) continue;
+                visited.add(url);
+                try {
+                  console.log(`Downloading: ${url}`);
+                  const sanitized = url.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 100);
+                  const outFile = path.join(outDir, `${sanitized}.html`);
+                  execSync(`npx single-file ${url} ${outFile}`, { stdio: 'inherit' });
+
+                  const stat = fs.statSync(outFile);
+                  downloadedBytes += stat.size;
+                  if (downloadedBytes > maxBytes) {
+                    console.log('Reached size limit. Stopping crawl.');
+                    return;
+                  }
+
+                  const content = fs.readFileSync(outFile, 'utf8');
+                  const linkRegex = /<a[^>]+href="([^"]*)"/gi;
+                  let match;
+                  while ((match = linkRegex.exec(content)) !== null) {
+                    const link = match[1];
+                    try {
+                      const absolute = new URL(link, url).href;
+                      if (absolute.startsWith(SITE_URL) && !visited.has(absolute)) {
+                        queue.push(absolute);
+                      }
+                    } catch (_) {}
+                  }
+                } catch (err) {
+                  console.error(`Failed to download ${url}: ${err.message}`);
+                }
+              }
+              depth++;
+            }
+            console.log('Crawl finished.');
+          }
+
+          main().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          SCRIPT
+
+          node crawl_and_save.js
+
+      # -------------------------------------------------------------------
+      # Debug: show downloaded files
+      # -------------------------------------------------------------------
+      - name: Debug – list downloaded files
+        run: |
+          echo "Files in ${{ github.event.inputs.folder_name }}:"
+          find "${{ github.event.inputs.folder_name }}" -type f -exec ls -lh {} \;
+
+      # -------------------------------------------------------------------
+      # Create ZIP using Python's built-in zipfile
+      # -------------------------------------------------------------------
+      - name: Create ZIP archive
+        env:
+          FOLDER: ${{ github.event.inputs.folder_name }}
+        run: |
+          python3 << 'PYEOF'
+          import os, zipfile
+
+          folder = os.environ["FOLDER"]
+          zipname = f"{folder}.zip"
+          print(f"Creating {zipname} using Python zipfile...")
+
+          with zipfile.ZipFile(zipname, "w", zipfile.ZIP_DEFLATED) as zf:
+              for root, dirs, files in os.walk(folder):
+                  for file in files:
+                      file_path = os.path.join(root, file)
+                      arcname = os.path.relpath(file_path, start=os.path.dirname(folder))
+                      zf.write(file_path, arcname)
+
+          size = os.path.getsize(zipname)
+          print(f"Archive size: {size / 1024:.1f} KB")
+          with open(os.environ["GITHUB_ENV"], "a") as env_file:
+              env_file.write(f"ZIPFILE={zipname}\n")
+          PYEOF
+
+      # -------------------------------------------------------------------
+      # Install PyGithub and upload
+      # -------------------------------------------------------------------
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyGithub
+
+      - name: Delete previous folder contents
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+        run: |
+          python3 << 'PYEOF'
+          import os, sys
+          from github import Github, GithubException
+
+          token = os.environ["GITHUB_TOKEN"]
+          repo_name = os.environ["GITHUB_REPOSITORY"]
+          branch = os.environ["GITHUB_REF_NAME"]
+          folder = os.environ["FOLDER_NAME"]
+
+          g = Github(token)
+          repo = g.get_repo(repo_name)
+
+          try:
+              contents = repo.get_contents(folder, ref=branch)
+              if not isinstance(contents, list):
+                  contents = [contents]
+              print(f"Deleting {len(contents)} items from {folder}...")
+              for item in contents:
+                  repo.delete_file(item.path, f"Delete old {item.path}", item.sha, branch=branch)
+                  print(f"✓ Deleted {item.path}")
+          except GithubException as e:
+              if e.status == 404:
+                  print(f"Folder '{folder}' does not exist yet – nothing to delete.")
+              else:
+                  print(f"Error listing folder: {e}")
+                  sys.exit(1)
+          PYEOF
+
+      - name: Upload ZIP and create reassemble.bat
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+          ZIPFILE: ${{ env.ZIPFILE }}
+        run: |
+          python3 << 'PYEOF'
+          import os, sys, base64, time
+          from github import Github, GithubException
+
+          token = os.environ["GITHUB_TOKEN"]
+          repo_name = os.environ["GITHUB_REPOSITORY"]
+          branch = os.environ["GITHUB_REF_NAME"]
+          folder = os.environ["FOLDER_NAME"]
+          zipfile = os.environ["ZIPFILE"]
+
+          if not os.path.exists(zipfile):
+              print(f"ZIP file not found: {zipfile}")
+              sys.exit(1)
+
+          g = Github(token)
+          repo = g.get_repo(repo_name)
+
+          chunk_size = 20 * 1024 * 1024
+          file_size = os.path.getsize(zipfile)
+          fname = os.path.basename(zipfile)
+          print(f"Processing {fname} ({file_size / 1024 / 1024:.1f} MB)")
+
+          def upload_file(local_path, remote_path):
+              with open(local_path, "rb") as f:
+                  content_bytes = f.read()
+              b64 = base64.b64encode(content_bytes).decode("utf-8")
+              try:
+                  contents = repo.get_contents(remote_path, ref=branch)
+                  repo.update_file(contents.path, f"Update {os.path.basename(local_path)}", b64, contents.sha, branch=branch)
+                  print(f"✓ Updated {remote_path}")
+              except GithubException as e:
+                  if e.status == 404:
+                      repo.create_file(remote_path, f"Add {os.path.basename(local_path)}", b64, branch=branch)
+                      print(f"✓ Created {remote_path}")
+                  else:
+                      raise
+
+          uploaded_parts = []
+          if file_size < chunk_size:
+              upload_file(zipfile, f"{folder}/{fname}")
+              uploaded_parts.append((fname, False))
+          else:
+              part_idx = 0
+              with open(zipfile, "rb") as f:
+                  while True:
+                      chunk = f.read(chunk_size)
+                      if not chunk:
+                          break
+                      part_name = f"{fname}.part{part_idx:04d}"
+                      part_path = os.path.join(folder, part_name)
+                      with open(part_path, "wb") as cf:
+                          cf.write(chunk)
+                      upload_file(part_path, f"{folder}/{part_name}")
+                      os.remove(part_path)
+                      part_idx += 1
+                      time.sleep(0.5)
+              uploaded_parts.append((fname, True))
+
+          bat_lines = [
+              "@echo off",
+              "chcp 65001 >nul",
+              "setlocal enabledelayedexpansion",
+              "echo ========================================",
+              "echo Reassembling downloaded archive...",
+              "echo ========================================"
+          ]
+          for name, has_chunks in uploaded_parts:
+              if has_chunks:
+                  bat_lines.append(f"echo --- Rebuilding {name} ---")
+                  bat_lines.append(f"copy /b {name}.part* {name}")
+                  bat_lines.append("if %errorlevel% equ 0 (")
+                  bat_lines.append(f"    echo Successfully created {name}")
+                  bat_lines.append(f"    del {name}.part*")
+                  bat_lines.append(f"    echo Deleted temporary parts for {name}")
+                  bat_lines.append(") else (")
+                  bat_lines.append(f"    echo ERROR: Failed to reassemble {name}. Parts kept intact.")
+                  bat_lines.append(")")
+              else:
+                  bat_lines.append(f"echo {name} was downloaded as a single file (no chunks).")
+          bat_lines.append("echo ========================================")
+          bat_lines.append("echo All done! You can now extract the ZIP archive.")
+          bat_lines.append("pause >nul")
+
+          bat_content = "\r\n".join(bat_lines)
+          bat_path = os.path.join(folder, "reassemble.bat")
+          with open(bat_path, "wb") as bf:
+              bf.write(bat_content.encode("utf-8"))
+
+          upload_file(bat_path, f"{folder}/reassemble.bat")
+          print("=== Upload completed ===")
+          PYEOF

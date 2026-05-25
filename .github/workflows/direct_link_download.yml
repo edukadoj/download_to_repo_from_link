@@ -1,0 +1,380 @@
+# Version 2.6 – Uses chunker.py for splitting (fixed path)
+name: Download With Direct Link (Universal)
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_url1:
+        description: 'URL #1 (required)'
+        required: true
+      file_url2:
+        description: 'URL #2 (optional)'
+        required: false
+        default: ''
+      file_url3:
+        description: 'URL #3 (optional)'
+        required: false
+        default: ''
+      file_url4:
+        description: 'URL #4 (optional)'
+        required: false
+        default: ''
+      file_url5:
+        description: 'URL #5 (optional)'
+        required: false
+        default: ''
+      folder_name:
+        description: 'Folder to store everything (default: Download)'
+        required: false
+        default: 'Download'
+
+jobs:
+  fetch-and-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Clean up old downloads and log
+        run: |
+          rm -rf "${{ github.event.inputs.folder_name }}"
+          rm -f url_list.txt file_list.txt downloader.js pending_urls.txt
+          mkdir -p logs
+          rm -f logs/direct_link_download.log
+          echo "" > logs/direct_link_download.log
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Clean up old downloads" || true
+          git pull --rebase
+          git push || true
+
+      - name: Write URLs to file
+        run: |
+          > url_list.txt
+          for url in "${{ github.event.inputs.file_url1 }}" \
+                     "${{ github.event.inputs.file_url2 }}" \
+                     "${{ github.event.inputs.file_url3 }}" \
+                     "${{ github.event.inputs.file_url4 }}" \
+                     "${{ github.event.inputs.file_url5 }}"; do
+            [ -n "$url" ] && echo "$url" >> url_list.txt
+          done
+          echo "URL list created with $(grep -cve '^\s*$' url_list.txt) entries."
+
+      - name: Install Playwright (for fallback only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgbm1 libwoff1 libopus0 libwebpdemux2 libharfbuzz-icu0 libenchant-2-2 libsecret-1-0 libhyphen0 libmanette-0.2-0 libflite1
+          npm init -y
+          npm install playwright
+          npx playwright install chromium
+
+      - name: Phase 1 – Simple download via curl
+        shell: bash
+        env:
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+        run: |
+          outDir="$FOLDER_NAME"
+          mkdir -p "$outDir" logs
+          > file_list.txt
+          > pending_urls.txt
+          LOGFILE="logs/direct_link_download.log"
+
+          while IFS= read -r url || [ -n "$url" ]; do
+            [ -z "$url" ] && continue
+            echo "Trying simple download: $url" | tee -a "$LOGFILE"
+            filename=$(basename "$url" | sed 's/?.*//')
+            [ -z "$filename" ] && filename="downloaded_file_$(date +%s).bin"
+            temp_file="temp_$(date +%s)_$$.download"
+
+            # Allow curl to fail without stopping the script (fix for exit code 28)
+            http_code=$(curl -L -o "$temp_file" \
+              -w "%{http_code}" \
+              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+              --max-time 60 \
+              "$url" 2>/dev/null) || true
+
+            if [ -n "$http_code" ] && [ "$http_code" -ge 200 ] && [ "$http_code" -lt 400 ] && [ -f "$temp_file" ] && [ -s "$temp_file" ]; then
+              if file -b --mime-type "$temp_file" | grep -q 'text/html' || head -c 100 "$temp_file" | grep -qiE '<!doctype html|<html|<head|<body'; then
+                echo "  → Got HTML, will use browser fallback" | tee -a "$LOGFILE"
+                echo "$url" >> pending_urls.txt
+                rm -f "$temp_file"
+              else
+                mv "$temp_file" "$outDir/$filename"
+                sizeMB=$(du -m "$outDir/$filename" | cut -f1)
+                echo "✓ Downloaded: $filename ($sizeMB MB)" | tee -a "$LOGFILE"
+                echo "$outDir/$filename" >> file_list.txt
+              fi
+            else
+              echo "  → Direct download failed (HTTP ${http_code:-connection error}), will try browser" | tee -a "$LOGFILE"
+              echo "$url" >> pending_urls.txt
+              rm -f "$temp_file"
+            fi
+          done < url_list.txt
+
+      - name: Phase 2 – Playwright fallback for problematic URLs
+        shell: bash
+        if: success()
+        env:
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+        run: |
+          if [ ! -s pending_urls.txt ]; then
+            echo "No URLs required browser fallback." | tee -a logs/direct_link_download.log
+            exit 0
+          fi
+
+          echo "Running headless browser for $(wc -l < pending_urls.txt) URL(s)." | tee -a logs/direct_link_download.log
+
+          cat > downloader.js << 'NODEEOF'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+          const path = require('path');
+          const https = require('https');
+          const http = require('http');
+
+          const urls = fs.readFileSync('pending_urls.txt', 'utf-8').split('\n').filter(line => line.trim() !== '');
+          const outDir = process.env.FOLDER_NAME || 'Download';
+          const logFile = 'logs/direct_link_download.log';
+
+          function log(msg) {
+              const time = new Date().toISOString();
+              const fullMsg = `[${time}] ${msg}`;
+              console.log(fullMsg);
+              fs.appendFileSync(logFile, fullMsg + '\n');
+          }
+
+          async function downloadFromUrl(url, index) {
+              log(`Starting browser for URL: ${url}`);
+              const browser = await chromium.launch({ headless: true });
+              const context = await browser.newContext({
+                  userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                  acceptDownloads: true
+              });
+              const page = await context.newPage();
+              page.setDefaultNavigationTimeout(120000);
+
+              let downloadPromise = new Promise((resolve) => {
+                  page.on('download', async (download) => {
+                      const fileName = download.suggestedFilename();
+                      const savePath = path.join(outDir, fileName);
+                      await download.saveAs(savePath);
+                      log(`✓ Browser download: saved as ${fileName}`);
+                      fs.appendFileSync('file_list.txt', path.join(outDir, fileName) + '\n');
+                      resolve(true);
+                  });
+              });
+
+              try {
+                  log('Navigating…');
+                  try {
+                      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                  } catch (navError) {
+                      if (navError.message.includes('Download is starting')) {
+                          log('Download is starting – waiting…');
+                          await downloadPromise;
+                          await browser.close();
+                          return;
+                      } else {
+                          log(`Navigation error: ${navError.message}. Trying alternative URL…`);
+                          if (url.includes('sourceforge.net')) {
+                              const directUrl = url.replace('/download', '?download');
+                              log(`Retrying with: ${directUrl}`);
+                              await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                          }
+                      }
+                  }
+
+                  log('Waiting 10s for JavaScript…');
+                  await page.waitForTimeout(10000);
+
+                  if (downloadPromise.isResolved) {
+                      log('Download happened during wait.');
+                      await browser.close();
+                      return;
+                  }
+
+                  log('Extracting direct links from page…');
+                  const potentialLinks = await page.evaluate(() => {
+                      const links = Array.from(document.querySelectorAll('a[href]'));
+                      return links.map(a => a.href).filter(h => /\.(exe|zip|msi|dmg|tar\.gz|7z|rar|bin|iso|img|pdf|pkg)$/i.test(h));
+                  });
+                  if (potentialLinks.length > 0) {
+                      const downloadUrl = potentialLinks[0];
+                      log(`Found link: ${downloadUrl}`);
+                      const protocol = downloadUrl.startsWith('https') ? https : http;
+                      const fileStream = await new Promise((resolve, reject) => {
+                          protocol.get(downloadUrl, (res) => resolve(res)).on('error', reject);
+                      });
+                      let fileName = downloadUrl.split('/').pop().split('?')[0] || `downloaded_file_${index}`;
+                      const filePath = path.join(outDir, fileName);
+                      const writeStream = fs.createWriteStream(filePath);
+                      fileStream.pipe(writeStream);
+                      await new Promise((resolve, reject) => {
+                          writeStream.on('finish', resolve);
+                          writeStream.on('error', reject);
+                      });
+                      const sizeMB = (fs.statSync(filePath).size / 1024 / 1024).toFixed(2);
+                      log(`✓ Downloaded via extracted link: ${fileName} (${sizeMB} MB)`);
+                      fs.appendFileSync('file_list.txt', path.join(outDir, fileName) + '\n');
+                  } else {
+                      log('No direct download link found.');
+                  }
+              } catch (err) {
+                  log(`✗ Error: ${err.message}`);
+              } finally {
+                  await browser.close();
+                  log('Browser closed.');
+              }
+          }
+
+          (async () => {
+              if (urls.length === 0) { log('No URLs for browser.'); process.exit(0); }
+              log(`Processing ${urls.length} URL(s) with headless browser.`);
+              for (let i = 0; i < urls.length; i++) {
+                  log(`\n--- URL #${i+1}: ${urls[i]} ---`);
+                  await downloadFromUrl(urls[i], i+1);
+              }
+              log('Browser phase completed.');
+              process.exit(0);
+          })();
+          NODEEOF
+
+          node downloader.js
+
+      - name: Commit download log
+        if: always()
+        run: |
+          git add logs/direct_link_download.log 2>/dev/null || true
+          git commit -m "Update download log" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
+
+      # ===== SPLIT & UPLOAD STEP (FIXED PATH) =====
+      - name: Split and upload all files (using chunker.py)
+        if: success()
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+        run: |
+          $ErrorActionPreference = "Continue"
+          $token = $env:GITHUB_TOKEN
+          $repo = $env:GITHUB_REPOSITORY
+          $branch = $env:GITHUB_REF_NAME
+          $chunksDir = $env:FOLDER_NAME
+          $chunkSizeMB = 20
+          $logFile = "logs/direct_link_download.log"
+
+          function Write-Log {
+            param([string]$msg)
+            $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            $line = "[$timestamp] $msg"
+            Write-Host $line
+            Add-Content -Path $logFile -Value $line
+          }
+
+          $fileList = @(Get-Content file_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
+          if ($fileList.Count -eq 0) {
+            Write-Log "No files to upload. Exiting."
+            exit 0
+          }
+
+          New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
+          $headers = @{ Authorization = "Bearer $token" }
+          $apiBase = "https://api.github.com/repos/$repo/contents"
+          $maxRetries = 3
+
+          function Upload-File {
+            param([string]$localPath, [string]$remotePath)
+            $bytes = [System.IO.File]::ReadAllBytes($localPath)
+            $b64 = [Convert]::ToBase64String($bytes)
+            $url = "$apiBase/$($remotePath -replace '\\','/')"
+            try { $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha } catch { $sha = $null }
+            $body = @{ message = "Add $(Split-Path $localPath -Leaf)"; content = $b64; branch = $branch }
+            if ($sha) { $body.sha = $sha }
+            for ($retry = 0; $retry -lt $maxRetries; $retry++) {
+              try {
+                Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
+                return
+              } catch {
+                if ($retry -lt $maxRetries - 1) {
+                  Write-Log "Retry $($retry+1) in 10 seconds..."
+                  Start-Sleep -Seconds 10
+                } else {
+                  Write-Log "FATAL: upload failed after $maxRetries attempts"
+                  exit 1
+                }
+              }
+            }
+          }
+
+          # Separate small and large files
+          $smallFiles = @()
+          $largeFiles = @()
+          $fileSizeBytes = $chunkSizeMB * 1024 * 1024
+
+          foreach ($filePath in $fileList) {
+            if (-not (Test-Path $filePath -PathType Leaf)) {
+              Write-Log "File missing: $filePath – skipping."
+              continue
+            }
+            $size = (Get-Item $filePath).Length
+            if ($size -lt $fileSizeBytes) {
+              $smallFiles += $filePath
+            } else {
+              $largeFiles += $filePath
+            }
+          }
+
+          # Upload small files directly
+          foreach ($filePath in $smallFiles) {
+            $fileName = [System.IO.Path]::GetFileName($filePath)
+            Write-Log "Uploading small file: $fileName"
+            Upload-File -localPath $filePath -remotePath "$chunksDir/$fileName"
+            Remove-Item $filePath -Force
+          }
+
+          # Process large files with chunker.py (FIXED PATH)
+          if ($largeFiles.Count -gt 0) {
+            Write-Log "Splitting $($largeFiles.Count) large file(s) using chunker.py"
+            $chunkerArgs = @("python3", "python/chunker.py", "--files") + $largeFiles + @("--output-dir", $chunksDir, "--chunk-size", $chunkSizeMB)
+            $chunkerCmd = $chunkerArgs -join " "
+            Write-Log "Running: $chunkerCmd"
+            $process = Start-Process -NoNewWindow -Wait -PassThru -FilePath "python3" -ArgumentList ($chunkerArgs[1..($chunkerArgs.Length-1)] -join " ")
+            if ($process.ExitCode -ne 0) {
+              Write-Log "chunker.py failed with exit code $($process.ExitCode)"
+              exit 1
+            }
+
+            # Upload all chunks and reassemble.bat
+            Write-Log "Uploading chunks and reassemble.bat"
+            Get-ChildItem -Path $chunksDir -File | ForEach-Object {
+              $file = $_
+              if ($file.Name -match "\.part\d{4}$" -or $file.Name -eq "reassemble.bat") {
+                Write-Log "Uploading $($file.Name)"
+                Upload-File -localPath $file.FullName -remotePath "$chunksDir/$($file.Name)"
+              }
+            }
+
+            # Delete original large files
+            foreach ($filePath in $largeFiles) {
+              Remove-Item $filePath -Force -ErrorAction SilentlyContinue
+            }
+          } else {
+            Write-Log "No large files, skipping chunking."
+          }
+
+          Write-Log "✅ Processing complete."
+      # ===== END OF REPLACED STEP =====
+
+      - name: Final log commit
+        if: always()
+        run: |
+          git add logs/direct_link_download.log "${{ github.event.inputs.folder_name }}" 2>/dev/null || true
+          git commit -m "Final download log and files" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true

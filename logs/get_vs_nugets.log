@@ -1,0 +1,27 @@
+
+[2026-05-25 06:57:46] Workflow version: 4.14 (robust parsing + prerelease support)
+[2026-05-25 06:57:46] ===== Priority packages download started =====
+[2026-05-25 06:57:46] DEBUG raw input: [LibSodium@1.0.20.1]
+[2026-05-25 06:57:46] DEBUG token count: 1
+[2026-05-25 06:57:46] DEBUG token 0 : [LibSodium@1.0.20.1]
+[2026-05-25 06:57:46] Processing 1 priority packages...
+[2026-05-25 06:57:46] --- Processing: LibSodium@1.0.20.1 ---
+[2026-05-25 06:57:46]   PackageReference: <PackageReference Include="LibSodium" Version="1.0.20.1" />
+[2026-05-25 06:57:46]   Temporary csproj created: D:\a\_temp\prio_9dd90d3c-dbc1-4040-bce5-6a0b5b5b11cd.csproj
+  Determining projects to restore...
+  Restored D:\a\_temp\prio_9dd90d3c-dbc1-4040-bce5-6a0b5b5b11cd.csproj (in 2.07 sec).
+[2026-05-25 06:57:55]   Restore succeeded.
+[2026-05-25 06:57:55] ===== Priority packages processing completed =====
+[2026-05-25 06:57:55] ===== Measuring feed size =====
+[2026-05-25 06:57:56] Feed size: 302.1 MB
+[2026-05-25 06:58:02] ===== Renaming ZIP for deterministic chunk names =====
+[2026-05-25 06:58:02] Renamed ZIP to D:\a\_temp\NuGetOfflineFeed
+[2026-05-25 06:58:02] Using Python: python3 with --chunk-size 20
+[2026-05-25 06:58:03] chunker.py finished (20 MB chunks).
+[2026-05-25 06:58:04] ===== Uploading chunks to repository =====
+[2026-05-25 06:58:04] Uploading Download/NuGetOfflineFeed.part0000 (20000000 bytes)
+[2026-05-25 06:58:12] Uploading Download/NuGetOfflineFeed.part0001 (20000000 bytes)
+[2026-05-25 06:58:18] Uploading Download/NuGetOfflineFeed.part0002 (20000000 bytes)
+[2026-05-25 06:58:24] Uploading Download/NuGetOfflineFeed.part0003 (15055968 bytes)
+[2026-05-25 06:58:30] Uploading Download/reassemble.bat (1100 bytes)
+[2026-05-25 06:58:31] All chunks uploaded successfully.

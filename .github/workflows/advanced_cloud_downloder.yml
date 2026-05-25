@@ -1,0 +1,484 @@
+# Version 16.0 – Google Drive large file fix + clean repo
+name: Download from Cloud Services
+on:
+  workflow_dispatch:
+    inputs:
+      file_url1:
+        description: 'URL #1 (MediaFire/Google Drive/direct link)'
+        required: true
+      file_url2:
+        description: 'URL #2 (optional)'
+        required: false
+        default: ''
+      file_url3:
+        description: 'URL #3 (optional)'
+        required: false
+        default: ''
+      file_url4:
+        description: 'URL #4 (optional)'
+        required: false
+        default: ''
+      file_url5:
+        description: 'URL #5 (optional)'
+        required: false
+        default: ''
+      folder_name:
+        description: 'Folder to store chunks (default: Download)'
+        required: false
+        default: 'Download'
+      chunk_size_mb:
+        description: 'Chunk size in MB (default: 20)'
+        required: false
+        default: '20'
+      timeout_minutes:
+        description: 'Timeout per URL (minutes)'
+        required: false
+        default: '30'
+
+permissions:
+  contents: write
+
+jobs:
+  download-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Clean up old folders and logs
+        run: |
+          rm -rf "${{ github.event.inputs.folder_name }}" screenshots node_modules package.json package-lock.json
+          rm -f advanced_cloud_downloader.log url_list.txt file_list.txt downloader.js .downloaded_flag
+          mkdir -p "${{ github.event.inputs.folder_name }}" screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Clean up before new download" || true
+          git pull --rebase && git push || true
+
+      - name: Initialize main log file
+        run: |
+          echo "# Version 16.0 – Google Drive large file fix" > advanced_cloud_downloader.log
+          echo "## Started at $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> advanced_cloud_downloader.log
+          echo "----------------------------------------" >> advanced_cloud_downloader.log
+          echo "URL list:" >> advanced_cloud_downloader.log
+          git add advanced_cloud_downloader.log
+          git commit -m "Initialize main log" || true
+          git pull --rebase && git push || true
+
+      - name: Prepare URL list
+        run: |
+          > url_list.txt
+          for url in "${{ github.event.inputs.file_url1 }}" \
+                     "${{ github.event.inputs.file_url2 }}" \
+                     "${{ github.event.inputs.file_url3 }}" \
+                     "${{ github.event.inputs.file_url4 }}" \
+                     "${{ github.event.inputs.file_url5 }}" ; do
+            [ -n "$url" ] && echo "$url" >> url_list.txt
+          done
+          echo "URL list created with $(grep -cve '^\s*$' url_list.txt) entries." >> advanced_cloud_downloader.log
+          cat url_list.txt >> advanced_cloud_downloader.log
+          git add advanced_cloud_downloader.log
+          git commit -m "Log URLs added" || true
+          git pull --rebase && git push || true
+
+      - name: Setup Cloudflare WARP
+        uses: viperadnan-git/setup-warp@v1
+        with:
+          mode: 'client'
+          stack: 'dual'
+          configure_docker: 'false'
+
+      - name: Verify WARP connection
+        run: |
+          sleep 5
+          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc"
+          echo "WARP is active" >> advanced_cloud_downloader.log
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          npm init -y
+          npm install playwright playwright-extra puppeteer-extra-plugin-stealth
+          npx playwright install
+
+      - name: Download files (MediaFire, GDrive, direct)
+        timeout-minutes: ${{ fromJSON(github.event.inputs.timeout_minutes) }}
+        shell: bash
+        run: |
+          cat > downloader.js << 'EOF'
+          const { chromium } = require('playwright-extra');
+          const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+          const fs = require('fs');
+          const path = require('path');
+          const { execSync } = require('child_process');
+
+          chromium.use(StealthPlugin());
+
+          const urls = fs.readFileSync('url_list.txt', 'utf-8')
+            .split('\n')
+            .filter(line => line.trim() !== '');
+          const outDir = process.env.FOLDER_NAME || 'Download';
+          const LOG_FILE = 'advanced_cloud_downloader.log';
+          let screenshotCounter = 0;
+          let anyFileDownloaded = false;
+
+          function log(msg) {
+            const time = new Date().toISOString();
+            const fullMsg = `[${time}] ${msg}`;
+            console.log(fullMsg);
+            fs.appendFileSync(LOG_FILE, fullMsg + '\n');
+            try {
+              execSync(`git add ${LOG_FILE} && git commit -m "Update logs" || true`, { stdio: 'inherit' });
+              execSync(`git pull --rebase && git push`, { stdio: 'inherit' });
+            } catch(e) { }
+          }
+
+          async function screenshot(page, description) {
+            screenshotCounter++;
+            const timestamp = Date.now();
+            const filename = `screenshots/${String(screenshotCounter).padStart(3, '0')}_${timestamp}_${description}.png`;
+            await page.screenshot({ path: filename, fullPage: true });
+            log(`📸 Screenshot saved: ${filename}`);
+            try {
+              execSync(`git add screenshots/ && git commit -m "Add screenshot ${description}" || true`, { stdio: 'inherit' });
+              execSync(`git pull --rebase && git push`, { stdio: 'inherit' });
+            } catch(e) { }
+          }
+
+          async function randomDelay() {
+            const delay = Math.random() * 2000 + 1000;
+            await new Promise(r => setTimeout(r, delay));
+          }
+
+          function detectService(url) {
+            if (url.includes('mediafire.com')) return 'mediafire';
+            if (url.includes('drive.google.com') || url.includes('docs.google.com')) return 'gdrive';
+            return 'unknown';
+          }
+
+          async function handleUnknown(page, url) {
+            log('🌐 Unknown URL type – will not attempt download, only screenshot.');
+            try {
+              await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+            } catch (err) {
+              log(`⚠️ Page load timeout or error: ${err.message}. Taking screenshot anyway.`);
+            }
+            await page.waitForTimeout(3000);
+            await screenshot(page, 'unknown_page');
+            log('ℹ️ This page does not contain a downloadable file.');
+          }
+
+          async function downloadMediaFire(page, url) {
+            log('🌐 Navigating to MediaFire page...');
+            await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+            await randomDelay();
+            await screenshot(page, 'mediafire_landing');
+            await page.waitForLoadState('networkidle');
+            let button;
+            for (let i = 0; i < 5; i++) {
+              button = await page.$('a#downloadButton');
+              if (button) break;
+              log(`Waiting for download button (attempt ${i+1})...`);
+              await page.waitForTimeout(2000);
+            }
+            if (!button) throw new Error('Download button not found');
+            await screenshot(page, 'mediafire_before_click');
+            const [download] = await Promise.all([
+              page.waitForEvent('download', { timeout: 60000 }),
+              button.click()
+            ]);
+            await screenshot(page, 'mediafire_download_triggered');
+            const fileName = download.suggestedFilename();
+            const savePath = path.join(outDir, fileName);
+            await download.saveAs(savePath);
+            log(`✅ Downloaded: ${fileName}`);
+            fs.appendFileSync('file_list.txt', savePath + '\n');
+            anyFileDownloaded = true;
+          }
+
+          async function downloadGoogleDrive(page, url) {
+            log('🌐 Navigating to Google Drive page...');
+            await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+            await randomDelay();
+            await screenshot(page, 'gdrive_landing');
+
+            // Check for the virus scan warning (large files)
+            const virusWarning = await page.$('form#download-form');
+            if (virusWarning) {
+              log('⚠️ Large file virus scan warning detected. Clicking "Download anyway"...');
+              // Click the link inside the warning form
+              await page.click('form#download-form a[role="button"]');
+              await page.waitForLoadState('networkidle');
+              await randomDelay();
+              await screenshot(page, 'gdrive_after_click');
+            }
+
+            // Now look for the actual download button
+            let downloadButton = await page.$('a[aria-label="Download"], button[aria-label*="Download"]');
+            if (!downloadButton) {
+              // Fallback: sometimes the download is triggered by the main link
+              downloadButton = await page.$('a#uc-download-link');
+            }
+            if (!downloadButton) {
+              throw new Error('Download button not found');
+            }
+
+            await screenshot(page, 'gdrive_before_click');
+            const [download] = await Promise.all([
+              page.waitForEvent('download', { timeout: 120000 }),
+              downloadButton.click()
+            ]);
+            await screenshot(page, 'gdrive_download_triggered');
+            const fileName = download.suggestedFilename();
+            const savePath = path.join(outDir, fileName);
+            await download.saveAs(savePath);
+            log(`✅ Downloaded: ${fileName}`);
+            fs.appendFileSync('file_list.txt', savePath + '\n');
+            anyFileDownloaded = true;
+          }
+
+          async function downloadFromUrl(url, index) {
+            log(`\n=== Processing URL ${index}/${urls.length}: ${url} ===`);
+            const browser = await chromium.launch({
+              headless: false,
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-blink-features=AutomationControlled',
+                '--window-size=1920,1080'
+              ]
+            });
+            try {
+              const context = await browser.newContext({
+                viewport: { width: 1920, height: 1080 },
+                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+              });
+              const page = await context.newPage();
+              page.setDefaultTimeout(60000);
+              const service = detectService(url);
+              log(`🔍 Detected service: ${service.toUpperCase()}`);
+              switch(service) {
+                case 'mediafire':
+                  await downloadMediaFire(page, url);
+                  break;
+                case 'gdrive':
+                  await downloadGoogleDrive(page, url);
+                  break;
+                default:
+                  await handleUnknown(page, url);
+              }
+              await screenshot(page, `${service}_final`);
+              log(`✅ Successfully processed: ${url}`);
+            } catch (err) {
+              log(`❌ Error processing ${url}: ${err.message}`);
+              throw err;
+            } finally {
+              await browser.close();
+            }
+          }
+
+          (async () => {
+            if (urls.length === 0) {
+              log('No URLs to process.');
+              process.exit(0);
+            }
+            log(`Starting download of ${urls.length} URL(s)...`);
+            for (let i = 0; i < urls.length; i++) {
+              try {
+                await downloadFromUrl(urls[i], i+1);
+              } catch (err) {
+                log(`❌ Failed to process URL ${urls[i]}: ${err.message}`);
+                continue;
+              }
+            }
+            log('All downloads completed.');
+            fs.writeFileSync('.downloaded_flag', anyFileDownloaded ? 'true' : 'false');
+            process.exit(0);
+          })();
+          EOF
+
+          xvfb-run -a node downloader.js
+
+      - name: Commit screenshots and log
+        if: always()
+        run: |
+          git add screenshots/ advanced_cloud_downloader.log || true
+          git commit -m "Add screenshots and log" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
+
+      - name: Check if any file was downloaded
+        id: check_files
+        run: |
+          if [ -f .downloaded_flag ] && [ "$(cat .downloaded_flag)" = "true" ]; then
+            echo "files_exist=true" >> $GITHUB_OUTPUT
+          else
+            echo "files_exist=false" >> $GITHUB_OUTPUT
+            echo "No files were downloaded. Failing the workflow as requested."
+          fi
+
+      - name: Fail if no files were downloaded
+        if: steps.check_files.outputs.files_exist == 'false'
+        run: |
+          echo "ERROR: No downloadable files were found. Workflow failing."
+          exit 1
+
+      - name: Upload files and create reassemble.bat
+        if: success() && steps.check_files.outputs.files_exist == 'true'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FOLDER_NAME: ${{ github.event.inputs.folder_name }}
+          CHUNK_SIZE_MB: ${{ github.event.inputs.chunk_size_mb }}
+        run: |
+          $ErrorActionPreference = "Continue"
+          $token = $env:GITHUB_TOKEN
+          $repo = $env:GITHUB_REPOSITORY
+          $branch = $env:GITHUB_REF_NAME
+          $chunksDir = $env:FOLDER_NAME
+          $chunkSize = [int]$env:CHUNK_SIZE_MB * 1MB
+          $logFile = "advanced_cloud_downloader.log"
+          
+          function Write-Log {
+            param([string]$msg)
+            $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            $line = "[$timestamp] $msg"
+            Write-Host $line
+            Add-Content -Path $logFile -Value $line
+          }
+          
+          $fileList = @(Get-Content file_list.txt -ErrorAction SilentlyContinue | Where-Object { $_ -and $_ -ne '' })
+          if ($fileList.Count -eq 0) {
+            Write-Log "No files to upload. Exiting."
+            exit 0
+          }
+          
+          New-Item -ItemType Directory -Force -Path $chunksDir | Out-Null
+          $fileInfos = [System.Collections.Generic.List[hashtable]]::new()
+          $headers = @{ Authorization = "Bearer $token" }
+          $apiBase = "https://api.github.com/repos/$repo/contents"
+          $maxRetries = 3
+          
+          function Upload-File {
+            param([string]$localPath, [string]$remotePath)
+            $bytes = [System.IO.File]::ReadAllBytes($localPath)
+            $b64 = [Convert]::ToBase64String($bytes)
+            $url = "$apiBase/$($remotePath -replace '\\','/')"
+            try {
+              $sha = (Invoke-RestMethod $url -Headers $headers -ErrorAction SilentlyContinue).sha
+            } catch { $sha = $null }
+            $body = @{
+              message = "Add $(Split-Path $localPath -Leaf)"
+              content = $b64
+              branch = $branch
+            }
+            if ($sha) { $body.sha = $sha }
+            for ($retry = 0; $retry -lt $maxRetries; $retry++) {
+              try {
+                Invoke-RestMethod $url -Method Put -Headers $headers -Body ($body | ConvertTo-Json -Compress -Depth 10) -ContentType "application/json"
+                Write-Log "Uploaded: $remotePath"
+                return
+              } catch {
+                if ($retry -lt $maxRetries - 1) {
+                  Write-Log "Retry $($retry+1) in 10 seconds..."
+                  Start-Sleep -Seconds 10
+                } else {
+                  Write-Log "FATAL: upload failed after $maxRetries attempts"
+                  exit 1
+                }
+              }
+            }
+          }
+          
+          foreach ($filePath in $fileList) {
+            if (-not (Test-Path $filePath -PathType Leaf)) {
+              Write-Log "File missing: $filePath – skipping."
+              continue
+            }
+            $fileSize = (Get-Item $filePath).Length
+            $fileName = [System.IO.Path]::GetFileName($filePath)
+            Write-Log "Processing $fileName ($([math]::Round($fileSize / 1MB, 1)) MB)"
+            if ($fileSize -lt $chunkSize) {
+              Write-Log "Small file, uploading directly..."
+              Upload-File -localPath $filePath -remotePath "$chunksDir/$fileName"
+              $fileInfos.Add(@{ Name = $fileName; HasChunks = $false })
+            } else {
+              Write-Log "Splitting into chunks..."
+              $stream = [System.IO.File]::OpenRead($filePath)
+              $partIdx = 0
+              $buffer = New-Object byte[] $chunkSize
+              $uploadSuccess = $true
+              while (($n = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                $chunkName = "{0}.part{1:D4}" -f $fileName, $partIdx
+                $chunkPath = Join-Path $chunksDir $chunkName
+                [System.IO.File]::WriteAllBytes($chunkPath, $buffer[0..($n-1)])
+                try {
+                  Upload-File -localPath $chunkPath -remotePath "$chunksDir/$chunkName"
+                  Write-Log "Uploaded chunk $partIdx"
+                } catch {
+                  Write-Log "Failed to upload chunk $partIdx"
+                  $uploadSuccess = $false
+                  break
+                }
+                Remove-Item $chunkPath -Force
+                $partIdx++
+              }
+              $stream.Close()
+              if ($uploadSuccess) {
+                $fileInfos.Add(@{ Name = $fileName; HasChunks = $true; ChunkCount = $partIdx })
+              }
+            }
+            Remove-Item $filePath -Force
+          }
+          
+          if ($fileInfos.Count -gt 0) {
+            Write-Log "Generating reassemble.bat ..."
+            $batPath = Join-Path $chunksDir "reassemble.bat"
+            $batLines = [System.Collections.Generic.List[string]]::new()
+            $batLines.Add("@echo off")
+            $batLines.Add("chcp 65001 >nul")
+            $batLines.Add("setlocal enabledelayedexpansion")
+            $batLines.Add("echo ========================================")
+            $batLines.Add("echo Reassembling all downloaded files...")
+            $batLines.Add("echo ========================================")
+            foreach ($fi in $fileInfos) {
+              $name = $fi.Name
+              if ($fi.HasChunks) {
+                $batLines.Add("echo --- Rebuilding `"$name`" ---")
+                $batLines.Add("copy /b `"$name.part*`" `"$name`"")
+                $batLines.Add("if %errorlevel% equ 0 (")
+                $batLines.Add(" echo Successfully created `"$name`"")
+                $batLines.Add(" del `"$name.part*`"")
+                $batLines.Add(" echo Deleted temporary parts")
+                $batLines.Add(") else (")
+                $batLines.Add(" echo ERROR: Failed to reassemble `"$name`". Parts kept intact.")
+                $batLines.Add(")")
+              } else {
+                $batLines.Add("echo `"$name`" was downloaded as a single file (no chunks).")
+              }
+            }
+            $batLines.Add("echo ========================================")
+            $batLines.Add("echo All done! Press any key to exit.")
+            $batLines.Add("pause >nul")
+            $joined = $batLines -join "`r`n"
+            [System.IO.File]::WriteAllText($batPath, $joined, [System.Text.Encoding]::UTF8)
+            Write-Log "Uploading reassemble.bat..."
+            Upload-File -localPath $batPath -remotePath "$chunksDir/reassemble.bat"
+          } else {
+            Write-Log "No files were successfully uploaded."
+          }
+          
+          Write-Log "✅ Processing complete."
+
+      - name: Clean up temporary files and npm artifacts
+        if: always()
+        run: |
+          rm -f file_list.txt downloader.js url_list.txt .downloaded_flag
+          rm -rf node_modules package.json package-lock.json
+          git add screenshots/ advanced_cloud_downloader.log "${{ github.event.inputs.folder_name }}" 2>/dev/null || true
+          git commit -m "Final state: downloads, screenshots, log" || true
+          git pull --rebase --strategy-option ours || true
+          git push || true
