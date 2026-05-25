@@ -1,0 +1,45 @@
+============================================================
+  Remote Control v39.39.13 started at 2026-05-25 23:26:59 UTC
+============================================================
+[23:26:59] Downloading latest profile cache from repo...
+[23:27:00] Newest cache folder: 20260522_215147
+[23:27:00]   Downloaded profile.dat.part0000 (20000000 bytes)
+[23:27:01]   Downloaded profile.dat.part0001 (20000000 bytes)
+[23:27:02]   Downloaded profile.dat.part0002 (5826744 bytes)
+[23:27:02] Profile cache download finished – 3 files.
+[23:27:03] Virtual display started.
+[23:27:04] Stealth JS injected.
+[23:27:04] CDP download behavior set to allow (silent).
+[23:27:04] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[23:27:04] Browser launched.
+[23:27:04] CDP tab monitor started (raw HTTP polling).
+[23:27:04] Download folder watcher started.
+[23:27:04] STEP 1: Loading start URL...
+[23:27:04] New autonomous report: AUT-1-1779751624 -> Files: (empty)
+[23:27:08] STEP 2: Start URL loaded – sleeping 5s
+[23:27:13] Detecting actual viewport size...
+[23:27:13] Probing clickable bounds...
+[23:27:13] Rough guess: 1918x991
+[23:27:13] Cursor moved to (1913, 1)
+[23:27:13] Cursor moved to (1914, 1)
+[23:27:14] Cursor moved to (1915, 1)
+[23:27:14] Cursor moved to (1916, 1)
+[23:27:14] Cursor moved to (1917, 1)
+[23:27:14] Cursor moved to (1917, 1)
+[23:27:14] Max clickable X (incrementing) = 1917
+[23:27:15] Cursor moved to (1, 986)
+[23:27:15] Cursor moved to (1, 987)
+[23:27:15] Cursor moved to (1, 988)
+[23:27:15] Cursor moved to (1, 989)
+[23:27:16] Cursor moved to (1, 990)
+[23:27:16] Cursor moved to (1, 990)
+[23:27:16] Max clickable Y (incrementing) = 990
+[23:27:16] Final clickable bounds: 1917x990
+[23:27:16] New autonomous report: AUT-2-1779751636 -> viewsize:1917x990
+[23:27:16] Cursor moved to (958, 495)
+[23:27:16] Clickable dimensions set to 1917x990
+[23:27:16] Cursor moved to (958, 495)
+[23:27:16] STEP 3: Scrolling to top
+[23:27:16] STEP 4: Taking first screenshot
+[23:27:17] STEP 5: First screenshot saved – pushing logs
+[23:27:17] STEP 6: refresh_known_handles()
