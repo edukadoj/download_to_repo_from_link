@@ -1479,3 +1479,8 @@
 [05:29:55] Uploading screenshot synchronously: screenshots/0215_1779773395218321_auto.png
 [05:29:57] Screenshot screenshots/0215_1779773395218321_auto.png uploaded successfully.
 [05:30:00] Taking screenshot: screenshots/0216_1779773400218475_auto.png
+[05:30:00] Uploading screenshot synchronously: screenshots/0216_1779773400218475_auto.png
+[05:30:02] gh api failed: Upload screenshots/0216_1779773400218475_auto.png (501720 bytes) (attempt 1/20): gh: is at e5fc68bf47775b35eb5b4fb396088b4957aac6da but expected ecf883008391702df7280c3cbf34709ef2e8fa12 (HTTP 409)
+[05:30:05] Screenshot screenshots/0216_1779773400218475_auto.png uploaded successfully.
+[05:30:05] Taking screenshot: screenshots/0217_1779773405218607_auto.png
+[05:30:05] Uploading screenshot synchronously: screenshots/0217_1779773405218607_auto.png
