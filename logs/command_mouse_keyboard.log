@@ -1375,3 +1375,6 @@
 [05:27:50] Uploading screenshot synchronously: screenshots/0190_1779773270215266_auto.png
 [05:27:52] Screenshot screenshots/0190_1779773270215266_auto.png uploaded successfully.
 [05:27:54] Agent alive
+[05:27:55] Taking screenshot: screenshots/0191_1779773275215395_auto.png
+[05:27:55] Uploading screenshot synchronously: screenshots/0191_1779773275215395_auto.png
+[05:27:56] _upload_via_contents_api: size mismatch for logs/command_mouse_keyboard.log
