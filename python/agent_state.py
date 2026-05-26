@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_state.py – Version 2.9.5
-#   - refresh_known_handles() now uses a short script timeout (2 s) to avoid
-#     blocking forever on slow‑loading pages (e.g. MediaFire).
-#   - All other functionality unchanged.
+# agent_state.py – Version 2.9.6
+#   - Tabs report now includes active= prefix to allow the client to
+#     automatically select the current tab.
+#   - drag_from_to now uses a single ActionBuilder with many small movement
+#     steps, mimicking a real user drag.  This fixes slider and drag‑and‑drop
+#     issues.
 # ==============================================================================
 
 import os, time, re, glob, threading, traceback, random, base64, json
@@ -544,13 +546,48 @@ def scroll_by(amount: int) -> None:
 
 
 def drag_from_to(x1, y1, x2, y2) -> None:
+    """
+    Perform a smooth drag from (x1, y1) to (x2, y2) by chaining many
+    small pointer moves in a single W3C action sequence.  This correctly
+    simulates a user dragging a slider or any element that requires
+    continuous mousemove events while the button is held.
+    """
     ensure_active_tab()
-    move_cursor_absolute(x1, y1)
-    left_button_down()
-    time.sleep(0.1)
-    move_cursor_absolute(x2, y2)
-    time.sleep(0.1)
-    left_button_up()
+    # Clamp coordinates
+    x1 = max(0, min(W - 1, x1))
+    y1 = max(0, min(H - 1, y1))
+    x2 = max(0, min(W - 1, x2))
+    y2 = max(0, min(H - 1, y2))
+
+    steps = 30   # number of intermediate points
+    try:
+        with driver_lock:
+            action = ActionBuilder(driver)
+            # Move to start and press the button
+            action.pointer_action.move_to_location(x1, y1)
+            action.pointer_action.pointer_down()
+            action.pointer_action.pause(0.05)   # tiny hold before moving
+
+            # Move in small increments along the line
+            for i in range(1, steps + 1):
+                t = i / steps
+                xi = int(x1 + (x2 - x1) * t)
+                yi = int(y1 + (y2 - y1) * t)
+                action.pointer_action.move_to_location(xi, yi)
+                action.pointer_action.pause(0.01)
+
+            # Release
+            action.pointer_action.pointer_up()
+            action.perform()
+    except (WebDriverException, InvalidSessionIdException) as e:
+        log(f"drag_from_to driver error: {e}")
+    except Exception as e:
+        log(f"drag_from_to unexpected error: {e}")
+
+    # Update global cursor position to the final point
+    global cursor_x, cursor_y
+    cursor_x, cursor_y = x2, y2
+    log(f"Drag completed from ({x1},{y1}) to ({x2},{y2})")
 
 
 def _perform_human_click_at(x: int, y: int) -> None:
@@ -943,7 +980,8 @@ def refresh_known_handles():
                 driver.switch_to.window(handles[0])
                 ACTIVE_TAB_INDEX = 1
 
-            tab_report = "Tabs: " + " | ".join(tab_lines)
+            # Build report with active tab index
+            tab_report = "Tabs: active=" + str(ACTIVE_TAB_INDEX) + " | " + " | ".join(tab_lines)
             add_autonomous_report("tabs", tab_report)
 
     except (WebDriverException, InvalidSessionIdException) as e:
