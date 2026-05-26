@@ -860,3 +860,7 @@
 [04:27:55] Executed APP-59091-20260526042606 -> Tabs: 1: YouTube
 [04:27:55] Execution loop: processing APP-59092-20260526042606: dir
 [04:27:55] Executed APP-59092-20260526042606 -> Files: (empty)
+[04:27:57] Taking screenshot: screenshots/0015_1779769677817233_auto.png
+[04:27:57] Uploading screenshot synchronously: screenshots/0015_1779769677817233_auto.png
+[04:27:58] gh api failed: Upload logs/command_mouse_keyboard.log (169200 bytes) (attempt 1/20): gh: is at 93862576117ff8156f5edac56b1f39cc2894e2a6 but expected ed1810ac9e3b88591fb0fcedf69831cc2956ce85 (HTTP 409)
+[04:27:58] Sender published response comment.
