@@ -1510,3 +1510,6 @@
 [05:30:27] Executed APP-59232-20260526052836 -> Files: (empty)
 [05:30:29] Sender published response comment.
 [05:30:30] Taking screenshot: screenshots/0222_1779773430219276_auto.png
+[05:30:30] Uploading screenshot synchronously: screenshots/0222_1779773430219276_auto.png
+[05:30:33] Screenshot screenshots/0222_1779773430219276_auto.png uploaded successfully.
+[05:30:34] Sender published response comment.
