@@ -1,0 +1,703 @@
+============================================================
+  Remote Control v39.39.13 started at 2026-05-26 04:21:45 UTC
+============================================================
+[04:21:45] Downloading latest profile cache from repo...
+[04:21:45] Newest cache folder: 20260522_215147
+[04:21:46] _download_file_api error (.profile_cache/20260522_215147/profile.dat.part0000): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F1E8:295C82:42CA7B:F30E31:6A151FD9 and timestamp 2026-05-26 04:21:46 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:21:46]   Downloaded profile.dat.part0000 (0 bytes)
+[04:21:46] _download_file_api error (.profile_cache/20260522_215147/profile.dat.part0001): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F1EA:C5F4D:43FD13:F8E4AA:6A151FDA and timestamp 2026-05-26 04:21:46 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:21:46]   Downloaded profile.dat.part0001 (0 bytes)
+[04:21:46] _download_file_api error (.profile_cache/20260522_215147/profile.dat.part0002): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F1EE:21D8DF:464CE5:1017657:6A151FDA and timestamp 2026-05-26 04:21:46 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:21:46]   Downloaded profile.dat.part0002 (0 bytes)
+[04:21:46] Profile cache download finished – 3 files.
+[04:21:48] Virtual display started.
+[04:21:50] Stealth JS injected.
+[04:21:50] CDP download behavior set to allow (silent).
+[04:21:50] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[04:21:50] Browser launched.
+[04:21:50] CDP tab monitor started (raw HTTP polling).
+[04:21:50] STEP 1: Loading start URL...
+[04:21:50] Download folder watcher started.
+[04:21:50] New autonomous report: AUT-2-1779769310 -> Files: (empty)
+[04:21:51] STEP 2: Start URL loaded – sleeping 5s
+[04:21:56] Detecting actual viewport size...
+[04:21:56] Probing clickable bounds...
+[04:21:56] Rough guess: 1918x991
+[04:21:56] Cursor moved to (1913, 1)
+[04:21:57] Cursor moved to (1914, 1)
+[04:21:57] Cursor moved to (1915, 1)
+[04:21:57] Cursor moved to (1916, 1)
+[04:21:58] Cursor moved to (1917, 1)
+[04:21:58] Cursor moved to (1917, 1)
+[04:21:58] Max clickable X (incrementing) = 1917
+[04:21:58] Cursor moved to (1, 986)
+[04:21:58] Cursor moved to (1, 987)
+[04:21:59] Cursor moved to (1, 988)
+[04:21:59] Cursor moved to (1, 989)
+[04:21:59] Cursor moved to (1, 990)
+[04:21:59] Cursor moved to (1, 990)
+[04:21:59] Max clickable Y (incrementing) = 990
+[04:21:59] Final clickable bounds: 1917x990
+[04:21:59] New autonomous report: AUT-3-1779769319 -> viewsize:1917x990
+[04:22:00] Cursor moved to (958, 495)
+[04:22:00] Clickable dimensions set to 1917x990
+[04:22:00] Cursor moved to (958, 495)
+[04:22:00] STEP 3: Scrolling to top
+[04:22:00] STEP 4: Taking first screenshot
+[04:22:00] STEP 5: First screenshot saved – pushing logs
+[04:22:00] STEP 6: refresh_known_handles()
+[04:22:00] New autonomous report: AUT-4-1779769320 -> New tab/window handle: 03E9214F17343E1AED9B0E80932ABE9D
+[04:22:00] New autonomous report: AUT-5-1779769320 -> Tabs: 1: YouTube
+[04:22:00] STEP 7: Set last known URL
+[04:22:00] STEP 8: Start URL monitor
+[04:22:00] STEP 9: URL monitor started
+[04:22:00] Blanking old App Commands comment...
+[04:22:00] Emptying old response comment 4462185082...
+[04:22:00] Screenshot worker started.
+[04:22:00] Fetcher loop started.
+[04:22:00] Heavy execution loop started (timeout=300s).
+[04:22:00] Execution loop started (light, timeout=15s).
+[04:22:00] Sender loop started.
+[04:22:01] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 1/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED1A:5F4AB:43D673:F801CD:6A151FE9 and timestamp 2026-05-26 04:22:01 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:02] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 2/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED21:2D6DEC:482B13:1084239:6A151FEA and timestamp 2026-05-26 04:22:02 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:02] Taking screenshot: screenshots/0001_1779769322725965_auto.png
+[04:22:02] Uploading screenshot synchronously: screenshots/0001_1779769322725965_auto.png
+[04:22:03] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 3/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED2A:C5F4D:446D73:FA8084:6A151FEB and timestamp 2026-05-26 04:22:03 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:05] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 4/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED32:2D48B6:469324:1015456:6A151FEC and timestamp 2026-05-26 04:22:05 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:06] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 5/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED3C:2D6DEC:484686:108A95A:6A151FEE and timestamp 2026-05-26 04:22:06 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:07] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 6/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED4A:3C9409:46449E:1009186:6A151FEF and timestamp 2026-05-26 04:22:07 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:08] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 7/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED4C:17EFE7:443AA4:F98CE9:6A151FF0 and timestamp 2026-05-26 04:22:08 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:09] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 8/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F226:C5F4D:4498FC:FB2061:6A151FF1 and timestamp 2026-05-26 04:22:09 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:10] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 9/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F233:EE110:491783:10C2B30:6A151FF2 and timestamp 2026-05-26 04:22:10 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:11] Fetcher detected new App Commands comment.
+[04:22:11] Enqueued for execution: APP-58938-20260526041905
+[04:22:11] Execution loop: processing APP-58938-20260526041905: tabnumber:0
+[04:22:11] Enqueued for execution: APP-58939-20260526042006
+[04:22:11] Enqueued for execution: APP-58940-20260526042006
+[04:22:11] Acknowledged autonomous report AUT-148-1779767975
+[04:22:11] Acknowledged autonomous report AUT-147-1779767855
+[04:22:11] Acknowledged autonomous report AUT-146-1779767735
+[04:22:11] Acknowledged autonomous report AUT-145-1779767615
+[04:22:11] Acknowledged autonomous report AUT-144-1779767495
+[04:22:11] Acknowledged autonomous report AUT-143-1779767375
+[04:22:11] Acknowledged autonomous report AUT-142-1779767255
+[04:22:11] Acknowledged autonomous report AUT-141-1779767135
+[04:22:11] Acknowledged autonomous report AUT-140-1779767015
+[04:22:11] Acknowledged autonomous report AUT-139-1779766895
+[04:22:11] Acknowledged autonomous report AUT-138-1779766775
+[04:22:11] Acknowledged autonomous report AUT-137-1779766655
+[04:22:11] Acknowledged autonomous report AUT-136-1779766535
+[04:22:11] Acknowledged autonomous report AUT-135-1779766415
+[04:22:11] Acknowledged autonomous report AUT-134-1779766295
+[04:22:11] Acknowledged autonomous report AUT-133-1779766175
+[04:22:11] Acknowledged autonomous report AUT-132-1779766055
+[04:22:11] Acknowledged autonomous report AUT-131-1779765936
+[04:22:11] Acknowledged autonomous report AUT-130-1779765818
+[04:22:11] Acknowledged autonomous report AUT-129-1779765695
+[04:22:11] Acknowledged autonomous report AUT-128-1779765578
+[04:22:11] Acknowledged autonomous report AUT-127-1779765455
+[04:22:11] Acknowledged autonomous report AUT-126-1779765337
+[04:22:11] Acknowledged autonomous report AUT-125-1779765219
+[04:22:11] Acknowledged autonomous report AUT-124-1779765096
+[04:22:11] Acknowledged autonomous report AUT-123-1779764978
+[04:22:11] Acknowledged autonomous report AUT-122-1779764855
+[04:22:11] Acknowledged autonomous report AUT-121-1779764738
+[04:22:11] Acknowledged autonomous report AUT-120-1779764615
+[04:22:11] Acknowledged autonomous report AUT-119-1779764497
+[04:22:11] Acknowledged autonomous report AUT-118-1779764375
+[04:22:11] Acknowledged autonomous report AUT-117-1779764255
+[04:22:11] Acknowledged autonomous report AUT-116-1779764135
+[04:22:11] Acknowledged autonomous report AUT-115-1779764015
+[04:22:11] Acknowledged autonomous report AUT-114-1779763895
+[04:22:11] Acknowledged autonomous report AUT-113-1779763775
+[04:22:11] Acknowledged autonomous report AUT-112-1779763655
+[04:22:11] Acknowledged autonomous report AUT-111-1779763535
+[04:22:11] Acknowledged autonomous report AUT-110-1779763415
+[04:22:11] Acknowledged autonomous report AUT-109-1779763295
+[04:22:11] Acknowledged autonomous report AUT-108-1779763175
+[04:22:11] Acknowledged autonomous report AUT-107-1779763055
+[04:22:11] Acknowledged autonomous report AUT-106-1779762935
+[04:22:11] Acknowledged autonomous report AUT-105-1779762815
+[04:22:11] Acknowledged autonomous report AUT-104-1779762695
+[04:22:11] Acknowledged autonomous report AUT-103-1779762575
+[04:22:11] Acknowledged autonomous report AUT-102-1779762455
+[04:22:11] Acknowledged autonomous report AUT-101-1779762335
+[04:22:11] Acknowledged autonomous report AUT-100-1779762218
+[04:22:11] Acknowledged autonomous report AUT-99-1779762095
+[04:22:11] Acknowledged autonomous report AUT-98-1779761978
+[04:22:11] Acknowledged autonomous report AUT-97-1779761855
+[04:22:11] Acknowledged autonomous report AUT-96-1779761738
+[04:22:11] Acknowledged autonomous report AUT-95-1779761615
+[04:22:11] Acknowledged autonomous report AUT-94-1779761498
+[04:22:11] Acknowledged autonomous report AUT-93-1779761375
+[04:22:11] Acknowledged autonomous report AUT-92-1779761257
+[04:22:11] Acknowledged autonomous report AUT-91-1779761135
+[04:22:11] Acknowledged autonomous report AUT-90-1779761017
+[04:22:11] Acknowledged autonomous report AUT-89-1779760895
+[04:22:11] Acknowledged autonomous report AUT-88-1779760777
+[04:22:11] Acknowledged autonomous report AUT-87-1779760655
+[04:22:11] Acknowledged autonomous report AUT-86-1779760535
+[04:22:11] Acknowledged autonomous report AUT-85-1779760415
+[04:22:11] Acknowledged autonomous report AUT-84-1779760295
+[04:22:11] Acknowledged autonomous report AUT-83-1779760175
+[04:22:11] Acknowledged autonomous report AUT-82-1779760055
+[04:22:11] Acknowledged autonomous report AUT-81-1779759935
+[04:22:11] Acknowledged autonomous report AUT-80-1779759815
+[04:22:11] Acknowledged autonomous report AUT-79-1779759695
+[04:22:11] Acknowledged autonomous report AUT-78-1779759575
+[04:22:11] Acknowledged autonomous report AUT-77-1779759455
+[04:22:11] Acknowledged autonomous report AUT-76-1779759335
+[04:22:11] Acknowledged autonomous report AUT-75-1779759215
+[04:22:11] Acknowledged autonomous report AUT-74-1779759095
+[04:22:11] Acknowledged autonomous report AUT-73-1779758975
+[04:22:11] Acknowledged autonomous report AUT-72-1779758855
+[04:22:11] Acknowledged autonomous report AUT-71-1779758735
+[04:22:11] Acknowledged autonomous report AUT-70-1779758617
+[04:22:11] Acknowledged autonomous report AUT-69-1779758495
+[04:22:11] Acknowledged autonomous report AUT-68-1779758377
+[04:22:11] Acknowledged autonomous report AUT-67-1779758255
+[04:22:11] Acknowledged autonomous report AUT-66-1779758137
+[04:22:11] Acknowledged autonomous report AUT-65-1779758019
+[04:22:11] Acknowledged autonomous report AUT-64-1779757896
+[04:22:11] Acknowledged autonomous report AUT-63-1779757778
+[04:22:11] Acknowledged autonomous report AUT-62-1779757655
+[04:22:11] Acknowledged autonomous report AUT-61-1779757538
+[04:22:11] Acknowledged autonomous report AUT-60-1779757415
+[04:22:11] Acknowledged autonomous report AUT-59-1779757297
+[04:22:11] Acknowledged autonomous report AUT-58-1779757179
+[04:22:11] Acknowledged autonomous report AUT-57-1779757055
+[04:22:11] Acknowledged autonomous report AUT-56-1779756935
+[04:22:11] Acknowledged autonomous report AUT-55-1779756815
+[04:22:11] Acknowledged autonomous report AUT-54-1779756695
+[04:22:11] Acknowledged autonomous report AUT-53-1779756575
+[04:22:11] Acknowledged autonomous report AUT-52-1779756455
+[04:22:11] Acknowledged autonomous report AUT-51-1779756335
+[04:22:11] Acknowledged autonomous report AUT-50-1779756215
+[04:22:11] Acknowledged autonomous report AUT-49-1779756095
+[04:22:11] Acknowledged autonomous report AUT-48-1779755975
+[04:22:11] Sender using response comment: 4462185082
+[04:22:11] New autonomous report: AUT-6-1779769331 -> Tabs: 1: YouTube
+[04:22:11] Executed APP-58938-20260526041905 -> ERR: invalid tab number
+[04:22:11] Execution loop: processing APP-58939-20260526042006: tabs
+[04:22:11] New autonomous report: AUT-7-1779769331 -> Tabs: 1: YouTube
+[04:22:11] Executed APP-58939-20260526042006 -> Tabs: 1: YouTube
+[04:22:11] Execution loop: processing APP-58940-20260526042006: dir
+[04:22:11] Executed APP-58940-20260526042006 -> Files: (empty)
+[04:22:12] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 10/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F23A:5128B:46DB8F:1041C7F:6A151FF4 and timestamp 2026-05-26 04:22:12 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:13] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 11/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F23F:219AE8:44E6F1:FBAFB1:6A151FF5 and timestamp 2026-05-26 04:22:13 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:14] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 12/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F240:1897AD:42B64E:F49EB9:6A151FF6 and timestamp 2026-05-26 04:22:14 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:15] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 13/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F244:2D6DEC:488DE0:109B5CF:6A151FF7 and timestamp 2026-05-26 04:22:15 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:16] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 14/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F24D:5F4AB:443EB8:F981F6:6A151FF8 and timestamp 2026-05-26 04:22:16 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:16] Sender published response comment.
+[04:22:17] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 15/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F257:3C27DE:54F9AE:12FADAF:6A151FF9 and timestamp 2026-05-26 04:22:17 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:19] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 16/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F25A:3C27DE:5502DB:12FD01B:6A151FFA and timestamp 2026-05-26 04:22:19 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:20] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 17/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F358:2BB584:45640E:FBC959:6A151FFC and timestamp 2026-05-26 04:22:20 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:20] Agent alive
+[04:22:21] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 18/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F35D:EE110:49694B:10D5D3A:6A151FFD and timestamp 2026-05-26 04:22:21 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:21] New autonomous report: AUT-8-1779769341 -> Available memory: 14680 MB
+[04:22:22] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 19/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F376:295C82:43B5D8:F67430:6A151FFE and timestamp 2026-05-26 04:22:22 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:22] Sender published response comment.
+[04:22:23] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 20/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F37F:C5F4D:44FD9E:FC95B7:6A151FFF and timestamp 2026-05-26 04:22:23 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:23] _upload_via_contents_api FAILED (logs/command_mouse_keyboard.log): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F37F:C5F4D:44FD9E:FC95B7:6A151FFF and timestamp 2026-05-26 04:22:23 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:22:24] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 1/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F38E:2D6DEC:48CCF8:10AA283:6A152000 and timestamp 2026-05-26 04:22:24 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:25] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 2/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F39B:2D48B6:472651:10372B8:6A152001 and timestamp 2026-05-26 04:22:25 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:26] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 3/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F3A5:2AD9E7:4D022C:1195DA7:6A152002 and timestamp 2026-05-26 04:22:26 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:28] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 4/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F3B5:219AE8:454E69:FD30BB:6A152003 and timestamp 2026-05-26 04:22:28 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:28] Sender published response comment.
+[04:22:29] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 5/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F3C0:295C82:43DFF5:F71090:6A152005 and timestamp 2026-05-26 04:22:29 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:30] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 6/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED3E:17EFE7:44D03F:FBB585:6A152006 and timestamp 2026-05-26 04:22:30 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:31] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 7/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED47:2D48B6:474F10:104073C:6A152007 and timestamp 2026-05-26 04:22:31 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:32] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 8/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED4E:253383:4BD7A9:1175D47:6A152008 and timestamp 2026-05-26 04:22:32 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:33] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 9/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED5A:253383:4BDF58:1177979:6A152009 and timestamp 2026-05-26 04:22:33 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:34] Sender published response comment.
+[04:22:34] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 10/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED68:1897AD:4344E2:F6AEC9:6A15200A and timestamp 2026-05-26 04:22:34 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:36] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 11/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED6E:2D6DEC:492346:10BE2D6:6A15200C and timestamp 2026-05-26 04:22:36 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:37] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 12/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F536:14B614:527C6D:1277E5F:6A15200D and timestamp 2026-05-26 04:22:37 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:38] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 13/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F539:3BB219:3FD0DD:E90EB8:6A15200E and timestamp 2026-05-26 04:22:38 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:39] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 14/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDA3:36CCC0:465099:1010BC8:6A15200F and timestamp 2026-05-26 04:22:39 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:40] Sender published response comment.
+[04:22:40] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 15/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDB0:36CCC0:46585E:1012913:6A152010 and timestamp 2026-05-26 04:22:40 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:42] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 16/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDBC:23C821:480C8F:1076C5B:6A152011 and timestamp 2026-05-26 04:22:41 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:43] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 17/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDC8:F70A9:47DDA0:108E6D4:6A152013 and timestamp 2026-05-26 04:22:43 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:44] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 18/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDD0:1892E7:46F89A:1036D07:6A152014 and timestamp 2026-05-26 04:22:44 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:45] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 19/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDE0:2407C2:4147BE:EF1562:6A152015 and timestamp 2026-05-26 04:22:45 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:46] Sender published response comment.
+[04:22:46] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 20/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDED:14811D:445A15:F9B45E:6A152016 and timestamp 2026-05-26 04:22:46 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:46] _upload_via_contents_api FAILED (logs/command_mouse_keyboard.log): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDED:14811D:445A15:F9B45E:6A152016 and timestamp 2026-05-26 04:22:46 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:22:47] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 1/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDFF:F70A9:47FBFF:1095783:6A152017 and timestamp 2026-05-26 04:22:47 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:48] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 2/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE04:3ED929:43F6BA:F8DC7C:6A152018 and timestamp 2026-05-26 04:22:48 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:49] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 3/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F4FD:2C9BCC:49597E:10CD6F5:6A152019 and timestamp 2026-05-26 04:22:49 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:50] Agent alive
+[04:22:50] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 4/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F50A:2407C2:416B3A:EF94AB:6A15201A and timestamp 2026-05-26 04:22:50 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:51] Fetcher detected new App Commands comment.
+[04:22:51] Re‑enqueued existing report for APP-58939-20260526042006
+[04:22:51] Re‑enqueued existing report for APP-58940-20260526042006
+[04:22:51] Acknowledged autonomous report AUT-148-1779767975
+[04:22:51] Acknowledged autonomous report AUT-147-1779767855
+[04:22:51] Acknowledged autonomous report AUT-146-1779767735
+[04:22:51] Acknowledged autonomous report AUT-145-1779767615
+[04:22:51] Acknowledged autonomous report AUT-144-1779767495
+[04:22:51] Acknowledged autonomous report AUT-143-1779767375
+[04:22:51] Acknowledged autonomous report AUT-142-1779767255
+[04:22:51] Acknowledged autonomous report AUT-141-1779767135
+[04:22:51] Acknowledged autonomous report AUT-140-1779767015
+[04:22:51] Acknowledged autonomous report AUT-139-1779766895
+[04:22:51] Acknowledged autonomous report AUT-138-1779766775
+[04:22:51] Acknowledged autonomous report AUT-137-1779766655
+[04:22:51] Acknowledged autonomous report AUT-136-1779766535
+[04:22:51] Acknowledged autonomous report AUT-135-1779766415
+[04:22:51] Acknowledged autonomous report AUT-134-1779766295
+[04:22:51] Acknowledged autonomous report AUT-133-1779766175
+[04:22:51] Acknowledged autonomous report AUT-132-1779766055
+[04:22:51] Acknowledged autonomous report AUT-131-1779765936
+[04:22:51] Acknowledged autonomous report AUT-130-1779765818
+[04:22:51] Acknowledged autonomous report AUT-129-1779765695
+[04:22:51] Acknowledged autonomous report AUT-128-1779765578
+[04:22:51] Acknowledged autonomous report AUT-127-1779765455
+[04:22:51] Acknowledged autonomous report AUT-126-1779765337
+[04:22:51] Acknowledged autonomous report AUT-125-1779765219
+[04:22:51] Acknowledged autonomous report AUT-124-1779765096
+[04:22:51] Acknowledged autonomous report AUT-123-1779764978
+[04:22:51] Acknowledged autonomous report AUT-122-1779764855
+[04:22:51] Acknowledged autonomous report AUT-121-1779764738
+[04:22:51] Acknowledged autonomous report AUT-120-1779764615
+[04:22:51] Acknowledged autonomous report AUT-119-1779764497
+[04:22:51] Acknowledged autonomous report AUT-118-1779764375
+[04:22:51] Acknowledged autonomous report AUT-117-1779764255
+[04:22:51] Acknowledged autonomous report AUT-116-1779764135
+[04:22:51] Acknowledged autonomous report AUT-115-1779764015
+[04:22:51] Acknowledged autonomous report AUT-114-1779763895
+[04:22:51] Acknowledged autonomous report AUT-113-1779763775
+[04:22:51] Acknowledged autonomous report AUT-112-1779763655
+[04:22:51] Acknowledged autonomous report AUT-111-1779763535
+[04:22:51] Acknowledged autonomous report AUT-110-1779763415
+[04:22:51] Acknowledged autonomous report AUT-109-1779763295
+[04:22:51] Acknowledged autonomous report AUT-108-1779763175
+[04:22:51] Acknowledged autonomous report AUT-107-1779763055
+[04:22:51] Acknowledged autonomous report AUT-106-1779762935
+[04:22:51] Acknowledged autonomous report AUT-105-1779762815
+[04:22:51] Acknowledged autonomous report AUT-104-1779762695
+[04:22:51] Acknowledged autonomous report AUT-103-1779762575
+[04:22:51] Acknowledged autonomous report AUT-102-1779762455
+[04:22:51] Acknowledged autonomous report AUT-101-1779762335
+[04:22:51] Acknowledged autonomous report AUT-100-1779762218
+[04:22:51] Acknowledged autonomous report AUT-99-1779762095
+[04:22:51] Acknowledged autonomous report AUT-98-1779761978
+[04:22:51] Acknowledged autonomous report AUT-97-1779761855
+[04:22:51] Acknowledged autonomous report AUT-96-1779761738
+[04:22:51] Acknowledged autonomous report AUT-95-1779761615
+[04:22:51] Acknowledged autonomous report AUT-94-1779761498
+[04:22:51] Acknowledged autonomous report AUT-93-1779761375
+[04:22:51] Acknowledged autonomous report AUT-92-1779761257
+[04:22:51] Acknowledged autonomous report AUT-91-1779761135
+[04:22:51] Acknowledged autonomous report AUT-90-1779761017
+[04:22:51] Acknowledged autonomous report AUT-89-1779760895
+[04:22:51] Acknowledged autonomous report AUT-88-1779760777
+[04:22:51] Acknowledged autonomous report AUT-87-1779760655
+[04:22:51] Acknowledged autonomous report AUT-86-1779760535
+[04:22:51] Acknowledged autonomous report AUT-85-1779760415
+[04:22:51] Acknowledged autonomous report AUT-84-1779760295
+[04:22:51] Acknowledged autonomous report AUT-83-1779760175
+[04:22:51] Acknowledged autonomous report AUT-82-1779760055
+[04:22:51] Acknowledged autonomous report AUT-81-1779759935
+[04:22:51] Acknowledged autonomous report AUT-80-1779759815
+[04:22:51] Acknowledged autonomous report AUT-79-1779759695
+[04:22:51] Acknowledged autonomous report AUT-78-1779759575
+[04:22:51] Acknowledged autonomous report AUT-77-1779759455
+[04:22:51] Acknowledged autonomous report AUT-76-1779759335
+[04:22:51] Acknowledged autonomous report AUT-75-1779759215
+[04:22:51] Acknowledged autonomous report AUT-74-1779759095
+[04:22:51] Acknowledged autonomous report AUT-73-1779758975
+[04:22:51] Acknowledged autonomous report AUT-72-1779758855
+[04:22:51] Acknowledged autonomous report AUT-71-1779758735
+[04:22:51] Acknowledged autonomous report AUT-70-1779758617
+[04:22:51] Acknowledged autonomous report AUT-69-1779758495
+[04:22:51] Acknowledged autonomous report AUT-68-1779758377
+[04:22:51] Acknowledged autonomous report AUT-67-1779758255
+[04:22:51] Acknowledged autonomous report AUT-66-1779758137
+[04:22:51] Acknowledged autonomous report AUT-65-1779758019
+[04:22:51] Acknowledged autonomous report AUT-64-1779757896
+[04:22:51] Acknowledged autonomous report AUT-63-1779757778
+[04:22:51] Acknowledged autonomous report AUT-62-1779757655
+[04:22:51] Acknowledged autonomous report AUT-61-1779757538
+[04:22:51] Acknowledged autonomous report AUT-60-1779757415
+[04:22:51] Acknowledged autonomous report AUT-59-1779757297
+[04:22:51] Acknowledged autonomous report AUT-58-1779757179
+[04:22:51] Acknowledged autonomous report AUT-57-1779757055
+[04:22:51] Acknowledged autonomous report AUT-56-1779756935
+[04:22:51] Acknowledged autonomous report AUT-55-1779756815
+[04:22:51] Acknowledged autonomous report AUT-54-1779756695
+[04:22:51] Acknowledged autonomous report AUT-53-1779756575
+[04:22:51] Acknowledged autonomous report AUT-52-1779756455
+[04:22:51] Acknowledged autonomous report AUT-51-1779756335
+[04:22:51] Acknowledged autonomous report AUT-50-1779756215
+[04:22:51] Acknowledged autonomous report AUT-49-1779756095
+[04:22:51] Acknowledged autonomous report AUT-48-1779755975
+[04:22:51] Sender published response comment.
+[04:22:52] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 5/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F51D:260E39:45DC6B:FEE2AC:6A15201B and timestamp 2026-05-26 04:22:52 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:53] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 6/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F527:B2D58:4343F0:F5E620:6A15201D and timestamp 2026-05-26 04:22:53 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:54] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 7/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F533:3ED929:441F70:F9745B:6A15201E and timestamp 2026-05-26 04:22:54 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:55] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 8/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F539:3BB219:4038D8:EA8D7C:6A15201F and timestamp 2026-05-26 04:22:55 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:56] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 9/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F544:77183:42C383:F44B7C:6A152020 and timestamp 2026-05-26 04:22:56 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:57] Sender published response comment.
+[04:22:57] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 10/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F55E:E02C1:4688DB:101C7C5:6A152021 and timestamp 2026-05-26 04:22:57 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:22:59] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 11/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F565:3ED929:443E3F:F9E726:6A152022 and timestamp 2026-05-26 04:22:59 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:00] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 12/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F59E:E02C1:469804:10200DD:6A152024 and timestamp 2026-05-26 04:23:00 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:01] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 13/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5A6:3ED929:444D84:FA2092:6A152025 and timestamp 2026-05-26 04:23:01 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:02] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 14/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5AD:36CCC0:46EA99:1034906:6A152026 and timestamp 2026-05-26 04:23:02 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:03] Sender published response comment.
+[04:23:03] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 15/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5BF:36CCC0:46F257:103660A:6A152027 and timestamp 2026-05-26 04:23:03 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:04] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 16/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5C1:15371B:4371B9:F5B794:6A152028 and timestamp 2026-05-26 04:23:04 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:05] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 17/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5CE:23C821:48B73D:109F5CF:6A152029 and timestamp 2026-05-26 04:23:05 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:07] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 18/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5DB:260E39:4640F6:10055EE:6A15202B and timestamp 2026-05-26 04:23:07 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:08] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 19/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5DE:173F8B:44BF0C:FACBD9:6A15202C and timestamp 2026-05-26 04:23:08 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:09] Sender published response comment.
+[04:23:09] gh api failed: Upload logs/command_mouse_keyboard.log (3525 bytes) (attempt 20/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5F3:77183:4317BD:F58838:6A15202D and timestamp 2026-05-26 04:23:09 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:09] _upload_via_contents_api FAILED (logs/command_mouse_keyboard.log): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5F3:77183:4317BD:F58838:6A15202D and timestamp 2026-05-26 04:23:09 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:23:09] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 1/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5F8:16E3F2:45C4DD:100D091:6A15202D and timestamp 2026-05-26 04:23:09 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:10] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 2/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE76:CC713:3F24AD:E7C759:6A15202E and timestamp 2026-05-26 04:23:10 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:12] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 3/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE7E:10F62E:41FE98:F106F0:6A15202F and timestamp 2026-05-26 04:23:11 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:13] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 4/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE86:36CCC0:4735B3:10463EB:6A152031 and timestamp 2026-05-26 04:23:13 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:14] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 5/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE99:16E3F2:45E4C0:10148C8:6A152032 and timestamp 2026-05-26 04:23:14 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:14] Sender published response comment.
+[04:23:15] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 6/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEA8:290CE5:4DD2C9F:127BE195:6A152033 and timestamp 2026-05-26 04:23:15 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:16] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 7/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEB1:B2D58:43E68C:F84ABF:6A152034 and timestamp 2026-05-26 04:23:16 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:17] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 8/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEBC:2C9BCC:4A16AB:10F9F41:6A152035 and timestamp 2026-05-26 04:23:17 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:18] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 9/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEBF:260E39:469583:10193DD:6A152036 and timestamp 2026-05-26 04:23:18 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:20] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 10/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEB4:F70A9:48EA84:10CE0A8:6A152038 and timestamp 2026-05-26 04:23:20 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:20] Sender published response comment.
+[04:23:20] Agent alive
+[04:23:21] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 11/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEB8:36CCC0:476D35:1053655:6A152039 and timestamp 2026-05-26 04:23:21 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:22] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 12/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEBC:2C9BCC:4A3845:1101E82:6A15203A and timestamp 2026-05-26 04:23:22 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:23] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 13/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EECB:CF598:42CEDC:F24C9D:6A15203B and timestamp 2026-05-26 04:23:23 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:24] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 14/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EED6:14811D:4563EB:FD978A:6A15203C and timestamp 2026-05-26 04:23:24 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:25] Sender published response comment.
+[04:23:25] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 15/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEE2:2407C2:424D3E:F2E160:6A15203D and timestamp 2026-05-26 04:23:25 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:27] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 16/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEED:260E39:46CE9A:10269F0:6A15203F and timestamp 2026-05-26 04:23:27 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:28] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 17/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEFB:CF598:42EDCD:F2BDE5:6A152040 and timestamp 2026-05-26 04:23:28 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:29] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 18/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EF00:15371B:441169:F80E5E:6A152041 and timestamp 2026-05-26 04:23:29 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:30] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 19/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC32:251323:48D009:10A2F12:6A152042 and timestamp 2026-05-26 04:23:30 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:31] Sender published response comment.
+[04:23:31] gh api failed: Upload screenshots/0001_1779769322725965_auto.png (70912 bytes) (attempt 20/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC45:290CE5:4DD9E35:127D8EA9:6A152043 and timestamp 2026-05-26 04:23:31 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:31] _upload_via_contents_api FAILED (screenshots/0001_1779769322725965_auto.png): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC45:290CE5:4DD9E35:127D8EA9:6A152043 and timestamp 2026-05-26 04:23:31 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:23:31] Screenshot push failed for screenshots/0001_1779769322725965_auto.png.
+[04:23:31] Taking screenshot: screenshots/0002_1779769411749383_auto.png
+[04:23:31] Uploading screenshot synchronously: screenshots/0002_1779769411749383_auto.png
+[04:23:32] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 1/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC57:2C9BCC:4A7F1E:1112D5B:6A152044 and timestamp 2026-05-26 04:23:32 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:33] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 2/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC5F:10F62E:428BBC:F319D4:6A152045 and timestamp 2026-05-26 04:23:33 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:34] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 3/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC69:10F62E:4293A4:F33715:6A152046 and timestamp 2026-05-26 04:23:34 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:36] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 4/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F1AC:3E4420:439013:F7C68F:6A152047 and timestamp 2026-05-26 04:23:36 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:37] Sender published response comment.
+[04:23:37] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 5/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F1BE:176BE5:4667D1:101FB40:6A152049 and timestamp 2026-05-26 04:23:37 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:38] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 6/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F1C7:16F29:49C426:110DCA9:6A15204A and timestamp 2026-05-26 04:23:38 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:39] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 7/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F1CA:1CCA71:48CE89:10BDA02:6A15204B and timestamp 2026-05-26 04:23:39 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:40] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 8/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE57:176BE5:467F9E:1025361:6A15204C and timestamp 2026-05-26 04:23:40 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:41] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 9/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE61:300979:54BF0D:12EA42F:6A15204D and timestamp 2026-05-26 04:23:41 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:42] Sender published response comment.
+[04:23:42] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 10/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE76:12EB04:414C24:EFA26C:6A15204E and timestamp 2026-05-26 04:23:42 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:44] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 11/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE7D:3F39E3:4280C8:F344FF:6A152050 and timestamp 2026-05-26 04:23:44 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:45] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 12/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE88:12EB04:415AD6:EFD8DA:6A152051 and timestamp 2026-05-26 04:23:45 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:46] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 13/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE8C:37693B:470C93:10495E1:6A152052 and timestamp 2026-05-26 04:23:46 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:47] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 14/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE94:7CDC6:4A5680:1103640:6A152053 and timestamp 2026-05-26 04:23:47 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:48] Sender published response comment.
+[04:23:48] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 15/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEAE:13D783:4775E3:106182D:6A152054 and timestamp 2026-05-26 04:23:48 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:49] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 16/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDDE:24652E:44DD7B:FCC151:6A152055 and timestamp 2026-05-26 04:23:49 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:50] Agent alive
+[04:23:51] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 17/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDE6:139D53:44E60C:FD1054:6A152056 and timestamp 2026-05-26 04:23:51 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:52] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 18/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDED:261EE0:44A710:FB9139:6A152058 and timestamp 2026-05-26 04:23:52 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:53] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 19/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDF9:3E4420:43FDA7:F95D3E:6A152059 and timestamp 2026-05-26 04:23:53 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:53] Fetcher detected new App Commands comment.
+[04:23:53] Acknowledged autonomous report AUT-148-1779767975
+[04:23:53] Acknowledged autonomous report AUT-147-1779767855
+[04:23:53] Acknowledged autonomous report AUT-146-1779767735
+[04:23:53] Acknowledged autonomous report AUT-145-1779767615
+[04:23:53] Acknowledged autonomous report AUT-144-1779767495
+[04:23:53] Acknowledged autonomous report AUT-143-1779767375
+[04:23:53] Acknowledged autonomous report AUT-142-1779767255
+[04:23:53] Acknowledged autonomous report AUT-141-1779767135
+[04:23:53] Acknowledged autonomous report AUT-140-1779767015
+[04:23:53] Acknowledged autonomous report AUT-139-1779766895
+[04:23:53] Acknowledged autonomous report AUT-138-1779766775
+[04:23:53] Acknowledged autonomous report AUT-137-1779766655
+[04:23:53] Acknowledged autonomous report AUT-136-1779766535
+[04:23:53] Acknowledged autonomous report AUT-135-1779766415
+[04:23:53] Acknowledged autonomous report AUT-134-1779766295
+[04:23:53] Acknowledged autonomous report AUT-133-1779766175
+[04:23:53] Acknowledged autonomous report AUT-132-1779766055
+[04:23:53] Acknowledged autonomous report AUT-131-1779765936
+[04:23:53] Acknowledged autonomous report AUT-130-1779765818
+[04:23:53] Acknowledged autonomous report AUT-129-1779765695
+[04:23:53] Acknowledged autonomous report AUT-128-1779765578
+[04:23:53] Acknowledged autonomous report AUT-127-1779765455
+[04:23:53] Acknowledged autonomous report AUT-126-1779765337
+[04:23:53] Acknowledged autonomous report AUT-125-1779765219
+[04:23:53] Acknowledged autonomous report AUT-124-1779765096
+[04:23:53] Acknowledged autonomous report AUT-123-1779764978
+[04:23:53] Acknowledged autonomous report AUT-122-1779764855
+[04:23:53] Acknowledged autonomous report AUT-121-1779764738
+[04:23:53] Acknowledged autonomous report AUT-120-1779764615
+[04:23:53] Acknowledged autonomous report AUT-119-1779764497
+[04:23:53] Acknowledged autonomous report AUT-118-1779764375
+[04:23:53] Acknowledged autonomous report AUT-117-1779764255
+[04:23:53] Acknowledged autonomous report AUT-116-1779764135
+[04:23:53] Acknowledged autonomous report AUT-115-1779764015
+[04:23:53] Acknowledged autonomous report AUT-114-1779763895
+[04:23:53] Acknowledged autonomous report AUT-113-1779763775
+[04:23:53] Acknowledged autonomous report AUT-112-1779763655
+[04:23:53] Acknowledged autonomous report AUT-111-1779763535
+[04:23:53] Acknowledged autonomous report AUT-110-1779763415
+[04:23:53] Acknowledged autonomous report AUT-109-1779763295
+[04:23:53] Acknowledged autonomous report AUT-108-1779763175
+[04:23:53] Acknowledged autonomous report AUT-107-1779763055
+[04:23:53] Acknowledged autonomous report AUT-106-1779762935
+[04:23:53] Acknowledged autonomous report AUT-105-1779762815
+[04:23:53] Acknowledged autonomous report AUT-104-1779762695
+[04:23:53] Acknowledged autonomous report AUT-103-1779762575
+[04:23:53] Acknowledged autonomous report AUT-102-1779762455
+[04:23:53] Acknowledged autonomous report AUT-101-1779762335
+[04:23:53] Acknowledged autonomous report AUT-100-1779762218
+[04:23:53] Acknowledged autonomous report AUT-99-1779762095
+[04:23:53] Acknowledged autonomous report AUT-98-1779761978
+[04:23:53] Acknowledged autonomous report AUT-97-1779761855
+[04:23:53] Acknowledged autonomous report AUT-96-1779761738
+[04:23:53] Acknowledged autonomous report AUT-95-1779761615
+[04:23:53] Acknowledged autonomous report AUT-94-1779761498
+[04:23:53] Acknowledged autonomous report AUT-93-1779761375
+[04:23:53] Acknowledged autonomous report AUT-92-1779761257
+[04:23:53] Acknowledged autonomous report AUT-91-1779761135
+[04:23:53] Acknowledged autonomous report AUT-90-1779761017
+[04:23:53] Acknowledged autonomous report AUT-89-1779760895
+[04:23:53] Acknowledged autonomous report AUT-88-1779760777
+[04:23:53] Acknowledged autonomous report AUT-87-1779760655
+[04:23:53] Acknowledged autonomous report AUT-86-1779760535
+[04:23:53] Acknowledged autonomous report AUT-85-1779760415
+[04:23:53] Acknowledged autonomous report AUT-84-1779760295
+[04:23:53] Acknowledged autonomous report AUT-83-1779760175
+[04:23:53] Acknowledged autonomous report AUT-82-1779760055
+[04:23:53] Acknowledged autonomous report AUT-81-1779759935
+[04:23:53] Acknowledged autonomous report AUT-80-1779759815
+[04:23:53] Acknowledged autonomous report AUT-79-1779759695
+[04:23:53] Acknowledged autonomous report AUT-78-1779759575
+[04:23:53] Acknowledged autonomous report AUT-77-1779759455
+[04:23:53] Acknowledged autonomous report AUT-76-1779759335
+[04:23:53] Acknowledged autonomous report AUT-75-1779759215
+[04:23:53] Acknowledged autonomous report AUT-74-1779759095
+[04:23:53] Acknowledged autonomous report AUT-73-1779758975
+[04:23:53] Acknowledged autonomous report AUT-72-1779758855
+[04:23:53] Acknowledged autonomous report AUT-71-1779758735
+[04:23:53] Acknowledged autonomous report AUT-70-1779758617
+[04:23:53] Acknowledged autonomous report AUT-69-1779758495
+[04:23:53] Acknowledged autonomous report AUT-68-1779758377
+[04:23:53] Acknowledged autonomous report AUT-67-1779758255
+[04:23:53] Acknowledged autonomous report AUT-66-1779758137
+[04:23:53] Acknowledged autonomous report AUT-65-1779758019
+[04:23:53] Acknowledged autonomous report AUT-64-1779757896
+[04:23:53] Acknowledged autonomous report AUT-63-1779757778
+[04:23:53] Acknowledged autonomous report AUT-62-1779757655
+[04:23:53] Acknowledged autonomous report AUT-61-1779757538
+[04:23:53] Acknowledged autonomous report AUT-60-1779757415
+[04:23:53] Acknowledged autonomous report AUT-59-1779757297
+[04:23:53] Acknowledged autonomous report AUT-58-1779757179
+[04:23:53] Acknowledged autonomous report AUT-57-1779757055
+[04:23:53] Acknowledged autonomous report AUT-56-1779756935
+[04:23:53] Acknowledged autonomous report AUT-55-1779756815
+[04:23:53] Acknowledged autonomous report AUT-54-1779756695
+[04:23:53] Acknowledged autonomous report AUT-53-1779756575
+[04:23:53] Acknowledged autonomous report AUT-52-1779756455
+[04:23:53] Acknowledged autonomous report AUT-51-1779756335
+[04:23:53] Acknowledged autonomous report AUT-50-1779756215
+[04:23:53] Acknowledged autonomous report AUT-49-1779756095
+[04:23:53] Acknowledged autonomous report AUT-48-1779755975
+[04:23:53] Acknowledged autonomous report AUT-47-1779755855
+[04:23:53] Acknowledged autonomous report AUT-46-1779755735
+[04:23:54] Sender published response comment.
+[04:23:54] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 20/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE0C:37693B:474267:1055D45:6A15205A and timestamp 2026-05-26 04:23:54 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:54] _upload_via_contents_api FAILED (logs/command_mouse_keyboard.log): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE0C:37693B:474267:1055D45:6A15205A and timestamp 2026-05-26 04:23:54 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:23:55] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 1/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE14:3FD734:475AFD:1051782:6A15205B and timestamp 2026-05-26 04:23:55 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:56] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 2/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE1C:24652E:4505F4:FD576E:6A15205C and timestamp 2026-05-26 04:23:56 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:57] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 3/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE24:392420:474B27:104F60F:6A15205D and timestamp 2026-05-26 04:23:57 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:58] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 4/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE30:37693B:476153:105CEE0:6A15205E and timestamp 2026-05-26 04:23:58 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:23:59] Fetcher detected new App Commands comment.
+[04:23:59] Enqueued for execution: APP-59074-20260526042206
+[04:23:59] Execution loop: processing APP-59074-20260526042206: tabs
+[04:23:59] Enqueued for execution: APP-59075-20260526042206
+[04:23:59] New autonomous report: AUT-9-1779769439 -> Tabs: 1: YouTube
+[04:23:59] Executed APP-59074-20260526042206 -> Tabs: 1: YouTube
+[04:23:59] Execution loop: processing APP-59075-20260526042206: dir
+[04:23:59] Executed APP-59075-20260526042206 -> Files: (empty)
+[04:23:59] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 5/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EFF9:13D783:47C134:107318D:6A15205F and timestamp 2026-05-26 04:23:59 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:00] Sender published response comment.
+[04:24:01] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 6/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F003:3E4420:443059:FA17D4:6A152060 and timestamp 2026-05-26 04:24:00 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:02] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 7/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F00D:11890B:4562DF:FE24D1:6A152062 and timestamp 2026-05-26 04:24:02 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:03] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 8/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F014:176BE5:471774:104837A:6A152063 and timestamp 2026-05-26 04:24:03 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:04] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 9/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F01B:7CDC6:4ACEB1:111F451:6A152064 and timestamp 2026-05-26 04:24:04 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:05] Sender published response comment.
+[04:24:05] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 10/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F033:3A4B43:474DBE:103F574:6A152065 and timestamp 2026-05-26 04:24:05 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:06] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 11/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F03E:392420:47879D:105D522:6A152066 and timestamp 2026-05-26 04:24:06 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:08] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 12/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F041:967BA:4A695A:11116CD:6A152067 and timestamp 2026-05-26 04:24:08 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:09] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 13/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F049:13D783:48012E:1082105:6A152069 and timestamp 2026-05-26 04:24:09 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:10] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 14/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5CA:1CCA71:49AA6A:10F0E0B:6A15206A and timestamp 2026-05-26 04:24:10 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:11] Sender published response comment.
+[04:24:11] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 15/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5DF:79DEA:434966:F65444:6A15206B and timestamp 2026-05-26 04:24:11 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:12] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 16/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5EB:967BA:4A8A6E:11193C1:6A15206C and timestamp 2026-05-26 04:24:12 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:13] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 17/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5F5:37693B:47D188:107721B:6A15206D and timestamp 2026-05-26 04:24:13 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:14] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 18/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F5FE:16F29:4AC4E5:1149DE3:6A15206E and timestamp 2026-05-26 04:24:14 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:16] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 19/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC07:261EE0:4545D3:FDDDFF:6A152070 and timestamp 2026-05-26 04:24:16 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:17] Sender published response comment.
+[04:24:17] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 20/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC19:8F583:427E2C:F206D1:6A152071 and timestamp 2026-05-26 04:24:17 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:17] _upload_via_contents_api FAILED (logs/command_mouse_keyboard.log): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC19:8F583:427E2C:F206D1:6A152071 and timestamp 2026-05-26 04:24:17 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:24:18] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 1/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC27:11890B:45CA21:FFA8C1:6A152071 and timestamp 2026-05-26 04:24:18 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:19] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 2/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC30:7CDC6:4B3967:11382C3:6A152073 and timestamp 2026-05-26 04:24:19 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:20] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 3/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDF0:2866E1:465C75:1018ABA:6A152074 and timestamp 2026-05-26 04:24:20 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:20] Agent alive
+[04:24:21] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 4/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EDFA:139D53:45A8DB:FFEC97:6A152075 and timestamp 2026-05-26 04:24:21 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:22] New autonomous report: AUT-10-1779769462 -> Available memory: 14621 MB
+[04:24:22] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 5/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE0E:300979:56032B:133394C:6A152076 and timestamp 2026-05-26 04:24:22 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:22] Sender published response comment.
+[04:24:23] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 6/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE10:1C7989:436F34:F6D3D1:6A152077 and timestamp 2026-05-26 04:24:23 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:25] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 7/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE1E:7CDC6:4B6119:11415CA:6A152078 and timestamp 2026-05-26 04:24:25 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:26] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 8/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE21:11890B:45FE4E:1006B18:6A15207A and timestamp 2026-05-26 04:24:26 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:27] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 9/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE2D:79DEA:43A97A:F7B82F:6A15207B and timestamp 2026-05-26 04:24:27 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:28] Sender published response comment.
+[04:24:28] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 10/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE42:262B59:456AA5:FE01B4:6A15207C and timestamp 2026-05-26 04:24:28 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:29] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 11/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE85:3A4B43:47F2AB:10664E1:6A15207D and timestamp 2026-05-26 04:24:29 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:30] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 12/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE8C:37693B:4849CD:1093310:6A15207E and timestamp 2026-05-26 04:24:30 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:32] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 13/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE98:3A4B43:4801C2:1069D5C:6A15207F and timestamp 2026-05-26 04:24:32 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:33] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 14/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEA1:3A4B43:48098E:106BA3E:6A152081 and timestamp 2026-05-26 04:24:33 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:34] Sender published response comment.
+[04:24:34] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 15/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EEB7:262B59:458E8C:FE878C:6A152082 and timestamp 2026-05-26 04:24:34 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:35] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 16/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0ED:5F4AB:47C9A7:106ABAF:6A152083 and timestamp 2026-05-26 04:24:35 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:36] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 17/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0F6:100DAA:4D2CCB:11AB461:6A152084 and timestamp 2026-05-26 04:24:36 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:37] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 18/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0FF:100DAA:4D34ED:11AD320:6A152085 and timestamp 2026-05-26 04:24:37 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:39] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 19/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F10A:1897AD:46927C:1031751:6A152087 and timestamp 2026-05-26 04:24:39 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:39] Sender published response comment.
+[04:24:40] gh api failed: Upload logs/command_mouse_keyboard.log (48175 bytes) (attempt 20/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0A3:5128B:4AB418:1127FBB:6A152088 and timestamp 2026-05-26 04:24:40 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:40] _upload_via_contents_api FAILED (logs/command_mouse_keyboard.log): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0A3:5128B:4AB418:1127FBB:6A152088 and timestamp 2026-05-26 04:24:40 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:24:40] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 1/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0A6:253383:4F509B:1246680:6A152088 and timestamp 2026-05-26 04:24:40 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:41] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 2/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0A9:219AE8:48D144:10A3325:6A152089 and timestamp 2026-05-26 04:24:41 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:42] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 3/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0B2:2BB584:4929E8:109C9A9:6A15208A and timestamp 2026-05-26 04:24:42 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:43] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 4/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0BF:159BE3:483598:109691D:6A15208B and timestamp 2026-05-26 04:24:43 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:45] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 5/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0C6:2A6A6A:4967FC:10C69EF:6A15208D and timestamp 2026-05-26 04:24:45 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:45] Sender published response comment.
+[04:24:46] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 6/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0D4:15C429:4A0694:10EBF6D:6A15208E and timestamp 2026-05-26 04:24:46 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:47] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 7/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0DC:1A57F6:4ACC39:11195E8:6A15208F and timestamp 2026-05-26 04:24:47 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:48] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 8/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F0E9:159BE3:48551A:109DFB1:6A152090 and timestamp 2026-05-26 04:24:48 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:49] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 9/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F209:171F32:4C6645:116BCC0:6A152091 and timestamp 2026-05-26 04:24:49 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:50] Agent alive
+[04:24:50] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 10/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F212:2AD9E7:51162A:128A1C7:6A152092 and timestamp 2026-05-26 04:24:50 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:51] Sender published response comment.
+[04:24:52] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 11/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F219:3DEB26:4947FD:10B6C6A:6A152094 and timestamp 2026-05-26 04:24:52 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:53] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 12/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F221:26CA42:4C80DE:1170AAD:6A152095 and timestamp 2026-05-26 04:24:53 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:54] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 13/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F223:2AD9E7:512F76:12901DC:6A152096 and timestamp 2026-05-26 04:24:54 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:55] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 14/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F22D:1A57F6:4B04D9:1126B2C:6A152097 and timestamp 2026-05-26 04:24:55 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:56] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 15/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F23F:219AE8:49376D:10BB14B:6A152098 and timestamp 2026-05-26 04:24:56 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:56] Sender published response comment.
+[04:24:57] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 16/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F247:3DEB26:496D51:10BF84D:6A152099 and timestamp 2026-05-26 04:24:57 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:24:59] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 17/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F249:15C429:4A593E:10FF24D:6A15209A and timestamp 2026-05-26 04:24:59 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:00] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 18/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC13:2974CA:4B15F1:113F548:6A15209C and timestamp 2026-05-26 04:25:00 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:01] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 19/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC19:1A57F6:4B2CA8:113018A:6A15209D and timestamp 2026-05-26 04:25:01 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:02] gh api failed: Upload screenshots/0002_1779769411749383_auto.png (71324 bytes) (attempt 20/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC2A:1897AD:47282C:1054782:6A15209E and timestamp 2026-05-26 04:25:02 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:02] _upload_via_contents_api FAILED (screenshots/0002_1779769411749383_auto.png): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC2A:1897AD:47282C:1054782:6A15209E and timestamp 2026-05-26 04:25:02 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:25:02] Screenshot push failed for screenshots/0002_1779769411749383_auto.png.
+[04:25:02] Taking screenshot: screenshots/0003_1779769502512980_auto.png
+[04:25:02] Sender published response comment.
+[04:25:02] Uploading screenshot synchronously: screenshots/0003_1779769502512980_auto.png
+[04:25:03] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 1/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC36:2B4CF6:4EBF6C:120AD6D:6A15209F and timestamp 2026-05-26 04:25:03 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:04] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 2/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC3F:332475:481FCA:107E36A:6A1520A0 and timestamp 2026-05-26 04:25:04 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:05] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 3/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC4D:1897AD:473DE5:10598FC:6A1520A1 and timestamp 2026-05-26 04:25:05 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:06] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 4/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC54:EE110:4DE376:11E17C6:6A1520A2 and timestamp 2026-05-26 04:25:06 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:08] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 5/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC6B:295C82:47DF10:106009F:6A1520A4 and timestamp 2026-05-26 04:25:08 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:08] Sender published response comment.
+[04:25:09] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 6/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC78:5128B:4B7C4E:1156CB6:6A1520A5 and timestamp 2026-05-26 04:25:09 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:10] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 7/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F276:2BB584:49E35A:10C829F:6A1520A6 and timestamp 2026-05-26 04:25:10 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:11] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 8/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F284:171F32:4D0150:11905DA:6A1520A7 and timestamp 2026-05-26 04:25:11 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:12] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 9/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F28F:2BB584:49F43F:10CC24B:6A1520A8 and timestamp 2026-05-26 04:25:12 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:13] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 10/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F2A1:5128B:4B9ECC:115F124:6A1520A9 and timestamp 2026-05-26 04:25:13 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:14] Sender published response comment.
+[04:25:15] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 11/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F2AD:EE110:4E1E9C:11EF701:6A1520AA and timestamp 2026-05-26 04:25:15 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:16] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 12/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F2B2:171F32:4D21F3:11981DA:6A1520AC and timestamp 2026-05-26 04:25:16 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:17] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 13/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F2B8:2B4CF6:4F2334:12227F9:6A1520AD and timestamp 2026-05-26 04:25:17 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:18] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 14/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F2BD:21D8DF:4C07A9:116E419:6A1520AE and timestamp 2026-05-26 04:25:18 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:19] Sender published response comment.
+[04:25:19] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 15/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECA4:332475:48872D:1096F13:6A1520AF and timestamp 2026-05-26 04:25:19 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:20] Agent alive
+[04:25:20] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 16/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECA7:332475:488ED7:1098D3A:6A1520B0 and timestamp 2026-05-26 04:25:20 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:22] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 17/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECB2:2AD9E7:52004F:12C1732:6A1520B2 and timestamp 2026-05-26 04:25:22 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:23] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 18/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECB3:1A57F6:4BCD2D:1156382:6A1520B3 and timestamp 2026-05-26 04:25:23 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:24] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 19/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECC5:22ECAC:4B75AE:11449F3:6A1520B4 and timestamp 2026-05-26 04:25:24 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:25] Sender published response comment.
+[04:25:25] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 20/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECDA:22ECAC:4B7D18:11466CA:6A1520B5 and timestamp 2026-05-26 04:25:25 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:25] _upload_via_contents_api FAILED (logs/command_mouse_keyboard.log): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECDA:22ECAC:4B7D18:11466CA:6A1520B5 and timestamp 2026-05-26 04:25:25 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:25:26] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 1/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECE8:332475:48B263:10A141E:6A1520B6 and timestamp 2026-05-26 04:25:26 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:27] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 2/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECED:15C429:4B22A3:112E9FF:6A1520B7 and timestamp 2026-05-26 04:25:27 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:28] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 3/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECFD:1897AD:47DA75:107EAD3:6A1520B8 and timestamp 2026-05-26 04:25:28 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:30] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 4/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F4CD:159BE3:49704A:10E0DAD:6A1520B9 and timestamp 2026-05-26 04:25:30 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:30] Sender published response comment.
+[04:25:31] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 5/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F4E3:5128B:4C17BF:117C059:6A1520BB and timestamp 2026-05-26 04:25:31 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:32] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 6/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F4E8:1A57F6:4C0932:1164716:6A1520BC and timestamp 2026-05-26 04:25:32 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:33] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 7/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F4F0:159BE3:498727:10E6497:6A1520BD and timestamp 2026-05-26 04:25:33 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:34] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 8/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F126:2A15D:48CC40:10A6656:6A1520BE and timestamp 2026-05-26 04:25:34 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:35] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 9/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F133:300979:5847E1:13B77CF:6A1520BF and timestamp 2026-05-26 04:25:35 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:36] Sender published response comment.
+[04:25:36] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 10/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F14C:13D783:4A6FC7:1114590:6A1520C0 and timestamp 2026-05-26 04:25:36 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:38] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 11/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F153:7CDC6:4D4E24:11B3C72:6A1520C2 and timestamp 2026-05-26 04:25:38 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:39] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 12/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F15E:3A04AE:45720A:FE57A8:6A1520C3 and timestamp 2026-05-26 04:25:39 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:40] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 13/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECCE:967BA:4CCFEE:11A145E:6A1520C4 and timestamp 2026-05-26 04:25:40 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:41] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 14/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECDC:21AF4:47C597:106E042:6A1520C5 and timestamp 2026-05-26 04:25:41 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:42] Sender published response comment.
+[04:25:42] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 15/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECEB:2A15D:490395:10B3468:6A1520C6 and timestamp 2026-05-26 04:25:42 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:43] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 16/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECF6:139D53:47BEE7:107C9ED:6A1520C7 and timestamp 2026-05-26 04:25:43 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:45] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 17/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ECFC:262B59:475877:1052919:6A1520C9 and timestamp 2026-05-26 04:25:45 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:46] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 18/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED01:392420:4A0CBD:10F34CA:6A1520CA and timestamp 2026-05-26 04:25:46 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:47] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 19/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED17:2082C4:452BE6:FD6926:6A1520CB and timestamp 2026-05-26 04:25:47 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:48] Sender published response comment.
+[04:25:48] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 20/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED24:176BE5:49DDF4:10EDB2F:6A1520CC and timestamp 2026-05-26 04:25:48 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:48] _upload_via_contents_api FAILED (logs/command_mouse_keyboard.log): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED24:176BE5:49DDF4:10EDB2F:6A1520CC and timestamp 2026-05-26 04:25:48 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
+[04:25:49] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 1/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID ED32:1F8B10:4AEDC5:1143EAD:6A1520CD and timestamp 2026-05-26 04:25:49 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:50] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 2/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F1E6:300979:58B7FF:13D0D51:6A1520CE and timestamp 2026-05-26 04:25:50 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:50] Agent alive
+[04:25:51] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 3/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC43:5F4AB:49BA28:10DE3FA:6A1520CF and timestamp 2026-05-26 04:25:51 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:52] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 4/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC4B:219AE8:4AB21B:111376F:6A1520D0 and timestamp 2026-05-26 04:25:52 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:53] Fetcher detected new App Commands comment.
+[04:25:53] Execution loop: processing APP-59076-20260526042406: tabs
+[04:25:53] Enqueued for execution: APP-59076-20260526042406
+[04:25:53] Enqueued for execution: APP-59077-20260526042406
+[04:25:53] New autonomous report: AUT-11-1779769553 -> Tabs: 1: YouTube
+[04:25:53] Executed APP-59076-20260526042406 -> Tabs: 1: YouTube
+[04:25:53] Execution loop: processing APP-59077-20260526042406: dir
+[04:25:53] Executed APP-59077-20260526042406 -> Files: (empty)
+[04:25:53] Sender published response comment.
+[04:25:53] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 5/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC69:DFC2B:496ABD:10D0057:6A1520D1 and timestamp 2026-05-26 04:25:53 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:55] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 6/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC71:219AE8:4AC075:1116C40:6A1520D3 and timestamp 2026-05-26 04:25:55 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:56] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 7/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC7C:DFC2B:4978BB:10D3506:6A1520D4 and timestamp 2026-05-26 04:25:56 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:57] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 8/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC83:5128B:4CBE7C:11A3283:6A1520D5 and timestamp 2026-05-26 04:25:57 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:58] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 9/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EC8D:26CA42:4E3149:11D6675:6A1520D6 and timestamp 2026-05-26 04:25:58 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:25:59] Sender published response comment.
+[04:25:59] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 10/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F4F9:5128B:4CCD79:11A6AC0:6A1520D7 and timestamp 2026-05-26 04:25:59 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:26:00] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 11/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F4FA:2AD9E7:530AC3:12FF8AE:6A1520D8 and timestamp 2026-05-26 04:26:00 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:26:02] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 12/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F505:2D6DEC:4ECF77:1213CA6:6A1520D9 and timestamp 2026-05-26 04:26:02 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:26:03] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 13/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F50B:2BB584:4B3EDE:111977C:6A1520DB and timestamp 2026-05-26 04:26:03 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:26:04] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 14/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F51B:2D48B6:4CEBB0:118D268:6A1520DC and timestamp 2026-05-26 04:26:04 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:26:05] Sender published response comment.
+[04:26:05] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 15/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F534:253383:51A432:12D2E51:6A1520DD and timestamp 2026-05-26 04:26:05 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:26:06] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 16/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F53E:159BE3:4A68D1:1119989:6A1520DE and timestamp 2026-05-26 04:26:06 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:26:07] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 17/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F548:2974CA:4CDA3B:11A9D0E:6A1520DF and timestamp 2026-05-26 04:26:07 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:26:09] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 18/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID F54E:26CA42:4E7668:11E68B1:6A1520E1 and timestamp 2026-05-26 04:26:09 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:26:10] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 19/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE5C:21D8DF:4D66E1:11C06DD:6A1520E2 and timestamp 2026-05-26 04:26:10 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:26:10] Sender published response comment.
+[04:26:11] gh api failed: Upload logs/command_mouse_keyboard.log (96418 bytes) (attempt 20/20): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE68:2D6DEC:4F1501:122422E:6A1520E3 and timestamp 2026-05-26 04:26:11 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[04:26:11] _upload_via_contents_api FAILED (logs/command_mouse_keyboard.log): gh: API rate limit exceeded for installation. If you reach out to GitHub Support for help, please include the request ID EE68:2D6DEC:4F1501:122422E:6A1520E3 and timestamp 2026-05-26 04:26:11 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+
