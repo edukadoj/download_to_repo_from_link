@@ -1697,3 +1697,7 @@
 [05:34:20] Taking screenshot: screenshots/0268_1779773660225083_auto.png
 [05:34:20] Uploading screenshot synchronously: screenshots/0268_1779773660225083_auto.png
 [05:34:22] Screenshot screenshots/0268_1779773660225083_auto.png uploaded successfully.
+[05:34:24] gh api failed: Upload logs/command_mouse_keyboard.log (126942 bytes) (attempt 1/20): gh: is at 52f31cc370569b7be8fbce2de1db9599af985655 but expected e2ffd7142a8a3a398e92f26a9973e1898ec59c79 (HTTP 409)
+[05:34:24] Agent alive
+[05:34:25] Taking screenshot: screenshots/0269_1779773665225242_auto.png
+[05:34:25] Uploading screenshot synchronously: screenshots/0269_1779773665225242_auto.png
