@@ -1002,3 +1002,8 @@
 [04:29:28] Screenshot screenshots/0024_1779769764934860_auto.png uploaded successfully.
 [04:29:29] Taking screenshot: screenshots/0025_1779769769934975_auto.png
 [04:29:30] Uploading screenshot synchronously: screenshots/0025_1779769769934975_auto.png
+[04:29:31] Screenshot screenshots/0025_1779769769934975_auto.png uploaded successfully.
+[04:29:33] gh api failed: Upload logs/command_mouse_keyboard.log (181491 bytes) (attempt 1/20): gh: is at 892ec8aa5519e4b8309ce456c9975c8fad4e653b but expected 4851d2ba5df097ebe1b9cf078b62a2ad4da608d0 (HTTP 409)
+[04:29:34] Taking screenshot: screenshots/0026_1779769774935085_auto.png
+[04:29:35] Uploading screenshot synchronously: screenshots/0026_1779769774935085_auto.png
+[04:29:37] Screenshot screenshots/0026_1779769774935085_auto.png uploaded successfully.
