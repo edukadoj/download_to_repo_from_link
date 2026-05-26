@@ -670,3 +670,7 @@
 [05:16:12] Screenshot screenshots/0050_1779772569957461_auto.png uploaded successfully.
 [05:16:14] Taking screenshot: screenshots/0051_1779772574957544_auto.png
 [05:16:15] Uploading screenshot synchronously: screenshots/0051_1779772574957544_auto.png
+[05:16:17] Executed APP-59193-20260526051421 -> ERR upload: timed out listing chunks dir
+[05:16:17] Screenshot screenshots/0051_1779772574957544_auto.png uploaded successfully.
+[05:16:19] Taking screenshot: screenshots/0052_1779772579957632_auto.png
+[05:16:20] Uploading screenshot synchronously: screenshots/0052_1779772579957632_auto.png
