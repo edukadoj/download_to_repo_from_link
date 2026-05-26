@@ -989,3 +989,8 @@
 [05:20:27] Executed APP-59211-20260526051836 -> Tabs: 1: Channel dashboard - YouTube Studio
 [05:20:27] Execution loop: processing APP-59212-20260526051836: dir
 [05:20:27] Executed APP-59212-20260526051836 -> Files: (empty)
+[05:20:30] _upload_via_contents_api: size mismatch for logs/command_mouse_keyboard.log
+[05:20:30] Taking screenshot: screenshots/0102_1779772830203851_auto.png
+[05:20:30] Uploading screenshot synchronously: screenshots/0102_1779772830203851_auto.png
+[05:20:30] Sender published response comment.
+[05:20:32] Screenshot screenshots/0102_1779772830203851_auto.png uploaded successfully.
