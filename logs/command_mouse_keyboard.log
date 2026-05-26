@@ -2509,3 +2509,6 @@
 [05:49:55] Uploading screenshot synchronously: screenshots/0446_1779774595394022_auto.png
 [05:49:58] Screenshot screenshots/0446_1779774595394022_auto.png uploaded successfully.
 [05:50:00] Taking screenshot: screenshots/0447_1779774600394169_auto.png
+[05:50:00] Uploading screenshot synchronously: screenshots/0447_1779774600394169_auto.png
+[05:50:02] _upload_via_contents_api: size mismatch for logs/command_mouse_keyboard.log
+[05:50:03] gh api failed: Upload logs/command_mouse_keyboard.log (190564 bytes) (attempt 1/20): gh: is at 9e33cdd2dc4ba0715fb5b636d0b53677ccb8c98d but expected 6108020fa66b50eb77d6ff549966891e58a24f03 (HTTP 409)
