@@ -7679,3 +7679,6 @@
 [01:27:48] Uploading screenshot synchronously: screenshots/0822_1779758868171454_auto.png
 [01:27:49] Screenshot screenshots/0822_1779758868171454_auto.png uploaded successfully.
 [01:27:53] Taking screenshot: screenshots/0823_1779758873171589_auto.png
+[01:27:53] Uploading screenshot synchronously: screenshots/0823_1779758873171589_auto.png
+[01:27:53] Sender published response comment.
+[01:27:56] _upload_via_git_data_api: size mismatch for logs/command_mouse_keyboard.log
