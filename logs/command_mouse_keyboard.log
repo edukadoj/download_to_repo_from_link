@@ -1269,3 +1269,5 @@
 [05:25:51] gh api failed: Upload screenshots/0166_1779773150212297_auto.png (501720 bytes) (attempt 1/20): gh: is at a712438d049b7d8bb6137928f6de141ea9bf9d31 but expected efe0ce93d56266e2cc6cd28ea8e87d22fd1d97b9 (HTTP 409)
 [05:25:54] Screenshot screenshots/0166_1779773150212297_auto.png uploaded successfully.
 [05:25:54] Agent alive
+[05:25:55] Taking screenshot: screenshots/0167_1779773155212387_auto.png
+[05:25:55] Uploading screenshot synchronously: screenshots/0167_1779773155212387_auto.png
