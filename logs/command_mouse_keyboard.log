@@ -3880,3 +3880,6 @@
 [00:27:47] Uploading screenshot synchronously: screenshots/0425_1779755267627682_auto.png
 [00:27:50] Screenshot screenshots/0425_1779755267627682_auto.png uploaded successfully.
 [00:27:50] Sender published response comment.
+[00:27:52] Taking screenshot: screenshots/0426_1779755272627849_auto.png
+[00:27:52] Uploading screenshot synchronously: screenshots/0426_1779755272627849_auto.png
+[00:27:54] _upload_via_contents_api: size mismatch for logs/command_mouse_keyboard.log
