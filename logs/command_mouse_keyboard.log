@@ -1837,3 +1837,8 @@
 [04:40:03] Taking screenshot: screenshots/0086_1779770403076582_auto.png
 [04:40:03] Uploading screenshot synchronously: screenshots/0086_1779770403076582_auto.png
 [04:40:05] Screenshot screenshots/0086_1779770403076582_auto.png uploaded successfully.
+[04:40:08] Taking screenshot: screenshots/0087_1779770408076673_auto.png
+[04:40:08] Uploading screenshot synchronously: screenshots/0087_1779770408076673_auto.png
+[04:40:09] Command APP-59133-20260526043806 timed out.
+[04:40:09] Executed APP-59133-20260526043806 -> ERR timeout: command exceeded 15 seconds
+[04:40:09] Execution loop: processing APP-59134-20260526043806: dir
