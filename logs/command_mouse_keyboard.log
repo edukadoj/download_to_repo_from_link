@@ -805,3 +805,12 @@
 [05:17:39] Taking screenshot: screenshots/0068_1779772659959396_auto.png
 [05:17:40] Cursor moved to (1, 988)
 [05:17:40] Cursor moved to (1, 989)
+[05:17:40] Uploading screenshot synchronously: screenshots/0068_1779772659959396_auto.png
+[05:17:40] Cursor moved to (1, 990)
+[05:17:40] Cursor moved to (1, 990)
+[05:17:40] Max clickable Y (incrementing) = 990
+[05:17:40] Final clickable bounds: 1917x990
+[05:17:40] New autonomous report: AUT-24-1779772660 -> viewsize:1917x990
+[05:17:41] Cursor moved to (958, 495)
+[05:17:41] Cursor moved to (958, 495)
+[05:17:41] Executed APP-59197-20260526051539 -> OK navigate(https://studio.youtube.com/channel/UC7HchFVuKMEmbwfTXYrqbSg)
