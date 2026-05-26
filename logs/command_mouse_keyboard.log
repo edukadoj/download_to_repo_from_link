@@ -1440,3 +1440,5 @@
 [05:29:07] Screenshot screenshots/0205_1779773345217103_auto.png uploaded successfully.
 [05:29:08] gh api failed: Delete screenshots/0200_1779773320216498_auto.png (attempt 1/20): gh: is at 09568bb7113489e9ad2640a6c456cf41dcda1bbf but expected be1afbd2a509d89449a01fcc16d5818bded9eb94 (HTTP 409)
 [05:29:10] Taking screenshot: screenshots/0206_1779773350217239_auto.png
+[05:29:10] Uploading screenshot synchronously: screenshots/0206_1779773350217239_auto.png
+[05:29:13] Screenshot screenshots/0206_1779773350217239_auto.png uploaded successfully.
