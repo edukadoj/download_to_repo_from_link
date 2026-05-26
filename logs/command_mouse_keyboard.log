@@ -778,3 +778,4 @@
 [05:17:34] Executed APP-59197-20260526051539 -> OK navigate(https://studio.youtube.com/channel/UC7HchFVuKMEmbwfTXYrqbSg)
 [05:17:34] Execution loop: processing APP-59197-20260526051539: navigate:https://studio.youtube.com
 [05:17:34] Taking screenshot: screenshots/0067_1779772654959266_auto.png
+[05:17:36] Uploading screenshot synchronously: screenshots/0067_1779772654959266_auto.png
