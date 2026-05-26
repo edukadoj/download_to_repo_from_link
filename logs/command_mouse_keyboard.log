@@ -15763,3 +15763,11 @@
 [03:39:08] Screenshot screenshots/1713_1779766745829680_auto.png uploaded successfully.
 [03:39:09] Sender published response comment.
 [03:39:10] Taking screenshot: screenshots/1714_1779766750829830_auto.png
+[03:39:11] Uploading screenshot synchronously: screenshots/1714_1779766750829830_auto.png
+[03:39:15] Sender published response comment.
+[03:39:20] Sender published response comment.
+[03:39:22] gh api failed: Create blob for logs/command_mouse_keyboard.log (attempt 1/20): gh: We couldn't respond to your request in time. Sorry about that. Please try resubmitting your request and contact us if the problem persists. (HTTP 504)
+[03:39:25] Sender published response comment.
+[03:39:28] Screenshot screenshots/1714_1779766750829830_auto.png uploaded successfully.
+[03:39:28] Taking screenshot: screenshots/1715_1779766768103970_auto.png
+[03:39:28] Uploading screenshot synchronously: screenshots/1715_1779766768103970_auto.png
