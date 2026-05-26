@@ -8120,3 +8120,6 @@
 [01:36:40] Sender published response comment.
 [01:36:40] Screenshot screenshots/0927_1779759398252210_auto.png uploaded successfully.
 [01:36:43] Taking screenshot: screenshots/0928_1779759403252357_auto.png
+[01:36:43] Uploading screenshot synchronously: screenshots/0928_1779759403252357_auto.png
+[01:36:45] Sender published response comment.
+[01:36:46] _upload_via_git_data_api: size mismatch for logs/command_mouse_keyboard.log
