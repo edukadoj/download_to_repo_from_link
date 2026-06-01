@@ -167,3 +167,7 @@
 [10:04:13] Enqueued for execution: APP-59357-20260601100155
 [10:04:13] Cursor moved to (1711, 206)
 [10:04:14] Taking screenshot: screenshots/0012_1780308254251678_auto.png
+[10:04:17] Browser health check failed – skipping screenshot.
+[10:04:17] Screenshot capture failed – will retry after interval.
+[10:04:17] Executed APP-59357-20260601100155 -> OK click(0.8930,0.2083)
+[10:04:17] New autonomous report: AUT-7-1780308257 -> navigate(https://studio.youtube.com/channel/UCvqPy-BS9Wb6LzaRfkW4j8w)
