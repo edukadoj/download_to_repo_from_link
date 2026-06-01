@@ -1,1 +1,2121 @@
 
+[14:21:07] Installing WARP dependencies
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  glib-networking glib-networking-common glib-networking-services
+  gsettings-desktop-schemas gstreamer1.0-gl gstreamer1.0-plugins-base
+  gstreamer1.0-plugins-good gstreamer1.0-x libaa1 libasyncns0 libavc1394-0
+  libayatana-ido3-0.4-0 libayatana-indicator3-7 libcaca0 libcdparanoia0
+  libdv4t64 libegl-mesa0 libegl1 libflac12t64 libgles2 libgraphene-1.0-0
+  libgstreamer-gl1.0-0 libgstreamer-plugins-base1.0-0
+  libgstreamer-plugins-good1.0-0 libharfbuzz-icu0 libhyphen0 libiec61883-0
+  libmanette-0.2-0 libmp3lame0 libmpg123-0t64 libopus0 liborc-0.4-0t64
+  libpipewire-0.3-0t64 libpipewire-0.3-common libproxy1v5 libpulse0
+  libraw1394-11 libsecret-1-0 libsecret-common libshout3 libsndfile1
+  libsoup-3.0-0 libsoup-3.0-common libspa-0.2-modules libspeex1 libtag1v5
+  libtag1v5-vanilla libtheora0 libtwolame0 libv4l-0t64 libv4lconvert0t64
+  libvisual-0.4-0 libvorbisenc2 libvpx9 libwavpack1 libwayland-server0
+  libwebrtc-audio-processing1 libxv1 session-migration xdg-dbus-proxy
+  xdg-desktop-portal xdg-desktop-portal-gtk
+Suggested packages:
+  gvfs libdv-bin oss-compat libvisual-0.4-plugins opus-tools pipewire
+  pulseaudio libraw1394-doc speex gstreamer1.0-libav gstreamer1.0-plugins-bad
+  gstreamer1.0-alsa accountsservice evince xdg-desktop-portal-gnome
+The following NEW packages will be installed:
+  bubblewrap desktop-file-utils glib-networking glib-networking-common
+  glib-networking-services gsettings-desktop-schemas gstreamer1.0-gl
+  gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-x libaa1
+  libasyncns0 libavc1394-0 libayatana-appindicator3-1 libayatana-ido3-0.4-0
+  libayatana-indicator3-7 libcaca0 libcdparanoia0 libdv4t64 libegl-mesa0
+  libegl1 libflac12t64 libgles2 libgraphene-1.0-0 libgstreamer-gl1.0-0
+  libgstreamer-plugins-base1.0-0 libgstreamer-plugins-good1.0-0
+  libharfbuzz-icu0 libhyphen0 libiec61883-0 libjavascriptcoregtk-4.1-0
+  libmanette-0.2-0 libmp3lame0 libmpg123-0t64 libopus0 liborc-0.4-0t64
+  libpipewire-0.3-0t64 libpipewire-0.3-common libproxy1v5 libpulse0
+  libraw1394-11 libsecret-1-0 libsecret-common libshout3 libsndfile1
+  libsoup-3.0-0 libsoup-3.0-common libspa-0.2-modules libspeex1 libtag1v5
+  libtag1v5-vanilla libtheora0 libtwolame0 libv4l-0t64 libv4lconvert0t64
+  libvisual-0.4-0 libvorbisenc2 libvpx9 libwavpack1 libwayland-server0
+  libwebkit2gtk-4.1-0 libwebrtc-audio-processing1 libxv1 session-migration
+  xdg-dbus-proxy xdg-desktop-portal xdg-desktop-portal-gtk
+0 upgraded, 67 newly installed, 0 to remove and 48 not upgraded.
+Need to get 44.4 MB of archives.
+After this operation, 165 MB of additional disk space will be used.
+Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Get:2 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 bubblewrap amd64 0.9.0-1ubuntu0.1 [50.2 kB]
+Get:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 desktop-file-utils amd64 0.27-2build1 [53.8 kB]
+Get:4 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libproxy1v5 amd64 0.5.4-4build1 [26.5 kB]
+Get:5 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 glib-networking-common all 2.80.0-1build1 [6702 B]
+Get:6 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 glib-networking-services amd64 2.80.0-1build1 [12.8 kB]
+Get:7 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 session-migration amd64 0.3.9build1 [9034 B]
+Get:8 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 gsettings-desktop-schemas all 46.1-0ubuntu1 [35.6 kB]
+Get:9 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 glib-networking amd64 2.80.0-1build1 [64.1 kB]
+Get:10 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libgraphene-1.0-0 amd64 1.10.8-3build2 [46.2 kB]
+Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libegl-mesa0 amd64 25.2.8-0ubuntu0.24.04.1 [117 kB]
+Get:12 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libegl1 amd64 1.7.0-1build1 [28.7 kB]
+Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 liborc-0.4-0t64 amd64 1:0.4.38-1ubuntu0.1 [207 kB]
+Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libgstreamer-plugins-base1.0-0 amd64 1.24.2-1ubuntu0.4 [862 kB]
+Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libgstreamer-gl1.0-0 amd64 1.24.2-1ubuntu0.4 [214 kB]
+Get:16 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 gstreamer1.0-gl amd64 1.24.2-1ubuntu0.4 [116 kB]
+Get:17 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libcdparanoia0 amd64 3.10.2+debian-14build3 [48.5 kB]
+Get:18 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libopus0 amd64 1.4-1build1 [208 kB]
+Get:19 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libtheora0 amd64 1.1.1+dfsg.1-16.1build3 [211 kB]
+Get:20 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libvisual-0.4-0 amd64 0.4.2-2build1 [115 kB]
+Get:21 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libvorbisenc2 amd64 1.3.7-1build3 [80.8 kB]
+Get:22 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 gstreamer1.0-plugins-base amd64 1.24.2-1ubuntu0.4 [721 kB]
+Get:23 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libaa1 amd64 1.4p5-51.1 [49.9 kB]
+Get:24 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libraw1394-11 amd64 2.1.2-2build3 [26.2 kB]
+Get:25 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libavc1394-0 amd64 0.5.4-5build3 [15.4 kB]
+Get:26 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libcaca0 amd64 0.99.beta20-4ubuntu0.2 [209 kB]
+Get:27 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libdv4t64 amd64 1.0.0-17.1build1 [63.2 kB]
+Get:28 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libflac12t64 amd64 1.4.3+ds-2.1ubuntu2 [197 kB]
+Get:29 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libgstreamer-plugins-good1.0-0 amd64 1.24.2-1ubuntu1.4 [33.2 kB]
+Get:30 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libiec61883-0 amd64 1.2.0-6build1 [24.5 kB]
+Get:31 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libmp3lame0 amd64 3.100-6build1 [142 kB]
+Get:32 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libmpg123-0t64 amd64 1.32.5-1ubuntu1.1 [169 kB]
+Get:33 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libasyncns0 amd64 0.8-6build4 [11.3 kB]
+Get:34 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libsndfile1 amd64 1.2.2-1ubuntu5.24.04.1 [209 kB]
+Get:35 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libpulse0 amd64 1:16.1+dfsg1-2ubuntu10.1 [292 kB]
+Get:36 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libspeex1 amd64 1.2.1-2ubuntu2.24.04.1 [59.6 kB]
+Get:37 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libshout3 amd64 2.4.6-1build2 [50.3 kB]
+Get:38 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libtag1v5-vanilla amd64 1.13.1-1build1 [326 kB]
+Get:39 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libtag1v5 amd64 1.13.1-1build1 [11.7 kB]
+Get:40 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libtwolame0 amd64 0.4.0-2build3 [52.3 kB]
+Get:41 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libv4lconvert0t64 amd64 1.26.1-4build3 [87.6 kB]
+Get:42 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libv4l-0t64 amd64 1.26.1-4build3 [46.9 kB]
+Get:43 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libvpx9 amd64 1.14.0-1ubuntu2.3 [1143 kB]
+Get:44 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libwavpack1 amd64 5.6.0-1build1 [84.6 kB]
+Get:45 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libsoup-3.0-common all 3.4.4-5ubuntu0.7 [11.6 kB]
+Get:46 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libsoup-3.0-0 amd64 3.4.4-5ubuntu0.7 [292 kB]
+Get:47 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 gstreamer1.0-plugins-good amd64 1.24.2-1ubuntu1.4 [2236 kB]
+Get:48 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libxv1 amd64 2:1.0.11-1.1build1 [10.7 kB]
+Get:49 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 gstreamer1.0-x amd64 1.24.2-1ubuntu0.4 [85.0 kB]
+Get:50 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libayatana-ido3-0.4-0 amd64 0.10.1-1build2 [56.6 kB]
+Get:51 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libayatana-indicator3-7 amd64 0.9.4-1build1 [31.7 kB]
+Get:52 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libayatana-appindicator3-1 amd64 0.5.93-1build3 [24.7 kB]
+Get:53 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libharfbuzz-icu0 amd64 8.3.0-2build2 [13.3 kB]
+Get:54 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libhyphen0 amd64 2.8.8-7build3 [26.5 kB]
+Get:55 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libjavascriptcoregtk-4.1-0 amd64 2.52.3-0ubuntu0.24.04.1 [8141 kB]
+Get:56 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libmanette-0.2-0 amd64 0.2.7-1build2 [30.6 kB]
+Get:57 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libwebrtc-audio-processing1 amd64 0.3.1-0ubuntu6 [290 kB]
+Get:58 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libspa-0.2-modules amd64 1.0.5-1ubuntu3.2 [627 kB]
+Get:59 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libpipewire-0.3-0t64 amd64 1.0.5-1ubuntu3.2 [252 kB]
+Get:60 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libpipewire-0.3-common all 1.0.5-1ubuntu3.2 [19.1 kB]
+Get:61 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libsecret-common all 0.21.4-1build3 [4962 B]
+Get:62 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libsecret-1-0 amd64 0.21.4-1build3 [116 kB]
+Get:63 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libwayland-server0 amd64 1.22.0-2.1build1 [33.9 kB]
+Get:64 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libgles2 amd64 1.7.0-1build1 [17.1 kB]
+Get:65 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 xdg-dbus-proxy amd64 0.1.5-1ubuntu0.2 [26.4 kB]
+Get:66 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libwebkit2gtk-4.1-0 amd64 2.52.3-0ubuntu0.24.04.1 [25.1 MB]
+Get:67 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 xdg-desktop-portal amd64 1.18.4-1ubuntu2.24.04.2 [307 kB]
+Get:68 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xdg-desktop-portal-gtk amd64 1.15.1-1build2 [80.3 kB]
+Fetched 44.4 MB in 1s (72.7 MB/s)
+Selecting previously unselected package bubblewrap.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 202271 files and directories currently installed.)
+Preparing to unpack .../00-bubblewrap_0.9.0-1ubuntu0.1_amd64.deb ...
+Unpacking bubblewrap (0.9.0-1ubuntu0.1) ...
+Selecting previously unselected package desktop-file-utils.
+Preparing to unpack .../01-desktop-file-utils_0.27-2build1_amd64.deb ...
+Unpacking desktop-file-utils (0.27-2build1) ...
+Selecting previously unselected package libproxy1v5:amd64.
+Preparing to unpack .../02-libproxy1v5_0.5.4-4build1_amd64.deb ...
+Unpacking libproxy1v5:amd64 (0.5.4-4build1) ...
+Selecting previously unselected package glib-networking-common.
+Preparing to unpack .../03-glib-networking-common_2.80.0-1build1_all.deb ...
+Unpacking glib-networking-common (2.80.0-1build1) ...
+Selecting previously unselected package glib-networking-services.
+Preparing to unpack .../04-glib-networking-services_2.80.0-1build1_amd64.deb ...
+Unpacking glib-networking-services (2.80.0-1build1) ...
+Selecting previously unselected package session-migration.
+Preparing to unpack .../05-session-migration_0.3.9build1_amd64.deb ...
+Unpacking session-migration (0.3.9build1) ...
+Selecting previously unselected package gsettings-desktop-schemas.
+Preparing to unpack .../06-gsettings-desktop-schemas_46.1-0ubuntu1_all.deb ...
+Unpacking gsettings-desktop-schemas (46.1-0ubuntu1) ...
+Selecting previously unselected package glib-networking:amd64.
+Preparing to unpack .../07-glib-networking_2.80.0-1build1_amd64.deb ...
+Unpacking glib-networking:amd64 (2.80.0-1build1) ...
+Selecting previously unselected package libgraphene-1.0-0:amd64.
+Preparing to unpack .../08-libgraphene-1.0-0_1.10.8-3build2_amd64.deb ...
+Unpacking libgraphene-1.0-0:amd64 (1.10.8-3build2) ...
+Selecting previously unselected package libegl-mesa0:amd64.
+Preparing to unpack .../09-libegl-mesa0_25.2.8-0ubuntu0.24.04.1_amd64.deb ...
+Unpacking libegl-mesa0:amd64 (25.2.8-0ubuntu0.24.04.1) ...
+Selecting previously unselected package libegl1:amd64.
+Preparing to unpack .../10-libegl1_1.7.0-1build1_amd64.deb ...
+Unpacking libegl1:amd64 (1.7.0-1build1) ...
+Selecting previously unselected package liborc-0.4-0t64:amd64.
+Preparing to unpack .../11-liborc-0.4-0t64_1%3a0.4.38-1ubuntu0.1_amd64.deb ...
+Unpacking liborc-0.4-0t64:amd64 (1:0.4.38-1ubuntu0.1) ...
+Selecting previously unselected package libgstreamer-plugins-base1.0-0:amd64.
+Preparing to unpack .../12-libgstreamer-plugins-base1.0-0_1.24.2-1ubuntu0.4_amd64.deb ...
+Unpacking libgstreamer-plugins-base1.0-0:amd64 (1.24.2-1ubuntu0.4) ...
+Selecting previously unselected package libgstreamer-gl1.0-0:amd64.
+Preparing to unpack .../13-libgstreamer-gl1.0-0_1.24.2-1ubuntu0.4_amd64.deb ...
+Unpacking libgstreamer-gl1.0-0:amd64 (1.24.2-1ubuntu0.4) ...
+Selecting previously unselected package gstreamer1.0-gl:amd64.
+Preparing to unpack .../14-gstreamer1.0-gl_1.24.2-1ubuntu0.4_amd64.deb ...
+Unpacking gstreamer1.0-gl:amd64 (1.24.2-1ubuntu0.4) ...
+Selecting previously unselected package libcdparanoia0:amd64.
+Preparing to unpack .../15-libcdparanoia0_3.10.2+debian-14build3_amd64.deb ...
+Unpacking libcdparanoia0:amd64 (3.10.2+debian-14build3) ...
+Selecting previously unselected package libopus0:amd64.
+Preparing to unpack .../16-libopus0_1.4-1build1_amd64.deb ...
+Unpacking libopus0:amd64 (1.4-1build1) ...
+Selecting previously unselected package libtheora0:amd64.
+Preparing to unpack .../17-libtheora0_1.1.1+dfsg.1-16.1build3_amd64.deb ...
+Unpacking libtheora0:amd64 (1.1.1+dfsg.1-16.1build3) ...
+Selecting previously unselected package libvisual-0.4-0:amd64.
+Preparing to unpack .../18-libvisual-0.4-0_0.4.2-2build1_amd64.deb ...
+Unpacking libvisual-0.4-0:amd64 (0.4.2-2build1) ...
+Selecting previously unselected package libvorbisenc2:amd64.
+Preparing to unpack .../19-libvorbisenc2_1.3.7-1build3_amd64.deb ...
+Unpacking libvorbisenc2:amd64 (1.3.7-1build3) ...
+Selecting previously unselected package gstreamer1.0-plugins-base:amd64.
+Preparing to unpack .../20-gstreamer1.0-plugins-base_1.24.2-1ubuntu0.4_amd64.deb ...
+Unpacking gstreamer1.0-plugins-base:amd64 (1.24.2-1ubuntu0.4) ...
+Selecting previously unselected package libaa1:amd64.
+Preparing to unpack .../21-libaa1_1.4p5-51.1_amd64.deb ...
+Unpacking libaa1:amd64 (1.4p5-51.1) ...
+Selecting previously unselected package libraw1394-11:amd64.
+Preparing to unpack .../22-libraw1394-11_2.1.2-2build3_amd64.deb ...
+Unpacking libraw1394-11:amd64 (2.1.2-2build3) ...
+Selecting previously unselected package libavc1394-0:amd64.
+Preparing to unpack .../23-libavc1394-0_0.5.4-5build3_amd64.deb ...
+Unpacking libavc1394-0:amd64 (0.5.4-5build3) ...
+Selecting previously unselected package libcaca0:amd64.
+Preparing to unpack .../24-libcaca0_0.99.beta20-4ubuntu0.2_amd64.deb ...
+Unpacking libcaca0:amd64 (0.99.beta20-4ubuntu0.2) ...
+Selecting previously unselected package libdv4t64:amd64.
+Preparing to unpack .../25-libdv4t64_1.0.0-17.1build1_amd64.deb ...
+Unpacking libdv4t64:amd64 (1.0.0-17.1build1) ...
+Selecting previously unselected package libflac12t64:amd64.
+Preparing to unpack .../26-libflac12t64_1.4.3+ds-2.1ubuntu2_amd64.deb ...
+Unpacking libflac12t64:amd64 (1.4.3+ds-2.1ubuntu2) ...
+Selecting previously unselected package libgstreamer-plugins-good1.0-0:amd64.
+Preparing to unpack .../27-libgstreamer-plugins-good1.0-0_1.24.2-1ubuntu1.4_amd64.deb ...
+Unpacking libgstreamer-plugins-good1.0-0:amd64 (1.24.2-1ubuntu1.4) ...
+Selecting previously unselected package libiec61883-0:amd64.
+Preparing to unpack .../28-libiec61883-0_1.2.0-6build1_amd64.deb ...
+Unpacking libiec61883-0:amd64 (1.2.0-6build1) ...
+Selecting previously unselected package libmp3lame0:amd64.
+Preparing to unpack .../29-libmp3lame0_3.100-6build1_amd64.deb ...
+Unpacking libmp3lame0:amd64 (3.100-6build1) ...
+Selecting previously unselected package libmpg123-0t64:amd64.
+Preparing to unpack .../30-libmpg123-0t64_1.32.5-1ubuntu1.1_amd64.deb ...
+Unpacking libmpg123-0t64:amd64 (1.32.5-1ubuntu1.1) ...
+Selecting previously unselected package libasyncns0:amd64.
+Preparing to unpack .../31-libasyncns0_0.8-6build4_amd64.deb ...
+Unpacking libasyncns0:amd64 (0.8-6build4) ...
+Selecting previously unselected package libsndfile1:amd64.
+Preparing to unpack .../32-libsndfile1_1.2.2-1ubuntu5.24.04.1_amd64.deb ...
+Unpacking libsndfile1:amd64 (1.2.2-1ubuntu5.24.04.1) ...
+Selecting previously unselected package libpulse0:amd64.
+Preparing to unpack .../33-libpulse0_1%3a16.1+dfsg1-2ubuntu10.1_amd64.deb ...
+Unpacking libpulse0:amd64 (1:16.1+dfsg1-2ubuntu10.1) ...
+Selecting previously unselected package libspeex1:amd64.
+Preparing to unpack .../34-libspeex1_1.2.1-2ubuntu2.24.04.1_amd64.deb ...
+Unpacking libspeex1:amd64 (1.2.1-2ubuntu2.24.04.1) ...
+Selecting previously unselected package libshout3:amd64.
+Preparing to unpack .../35-libshout3_2.4.6-1build2_amd64.deb ...
+Unpacking libshout3:amd64 (2.4.6-1build2) ...
+Selecting previously unselected package libtag1v5-vanilla:amd64.
+Preparing to unpack .../36-libtag1v5-vanilla_1.13.1-1build1_amd64.deb ...
+Unpacking libtag1v5-vanilla:amd64 (1.13.1-1build1) ...
+Selecting previously unselected package libtag1v5:amd64.
+Preparing to unpack .../37-libtag1v5_1.13.1-1build1_amd64.deb ...
+Unpacking libtag1v5:amd64 (1.13.1-1build1) ...
+Selecting previously unselected package libtwolame0:amd64.
+Preparing to unpack .../38-libtwolame0_0.4.0-2build3_amd64.deb ...
+Unpacking libtwolame0:amd64 (0.4.0-2build3) ...
+Selecting previously unselected package libv4lconvert0t64:amd64.
+Preparing to unpack .../39-libv4lconvert0t64_1.26.1-4build3_amd64.deb ...
+Unpacking libv4lconvert0t64:amd64 (1.26.1-4build3) ...
+Selecting previously unselected package libv4l-0t64:amd64.
+Preparing to unpack .../40-libv4l-0t64_1.26.1-4build3_amd64.deb ...
+Unpacking libv4l-0t64:amd64 (1.26.1-4build3) ...
+Selecting previously unselected package libvpx9:amd64.
+Preparing to unpack .../41-libvpx9_1.14.0-1ubuntu2.3_amd64.deb ...
+Unpacking libvpx9:amd64 (1.14.0-1ubuntu2.3) ...
+Selecting previously unselected package libwavpack1:amd64.
+Preparing to unpack .../42-libwavpack1_5.6.0-1build1_amd64.deb ...
+Unpacking libwavpack1:amd64 (5.6.0-1build1) ...
+Selecting previously unselected package libsoup-3.0-common.
+Preparing to unpack .../43-libsoup-3.0-common_3.4.4-5ubuntu0.7_all.deb ...
+Unpacking libsoup-3.0-common (3.4.4-5ubuntu0.7) ...
+Selecting previously unselected package libsoup-3.0-0:amd64.
+Preparing to unpack .../44-libsoup-3.0-0_3.4.4-5ubuntu0.7_amd64.deb ...
+Unpacking libsoup-3.0-0:amd64 (3.4.4-5ubuntu0.7) ...
+Selecting previously unselected package gstreamer1.0-plugins-good:amd64.
+Preparing to unpack .../45-gstreamer1.0-plugins-good_1.24.2-1ubuntu1.4_amd64.deb ...
+Unpacking gstreamer1.0-plugins-good:amd64 (1.24.2-1ubuntu1.4) ...
+Selecting previously unselected package libxv1:amd64.
+Preparing to unpack .../46-libxv1_2%3a1.0.11-1.1build1_amd64.deb ...
+Unpacking libxv1:amd64 (2:1.0.11-1.1build1) ...
+Selecting previously unselected package gstreamer1.0-x:amd64.
+Preparing to unpack .../47-gstreamer1.0-x_1.24.2-1ubuntu0.4_amd64.deb ...
+Unpacking gstreamer1.0-x:amd64 (1.24.2-1ubuntu0.4) ...
+Selecting previously unselected package libayatana-ido3-0.4-0:amd64.
+Preparing to unpack .../48-libayatana-ido3-0.4-0_0.10.1-1build2_amd64.deb ...
+Unpacking libayatana-ido3-0.4-0:amd64 (0.10.1-1build2) ...
+Selecting previously unselected package libayatana-indicator3-7:amd64.
+Preparing to unpack .../49-libayatana-indicator3-7_0.9.4-1build1_amd64.deb ...
+Unpacking libayatana-indicator3-7:amd64 (0.9.4-1build1) ...
+Selecting previously unselected package libayatana-appindicator3-1.
+Preparing to unpack .../50-libayatana-appindicator3-1_0.5.93-1build3_amd64.deb ...
+Unpacking libayatana-appindicator3-1 (0.5.93-1build3) ...
+Selecting previously unselected package libharfbuzz-icu0:amd64.
+Preparing to unpack .../51-libharfbuzz-icu0_8.3.0-2build2_amd64.deb ...
+Unpacking libharfbuzz-icu0:amd64 (8.3.0-2build2) ...
+Selecting previously unselected package libhyphen0:amd64.
+Preparing to unpack .../52-libhyphen0_2.8.8-7build3_amd64.deb ...
+Unpacking libhyphen0:amd64 (2.8.8-7build3) ...
+Selecting previously unselected package libjavascriptcoregtk-4.1-0:amd64.
+Preparing to unpack .../53-libjavascriptcoregtk-4.1-0_2.52.3-0ubuntu0.24.04.1_amd64.deb ...
+Unpacking libjavascriptcoregtk-4.1-0:amd64 (2.52.3-0ubuntu0.24.04.1) ...
+Selecting previously unselected package libmanette-0.2-0:amd64.
+Preparing to unpack .../54-libmanette-0.2-0_0.2.7-1build2_amd64.deb ...
+Unpacking libmanette-0.2-0:amd64 (0.2.7-1build2) ...
+Selecting previously unselected package libwebrtc-audio-processing1:amd64.
+Preparing to unpack .../55-libwebrtc-audio-processing1_0.3.1-0ubuntu6_amd64.deb ...
+Unpacking libwebrtc-audio-processing1:amd64 (0.3.1-0ubuntu6) ...
+Selecting previously unselected package libspa-0.2-modules:amd64.
+Preparing to unpack .../56-libspa-0.2-modules_1.0.5-1ubuntu3.2_amd64.deb ...
+Unpacking libspa-0.2-modules:amd64 (1.0.5-1ubuntu3.2) ...
+Selecting previously unselected package libpipewire-0.3-0t64:amd64.
+Preparing to unpack .../57-libpipewire-0.3-0t64_1.0.5-1ubuntu3.2_amd64.deb ...
+Unpacking libpipewire-0.3-0t64:amd64 (1.0.5-1ubuntu3.2) ...
+Selecting previously unselected package libpipewire-0.3-common.
+Preparing to unpack .../58-libpipewire-0.3-common_1.0.5-1ubuntu3.2_all.deb ...
+Unpacking libpipewire-0.3-common (1.0.5-1ubuntu3.2) ...
+Selecting previously unselected package libsecret-common.
+Preparing to unpack .../59-libsecret-common_0.21.4-1build3_all.deb ...
+Unpacking libsecret-common (0.21.4-1build3) ...
+Selecting previously unselected package libsecret-1-0:amd64.
+Preparing to unpack .../60-libsecret-1-0_0.21.4-1build3_amd64.deb ...
+Unpacking libsecret-1-0:amd64 (0.21.4-1build3) ...
+Selecting previously unselected package libwayland-server0:amd64.
+Preparing to unpack .../61-libwayland-server0_1.22.0-2.1build1_amd64.deb ...
+Unpacking libwayland-server0:amd64 (1.22.0-2.1build1) ...
+Selecting previously unselected package libgles2:amd64.
+Preparing to unpack .../62-libgles2_1.7.0-1build1_amd64.deb ...
+Unpacking libgles2:amd64 (1.7.0-1build1) ...
+Selecting previously unselected package xdg-dbus-proxy.
+Preparing to unpack .../63-xdg-dbus-proxy_0.1.5-1ubuntu0.2_amd64.deb ...
+Unpacking xdg-dbus-proxy (0.1.5-1ubuntu0.2) ...
+Selecting previously unselected package libwebkit2gtk-4.1-0:amd64.
+Preparing to unpack .../64-libwebkit2gtk-4.1-0_2.52.3-0ubuntu0.24.04.1_amd64.deb ...
+Unpacking libwebkit2gtk-4.1-0:amd64 (2.52.3-0ubuntu0.24.04.1) ...
+Selecting previously unselected package xdg-desktop-portal.
+Preparing to unpack .../65-xdg-desktop-portal_1.18.4-1ubuntu2.24.04.2_amd64.deb ...
+Unpacking xdg-desktop-portal (1.18.4-1ubuntu2.24.04.2) ...
+Selecting previously unselected package xdg-desktop-portal-gtk.
+Preparing to unpack .../66-xdg-desktop-portal-gtk_1.15.1-1build2_amd64.deb ...
+Unpacking xdg-desktop-portal-gtk (1.15.1-1build2) ...
+Setting up libpipewire-0.3-common (1.0.5-1ubuntu3.2) ...
+Setting up bubblewrap (0.9.0-1ubuntu0.1) ...
+Setting up libcdparanoia0:amd64 (3.10.2+debian-14build3) ...
+Setting up libwayland-server0:amd64 (1.22.0-2.1build1) ...
+Setting up session-migration (0.3.9build1) ...
+Created symlink /etc/systemd/user/graphical-session-pre.target.wants/session-migration.service → /usr/lib/systemd/user/session-migration.service.
+Setting up libraw1394-11:amd64 (2.1.2-2build3) ...
+Setting up libproxy1v5:amd64 (0.5.4-4build1) ...
+Setting up libtag1v5-vanilla:amd64 (1.13.1-1build1) ...
+Setting up libharfbuzz-icu0:amd64 (8.3.0-2build2) ...
+Setting up desktop-file-utils (0.27-2build1) ...
+Setting up libspeex1:amd64 (1.2.1-2ubuntu2.24.04.1) ...
+Setting up libcaca0:amd64 (0.99.beta20-4ubuntu0.2) ...
+Setting up libv4lconvert0t64:amd64 (1.26.1-4build3) ...
+Setting up libtwolame0:amd64 (0.4.0-2build3) ...
+Setting up libhyphen0:amd64 (2.8.8-7build3) ...
+Setting up libvisual-0.4-0:amd64 (0.4.2-2build1) ...
+Setting up libmanette-0.2-0:amd64 (0.2.7-1build2) ...
+Setting up libwebrtc-audio-processing1:amd64 (0.3.1-0ubuntu6) ...
+Setting up libsoup-3.0-common (3.4.4-5ubuntu0.7) ...
+Setting up libmpg123-0t64:amd64 (1.32.5-1ubuntu1.1) ...
+Setting up libayatana-ido3-0.4-0:amd64 (0.10.1-1build2) ...
+Setting up liborc-0.4-0t64:amd64 (1:0.4.38-1ubuntu0.1) ...
+Setting up libegl-mesa0:amd64 (25.2.8-0ubuntu0.24.04.1) ...
+Setting up libjavascriptcoregtk-4.1-0:amd64 (2.52.3-0ubuntu0.24.04.1) ...
+Setting up libgles2:amd64 (1.7.0-1build1) ...
+Setting up libspa-0.2-modules:amd64 (1.0.5-1ubuntu3.2) ...
+Setting up libopus0:amd64 (1.4-1build1) ...
+Setting up libxv1:amd64 (2:1.0.11-1.1build1) ...
+Setting up libdv4t64:amd64 (1.0.0-17.1build1) ...
+Setting up libv4l-0t64:amd64 (1.26.1-4build3) ...
+Setting up xdg-dbus-proxy (0.1.5-1ubuntu0.2) ...
+Setting up libvpx9:amd64 (1.14.0-1ubuntu2.3) ...
+Setting up libtag1v5:amd64 (1.13.1-1build1) ...
+Setting up libasyncns0:amd64 (0.8-6build4) ...
+Setting up libwavpack1:amd64 (5.6.0-1build1) ...
+Setting up libtheora0:amd64 (1.1.1+dfsg.1-16.1build3) ...
+Setting up libegl1:amd64 (1.7.0-1build1) ...
+Setting up libflac12t64:amd64 (1.4.3+ds-2.1ubuntu2) ...
+Setting up glib-networking-common (2.80.0-1build1) ...
+Setting up libayatana-indicator3-7:amd64 (0.9.4-1build1) ...
+Setting up libpipewire-0.3-0t64:amd64 (1.0.5-1ubuntu3.2) ...
+Setting up libsecret-common (0.21.4-1build3) ...
+Setting up libmp3lame0:amd64 (3.100-6build1) ...
+Setting up libgraphene-1.0-0:amd64 (1.10.8-3build2) ...
+Setting up libvorbisenc2:amd64 (1.3.7-1build3) ...
+Setting up libaa1:amd64 (1.4p5-51.1) ...
+Setting up libiec61883-0:amd64 (1.2.0-6build1) ...
+Setting up libavc1394-0:amd64 (0.5.4-5build3) ...
+Setting up gsettings-desktop-schemas (46.1-0ubuntu1) ...
+Setting up glib-networking-services (2.80.0-1build1) ...
+Setting up xdg-desktop-portal (1.18.4-1ubuntu2.24.04.2) ...
+Created symlink /etc/systemd/user/graphical-session-pre.target.wants/xdg-desktop-portal-rewrite-launchers.service → /usr/lib/systemd/user/xdg-desktop-portal-rewrite-launchers.service.
+Setting up libgstreamer-plugins-base1.0-0:amd64 (1.24.2-1ubuntu0.4) ...
+Setting up libsecret-1-0:amd64 (0.21.4-1build3) ...
+Setting up libgstreamer-plugins-good1.0-0:amd64 (1.24.2-1ubuntu1.4) ...
+Setting up libgstreamer-gl1.0-0:amd64 (1.24.2-1ubuntu0.4) ...
+Setting up gstreamer1.0-plugins-base:amd64 (1.24.2-1ubuntu0.4) ...
+Setting up libayatana-appindicator3-1 (0.5.93-1build3) ...
+Setting up libshout3:amd64 (2.4.6-1build2) ...
+Setting up libsndfile1:amd64 (1.2.2-1ubuntu5.24.04.1) ...
+Setting up gstreamer1.0-gl:amd64 (1.24.2-1ubuntu0.4) ...
+Setting up gstreamer1.0-x:amd64 (1.24.2-1ubuntu0.4) ...
+Setting up libpulse0:amd64 (1:16.1+dfsg1-2ubuntu10.1) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.7) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Not building database; man-db/auto-update is not 'true'.
+Processing triggers for libglib2.0-0t64:amd64 (2.80.0-6ubuntu3.8) ...
+Setting up glib-networking:amd64 (2.80.0-1build1) ...
+Setting up xdg-desktop-portal-gtk (1.15.1-1build2) ...
+Setting up libsoup-3.0-0:amd64 (3.4.4-5ubuntu0.7) ...
+Setting up gstreamer1.0-plugins-good:amd64 (1.24.2-1ubuntu1.4) ...
+Setting up libwebkit2gtk-4.1-0:amd64 (2.52.3-0ubuntu0.24.04.1) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.7) ...
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+[14:21:21] Installing WARP
+Selecting previously unselected package cloudflare-warp.
+(Reading database ... 202954 files and directories currently installed.)
+Preparing to unpack .../cloudflare-warp_2026.4.1350.0_amd64.deb ...
+Unpacking cloudflare-warp (2026.4.1350.0) ...
+Setting up cloudflare-warp (2026.4.1350.0) ...
+Notice: The Cloudflare WARP APT repository public key may require updating. Please run:
+  curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output "/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg"
+Created symlink /home/runner/.config/systemd/user/graphical-session.target.wants/warp-taskbar.service → /usr/lib/systemd/user/warp-taskbar.service.
+Created symlink /etc/systemd/system/multi-user.target.wants/warp-svc.service → /usr/lib/systemd/system/warp-svc.service.
+Processing triggers for hicolor-icon-theme (0.17-2) ...
+Processing triggers for desktop-file-utils (0.27-2build1) ...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+0 upgraded, 0 newly installed, 0 to remove and 48 not upgraded.
+[14:21:27] Registering WARP
+Success
+[14:21:28] Switching to full‑tunnel mode (warp)
+Success
+[14:21:28] Connecting
+Success
+[14:21:33] Quick warp status:
+ip=2a09:bac5:c82b:2828::400:23
+loc=US
+warp=on
+[14:21:33] Installing system dependencies
+Reading package lists...
+Building dependency tree...
+Reading state information...
+libgbm1 is already the newest version (25.2.8-0ubuntu0.24.04.1).
+libgbm1 set to manually installed.
+libopus0 is already the newest version (1.4-1build1).
+libopus0 set to manually installed.
+libwebpdemux2 is already the newest version (1.3.2-0.4build3).
+libwebpdemux2 set to manually installed.
+libharfbuzz-icu0 is already the newest version (8.3.0-2build2).
+libharfbuzz-icu0 set to manually installed.
+libenchant-2-2 is already the newest version (2.3.3-2build2).
+libenchant-2-2 set to manually installed.
+libsecret-1-0 is already the newest version (0.21.4-1build3).
+libsecret-1-0 set to manually installed.
+libhyphen0 is already the newest version (2.8.8-7build3).
+libhyphen0 set to manually installed.
+libmanette-0.2-0 is already the newest version (0.2.7-1build2).
+libmanette-0.2-0 set to manually installed.
+The following additional packages will be installed:
+  i965-va-driver intel-media-va-driver libaacs0 libass9 libavcodec60
+  libavdevice60 libavfilter9 libavformat60 libavutil58 libbdplus0 libblas3
+  libbluray2 libbs2b0 libcdio-cdda2t64 libcdio-paranoia2t64 libcdio19t64
+  libchromaprint1 libcjson1 libcodec2-1.2 libdav1d7 libdc1394-25 libdecor-0-0
+  libdecor-0-plugin-1-gtk libgme0 libgsm1 libhwy1t64 libigdgmm12
+  libjack-jackd2-0 libjxl0.7 liblapack3 liblilv-0-0 libmbedcrypto7t64
+  libmysofa1 libopenal-data libopenal1 libopenmpt0t64 libplacebo338
+  libpocketsphinx3 libpostproc57 librav1e0 librist4 librsvg2-2 librsvg2-common
+  librubberband2 libsamplerate0 libsdl2-2.0-0 libserd-0-0 libshine3
+  libsndio7.0 libsord-0-0 libsoxr0 libsphinxbase3t64 libsratom-0-0
+  libsrt1.5-gnutls libssh-gcrypt-4 libsvtav1enc1d1 libswresample4 libswscale7
+  libudfread0 libunibreak5 libva-drm2 libva-x11-2 libva2 libvdpau1
+  libvidstab1.1 libvpl2 libx264-164 libx265-199 libxcb-shape0 libxvidcore4
+  libzimg2 libzix-0-0 libzvbi-common libzvbi0t64 mesa-va-drivers
+  mesa-vdpau-drivers ocl-icd-libopencl1 pocketsphinx-en-us va-driver-all
+  vdpau-driver-all
+Suggested packages:
+  ffmpeg-doc i965-va-driver-shaders libcuda1 libnvcuvid1 libnvidia-encode1
+  libbluray-bdj jackd2 libportaudio2 librsvg2-bin serdi sndiod sordi
+  opencl-icd libvdpau-va-gl1
+The following NEW packages will be installed:
+  ffmpeg i965-va-driver intel-media-va-driver libaacs0 libass9 libavcodec60
+  libavdevice60 libavfilter9 libavformat60 libavutil58 libbdplus0 libblas3
+  libbluray2 libbs2b0 libcdio-cdda2t64 libcdio-paranoia2t64 libcdio19t64
+  libchromaprint1 libcjson1 libcodec2-1.2 libdav1d7 libdc1394-25 libdecor-0-0
+  libdecor-0-plugin-1-gtk libflite1 libgme0 libgsm1 libhwy1t64 libigdgmm12
+  libjack-jackd2-0 libjxl0.7 liblapack3 liblilv-0-0 libmbedcrypto7t64
+  libmysofa1 libopenal-data libopenal1 libopenmpt0t64 libplacebo338
+  libpocketsphinx3 libpostproc57 librav1e0 librist4 librsvg2-2 librsvg2-common
+  librubberband2 libsamplerate0 libsdl2-2.0-0 libserd-0-0 libshine3
+  libsndio7.0 libsord-0-0 libsoxr0 libsphinxbase3t64 libsratom-0-0
+  libsrt1.5-gnutls libssh-gcrypt-4 libsvtav1enc1d1 libswresample4 libswscale7
+  libudfread0 libunibreak5 libva-drm2 libva-x11-2 libva2 libvdpau1
+  libvidstab1.1 libvpl2 libwoff1 libx264-164 libx265-199 libxcb-shape0
+  libxvidcore4 libzimg2 libzix-0-0 libzvbi-common libzvbi0t64 mesa-va-drivers
+  mesa-vdpau-drivers ocl-icd-libopencl1 pocketsphinx-en-us va-driver-all
+  vdpau-driver-all
+0 upgraded, 83 newly installed, 0 to remove and 48 not upgraded.
+Need to get 91.1 MB of archives.
+After this operation, 218 MB of additional disk space will be used.
+Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Get:2 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 libva2 amd64 2.20.0-2ubuntu0.1 [66.3 kB]
+Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 libva-drm2 amd64 2.20.0-2ubuntu0.1 [7132 B]
+Get:4 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 libva-x11-2 amd64 2.20.0-2ubuntu0.1 [12.0 kB]
+Get:5 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libvdpau1 amd64 1.5-2build1 [27.8 kB]
+Get:6 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libvpl2 amd64 2023.3.0-1build1 [99.8 kB]
+Get:7 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 ocl-icd-libopencl1 amd64 2.3.2-1build1 [38.5 kB]
+Get:8 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libavutil58 amd64 7:6.1.1-3ubuntu5 [401 kB]
+Get:9 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libcodec2-1.2 amd64 1.2.0-2build1 [8998 kB]
+Get:10 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libdav1d7 amd64 1.4.1-1build1 [604 kB]
+Get:11 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libgsm1 amd64 1.0.22-1build1 [27.8 kB]
+Get:12 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libhwy1t64 amd64 1.0.7-8.1build1 [584 kB]
+Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 libjxl0.7 amd64 0.7.0-10.2ubuntu6.1 [1001 kB]
+Get:14 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 librav1e0 amd64 0.7.1-2 [1022 kB]
+Get:15 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 librsvg2-2 amd64 2.58.0+dfsg-1build1 [2135 kB]
+Get:16 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libshine3 amd64 3.1.1-2build1 [23.2 kB]
+Get:17 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libsvtav1enc1d1 amd64 1.7.0+dfsg-2build1 [2425 kB]
+Get:18 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libsoxr0 amd64 0.1.3-4build3 [80.0 kB]
+Get:19 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libswresample4 amd64 7:6.1.1-3ubuntu5 [63.8 kB]
+Get:20 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libx264-164 amd64 2:0.164.3108+git31e19f9-1 [604 kB]
+Get:21 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libx265-199 amd64 3.5-2build1 [1226 kB]
+Get:22 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libxvidcore4 amd64 2:1.3.7-1build1 [219 kB]
+Get:23 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libzvbi-common all 0.2.42-2 [42.4 kB]
+Get:24 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libzvbi0t64 amd64 0.2.42-2 [261 kB]
+Get:25 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libavcodec60 amd64 7:6.1.1-3ubuntu5 [5851 kB]
+Get:26 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libunibreak5 amd64 5.1-2build1 [25.0 kB]
+Get:27 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libass9 amd64 1:0.17.1-2build1 [104 kB]
+Get:28 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libudfread0 amd64 1.1.2-1build1 [19.0 kB]
+Get:29 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libbluray2 amd64 1:1.3.4-1build1 [159 kB]
+Get:30 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libchromaprint1 amd64 1.5.1-5 [30.5 kB]
+Get:31 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libgme0 amd64 0.6.3-7build1 [134 kB]
+Get:32 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libopenmpt0t64 amd64 0.7.3-1.1build3 [647 kB]
+Get:33 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libcjson1 amd64 1.7.17-1 [24.8 kB]
+Get:34 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libmbedcrypto7t64 amd64 2.28.8-1 [209 kB]
+Get:35 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 librist4 amd64 0.2.10+dfsg-2 [74.9 kB]
+Get:36 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libsrt1.5-gnutls amd64 1.5.3-1build2 [316 kB]
+Get:37 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libssh-gcrypt-4 amd64 0.10.6-2ubuntu0.4 [225 kB]
+Get:38 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libavformat60 amd64 7:6.1.1-3ubuntu5 [1153 kB]
+Get:39 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libbs2b0 amd64 3.1.0+dfsg-7build1 [10.6 kB]
+Get:40 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libflite1 amd64 2.2-6build3 [13.6 MB]
+Get:41 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libserd-0-0 amd64 0.32.2-1 [43.6 kB]
+Get:42 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libzix-0-0 amd64 0.4.2-2build1 [23.6 kB]
+Get:43 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libsord-0-0 amd64 0.16.16-2build1 [15.8 kB]
+Get:44 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libsratom-0-0 amd64 0.6.16-1build1 [17.3 kB]
+Get:45 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 liblilv-0-0 amd64 0.24.22-1build1 [41.0 kB]
+Get:46 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libmysofa1 amd64 1.3.2+dfsg-2ubuntu2 [1158 kB]
+Get:47 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libplacebo338 amd64 6.338.2-2build1 [2654 kB]
+Get:48 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libblas3 amd64 3.12.0-3build1.1 [238 kB]
+Get:49 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 liblapack3 amd64 3.12.0-3build1.1 [2646 kB]
+Get:50 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libsphinxbase3t64 amd64 0.8+5prealpha+1-17build2 [126 kB]
+Get:51 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libpocketsphinx3 amd64 0.8.0+real5prealpha+1-15ubuntu5 [133 kB]
+Get:52 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libpostproc57 amd64 7:6.1.1-3ubuntu5 [49.9 kB]
+Get:53 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libsamplerate0 amd64 0.2.2-4build1 [1344 kB]
+Get:54 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 librubberband2 amd64 3.3.0+dfsg-2build1 [130 kB]
+Get:55 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libswscale7 amd64 7:6.1.1-3ubuntu5 [193 kB]
+Get:56 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libvidstab1.1 amd64 1.1.0-2build1 [38.5 kB]
+Get:57 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libzimg2 amd64 3.0.5+ds1-1build1 [254 kB]
+Get:58 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libavfilter9 amd64 7:6.1.1-3ubuntu5 [4235 kB]
+Get:59 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libcdio19t64 amd64 2.1.0-4.1ubuntu1.2 [62.4 kB]
+Get:60 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libcdio-cdda2t64 amd64 10.2+2.0.1-1.1build2 [16.5 kB]
+Get:61 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libcdio-paranoia2t64 amd64 10.2+2.0.1-1.1build2 [16.6 kB]
+Get:62 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libdc1394-25 amd64 2.2.6-4build1 [90.1 kB]
+Get:63 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libjack-jackd2-0 amd64 1.9.21~dfsg-3ubuntu3 [289 kB]
+Get:64 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libopenal-data all 1:1.23.1-4build1 [161 kB]
+Get:65 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libsndio7.0 amd64 1.9.0-0.3build3 [29.6 kB]
+Get:66 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libopenal1 amd64 1:1.23.1-4build1 [540 kB]
+Get:67 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libdecor-0-0 amd64 0.2.2-1build2 [16.5 kB]
+Get:68 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libsdl2-2.0-0 amd64 2.30.0+dfsg-1ubuntu3.1 [686 kB]
+Get:69 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libxcb-shape0 amd64 1.15-1ubuntu2 [6100 B]
+Get:70 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libavdevice60 amd64 7:6.1.1-3ubuntu5 [82.3 kB]
+Get:71 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 ffmpeg amd64 7:6.1.1-3ubuntu5 [1879 kB]
+Get:72 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 libigdgmm12 amd64 22.3.17+ds1-1ubuntu1 [145 kB]
+Get:73 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 intel-media-va-driver amd64 24.1.0+dfsg1-1ubuntu0.2 [3163 kB]
+Get:74 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libaacs0 amd64 0.11.1-2build1 [62.9 kB]
+Get:75 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libbdplus0 amd64 0.2.0-3build1 [52.2 kB]
+Get:76 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libdecor-0-plugin-1-gtk amd64 0.2.2-1build2 [22.2 kB]
+Get:77 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 librsvg2-common amd64 2.58.0+dfsg-1build1 [11.8 kB]
+Get:78 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libwoff1 amd64 1.0.2-2build1 [45.3 kB]
+Get:79 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 mesa-va-drivers amd64 25.2.8-0ubuntu0.24.04.1 [6776 B]
+Get:80 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 mesa-vdpau-drivers amd64 25.2.8-0ubuntu0.24.04.1 [23.0 kB]
+Get:81 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 i965-va-driver amd64 2.4.1+dfsg1-1ubuntu0.1 [332 kB]
+Get:82 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 va-driver-all amd64 2.20.0-2ubuntu0.1 [4946 B]
+Get:83 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 vdpau-driver-all amd64 1.5-2build1 [4414 B]
+Get:84 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 pocketsphinx-en-us all 0.8.0+real5prealpha+1-15ubuntu5 [27.4 MB]
+Fetched 91.1 MB in 3s (26.2 MB/s)
+Selecting previously unselected package libva2:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 203608 files and directories currently installed.)
+Preparing to unpack .../00-libva2_2.20.0-2ubuntu0.1_amd64.deb ...
+Unpacking libva2:amd64 (2.20.0-2ubuntu0.1) ...
+Selecting previously unselected package libva-drm2:amd64.
+Preparing to unpack .../01-libva-drm2_2.20.0-2ubuntu0.1_amd64.deb ...
+Unpacking libva-drm2:amd64 (2.20.0-2ubuntu0.1) ...
+Selecting previously unselected package libva-x11-2:amd64.
+Preparing to unpack .../02-libva-x11-2_2.20.0-2ubuntu0.1_amd64.deb ...
+Unpacking libva-x11-2:amd64 (2.20.0-2ubuntu0.1) ...
+Selecting previously unselected package libvdpau1:amd64.
+Preparing to unpack .../03-libvdpau1_1.5-2build1_amd64.deb ...
+Unpacking libvdpau1:amd64 (1.5-2build1) ...
+Selecting previously unselected package libvpl2.
+Preparing to unpack .../04-libvpl2_2023.3.0-1build1_amd64.deb ...
+Unpacking libvpl2 (2023.3.0-1build1) ...
+Selecting previously unselected package ocl-icd-libopencl1:amd64.
+Preparing to unpack .../05-ocl-icd-libopencl1_2.3.2-1build1_amd64.deb ...
+Unpacking ocl-icd-libopencl1:amd64 (2.3.2-1build1) ...
+Selecting previously unselected package libavutil58:amd64.
+Preparing to unpack .../06-libavutil58_7%3a6.1.1-3ubuntu5_amd64.deb ...
+Unpacking libavutil58:amd64 (7:6.1.1-3ubuntu5) ...
+Selecting previously unselected package libcodec2-1.2:amd64.
+Preparing to unpack .../07-libcodec2-1.2_1.2.0-2build1_amd64.deb ...
+Unpacking libcodec2-1.2:amd64 (1.2.0-2build1) ...
+Selecting previously unselected package libdav1d7:amd64.
+Preparing to unpack .../08-libdav1d7_1.4.1-1build1_amd64.deb ...
+Unpacking libdav1d7:amd64 (1.4.1-1build1) ...
+Selecting previously unselected package libgsm1:amd64.
+Preparing to unpack .../09-libgsm1_1.0.22-1build1_amd64.deb ...
+Unpacking libgsm1:amd64 (1.0.22-1build1) ...
+Selecting previously unselected package libhwy1t64:amd64.
+Preparing to unpack .../10-libhwy1t64_1.0.7-8.1build1_amd64.deb ...
+Unpacking libhwy1t64:amd64 (1.0.7-8.1build1) ...
+Selecting previously unselected package libjxl0.7:amd64.
+Preparing to unpack .../11-libjxl0.7_0.7.0-10.2ubuntu6.1_amd64.deb ...
+Unpacking libjxl0.7:amd64 (0.7.0-10.2ubuntu6.1) ...
+Selecting previously unselected package librav1e0:amd64.
+Preparing to unpack .../12-librav1e0_0.7.1-2_amd64.deb ...
+Unpacking librav1e0:amd64 (0.7.1-2) ...
+Selecting previously unselected package librsvg2-2:amd64.
+Preparing to unpack .../13-librsvg2-2_2.58.0+dfsg-1build1_amd64.deb ...
+Unpacking librsvg2-2:amd64 (2.58.0+dfsg-1build1) ...
+Selecting previously unselected package libshine3:amd64.
+Preparing to unpack .../14-libshine3_3.1.1-2build1_amd64.deb ...
+Unpacking libshine3:amd64 (3.1.1-2build1) ...
+Selecting previously unselected package libsvtav1enc1d1:amd64.
+Preparing to unpack .../15-libsvtav1enc1d1_1.7.0+dfsg-2build1_amd64.deb ...
+Unpacking libsvtav1enc1d1:amd64 (1.7.0+dfsg-2build1) ...
+Selecting previously unselected package libsoxr0:amd64.
+Preparing to unpack .../16-libsoxr0_0.1.3-4build3_amd64.deb ...
+Unpacking libsoxr0:amd64 (0.1.3-4build3) ...
+Selecting previously unselected package libswresample4:amd64.
+Preparing to unpack .../17-libswresample4_7%3a6.1.1-3ubuntu5_amd64.deb ...
+Unpacking libswresample4:amd64 (7:6.1.1-3ubuntu5) ...
+Selecting previously unselected package libx264-164:amd64.
+Preparing to unpack .../18-libx264-164_2%3a0.164.3108+git31e19f9-1_amd64.deb ...
+Unpacking libx264-164:amd64 (2:0.164.3108+git31e19f9-1) ...
+Selecting previously unselected package libx265-199:amd64.
+Preparing to unpack .../19-libx265-199_3.5-2build1_amd64.deb ...
+Unpacking libx265-199:amd64 (3.5-2build1) ...
+Selecting previously unselected package libxvidcore4:amd64.
+Preparing to unpack .../20-libxvidcore4_2%3a1.3.7-1build1_amd64.deb ...
+Unpacking libxvidcore4:amd64 (2:1.3.7-1build1) ...
+Selecting previously unselected package libzvbi-common.
+Preparing to unpack .../21-libzvbi-common_0.2.42-2_all.deb ...
+Unpacking libzvbi-common (0.2.42-2) ...
+Selecting previously unselected package libzvbi0t64:amd64.
+Preparing to unpack .../22-libzvbi0t64_0.2.42-2_amd64.deb ...
+Unpacking libzvbi0t64:amd64 (0.2.42-2) ...
+Selecting previously unselected package libavcodec60:amd64.
+Preparing to unpack .../23-libavcodec60_7%3a6.1.1-3ubuntu5_amd64.deb ...
+Unpacking libavcodec60:amd64 (7:6.1.1-3ubuntu5) ...
+Selecting previously unselected package libunibreak5:amd64.
+Preparing to unpack .../24-libunibreak5_5.1-2build1_amd64.deb ...
+Unpacking libunibreak5:amd64 (5.1-2build1) ...
+Selecting previously unselected package libass9:amd64.
+Preparing to unpack .../25-libass9_1%3a0.17.1-2build1_amd64.deb ...
+Unpacking libass9:amd64 (1:0.17.1-2build1) ...
+Selecting previously unselected package libudfread0:amd64.
+Preparing to unpack .../26-libudfread0_1.1.2-1build1_amd64.deb ...
+Unpacking libudfread0:amd64 (1.1.2-1build1) ...
+Selecting previously unselected package libbluray2:amd64.
+Preparing to unpack .../27-libbluray2_1%3a1.3.4-1build1_amd64.deb ...
+Unpacking libbluray2:amd64 (1:1.3.4-1build1) ...
+Selecting previously unselected package libchromaprint1:amd64.
+Preparing to unpack .../28-libchromaprint1_1.5.1-5_amd64.deb ...
+Unpacking libchromaprint1:amd64 (1.5.1-5) ...
+Selecting previously unselected package libgme0:amd64.
+Preparing to unpack .../29-libgme0_0.6.3-7build1_amd64.deb ...
+Unpacking libgme0:amd64 (0.6.3-7build1) ...
+Selecting previously unselected package libopenmpt0t64:amd64.
+Preparing to unpack .../30-libopenmpt0t64_0.7.3-1.1build3_amd64.deb ...
+Unpacking libopenmpt0t64:amd64 (0.7.3-1.1build3) ...
+Selecting previously unselected package libcjson1:amd64.
+Preparing to unpack .../31-libcjson1_1.7.17-1_amd64.deb ...
+Unpacking libcjson1:amd64 (1.7.17-1) ...
+Selecting previously unselected package libmbedcrypto7t64:amd64.
+Preparing to unpack .../32-libmbedcrypto7t64_2.28.8-1_amd64.deb ...
+Unpacking libmbedcrypto7t64:amd64 (2.28.8-1) ...
+Selecting previously unselected package librist4:amd64.
+Preparing to unpack .../33-librist4_0.2.10+dfsg-2_amd64.deb ...
+Unpacking librist4:amd64 (0.2.10+dfsg-2) ...
+Selecting previously unselected package libsrt1.5-gnutls:amd64.
+Preparing to unpack .../34-libsrt1.5-gnutls_1.5.3-1build2_amd64.deb ...
+Unpacking libsrt1.5-gnutls:amd64 (1.5.3-1build2) ...
+Selecting previously unselected package libssh-gcrypt-4:amd64.
+Preparing to unpack .../35-libssh-gcrypt-4_0.10.6-2ubuntu0.4_amd64.deb ...
+Unpacking libssh-gcrypt-4:amd64 (0.10.6-2ubuntu0.4) ...
+Selecting previously unselected package libavformat60:amd64.
+Preparing to unpack .../36-libavformat60_7%3a6.1.1-3ubuntu5_amd64.deb ...
+Unpacking libavformat60:amd64 (7:6.1.1-3ubuntu5) ...
+Selecting previously unselected package libbs2b0:amd64.
+Preparing to unpack .../37-libbs2b0_3.1.0+dfsg-7build1_amd64.deb ...
+Unpacking libbs2b0:amd64 (3.1.0+dfsg-7build1) ...
+Selecting previously unselected package libflite1:amd64.
+Preparing to unpack .../38-libflite1_2.2-6build3_amd64.deb ...
+Unpacking libflite1:amd64 (2.2-6build3) ...
+Selecting previously unselected package libserd-0-0:amd64.
+Preparing to unpack .../39-libserd-0-0_0.32.2-1_amd64.deb ...
+Unpacking libserd-0-0:amd64 (0.32.2-1) ...
+Selecting previously unselected package libzix-0-0:amd64.
+Preparing to unpack .../40-libzix-0-0_0.4.2-2build1_amd64.deb ...
+Unpacking libzix-0-0:amd64 (0.4.2-2build1) ...
+Selecting previously unselected package libsord-0-0:amd64.
+Preparing to unpack .../41-libsord-0-0_0.16.16-2build1_amd64.deb ...
+Unpacking libsord-0-0:amd64 (0.16.16-2build1) ...
+Selecting previously unselected package libsratom-0-0:amd64.
+Preparing to unpack .../42-libsratom-0-0_0.6.16-1build1_amd64.deb ...
+Unpacking libsratom-0-0:amd64 (0.6.16-1build1) ...
+Selecting previously unselected package liblilv-0-0:amd64.
+Preparing to unpack .../43-liblilv-0-0_0.24.22-1build1_amd64.deb ...
+Unpacking liblilv-0-0:amd64 (0.24.22-1build1) ...
+Selecting previously unselected package libmysofa1:amd64.
+Preparing to unpack .../44-libmysofa1_1.3.2+dfsg-2ubuntu2_amd64.deb ...
+Unpacking libmysofa1:amd64 (1.3.2+dfsg-2ubuntu2) ...
+Selecting previously unselected package libplacebo338:amd64.
+Preparing to unpack .../45-libplacebo338_6.338.2-2build1_amd64.deb ...
+Unpacking libplacebo338:amd64 (6.338.2-2build1) ...
+Selecting previously unselected package libblas3:amd64.
+Preparing to unpack .../46-libblas3_3.12.0-3build1.1_amd64.deb ...
+Unpacking libblas3:amd64 (3.12.0-3build1.1) ...
+Selecting previously unselected package liblapack3:amd64.
+Preparing to unpack .../47-liblapack3_3.12.0-3build1.1_amd64.deb ...
+Unpacking liblapack3:amd64 (3.12.0-3build1.1) ...
+Selecting previously unselected package libsphinxbase3t64:amd64.
+Preparing to unpack .../48-libsphinxbase3t64_0.8+5prealpha+1-17build2_amd64.deb ...
+Unpacking libsphinxbase3t64:amd64 (0.8+5prealpha+1-17build2) ...
+Selecting previously unselected package libpocketsphinx3:amd64.
+Preparing to unpack .../49-libpocketsphinx3_0.8.0+real5prealpha+1-15ubuntu5_amd64.deb ...
+Unpacking libpocketsphinx3:amd64 (0.8.0+real5prealpha+1-15ubuntu5) ...
+Selecting previously unselected package libpostproc57:amd64.
+Preparing to unpack .../50-libpostproc57_7%3a6.1.1-3ubuntu5_amd64.deb ...
+Unpacking libpostproc57:amd64 (7:6.1.1-3ubuntu5) ...
+Selecting previously unselected package libsamplerate0:amd64.
+Preparing to unpack .../51-libsamplerate0_0.2.2-4build1_amd64.deb ...
+Unpacking libsamplerate0:amd64 (0.2.2-4build1) ...
+Selecting previously unselected package librubberband2:amd64.
+Preparing to unpack .../52-librubberband2_3.3.0+dfsg-2build1_amd64.deb ...
+Unpacking librubberband2:amd64 (3.3.0+dfsg-2build1) ...
+Selecting previously unselected package libswscale7:amd64.
+Preparing to unpack .../53-libswscale7_7%3a6.1.1-3ubuntu5_amd64.deb ...
+Unpacking libswscale7:amd64 (7:6.1.1-3ubuntu5) ...
+Selecting previously unselected package libvidstab1.1:amd64.
+Preparing to unpack .../54-libvidstab1.1_1.1.0-2build1_amd64.deb ...
+Unpacking libvidstab1.1:amd64 (1.1.0-2build1) ...
+Selecting previously unselected package libzimg2:amd64.
+Preparing to unpack .../55-libzimg2_3.0.5+ds1-1build1_amd64.deb ...
+Unpacking libzimg2:amd64 (3.0.5+ds1-1build1) ...
+Selecting previously unselected package libavfilter9:amd64.
+Preparing to unpack .../56-libavfilter9_7%3a6.1.1-3ubuntu5_amd64.deb ...
+Unpacking libavfilter9:amd64 (7:6.1.1-3ubuntu5) ...
+Selecting previously unselected package libcdio19t64:amd64.
+Preparing to unpack .../57-libcdio19t64_2.1.0-4.1ubuntu1.2_amd64.deb ...
+Unpacking libcdio19t64:amd64 (2.1.0-4.1ubuntu1.2) ...
+Selecting previously unselected package libcdio-cdda2t64:amd64.
+Preparing to unpack .../58-libcdio-cdda2t64_10.2+2.0.1-1.1build2_amd64.deb ...
+Unpacking libcdio-cdda2t64:amd64 (10.2+2.0.1-1.1build2) ...
+Selecting previously unselected package libcdio-paranoia2t64:amd64.
+Preparing to unpack .../59-libcdio-paranoia2t64_10.2+2.0.1-1.1build2_amd64.deb ...
+Unpacking libcdio-paranoia2t64:amd64 (10.2+2.0.1-1.1build2) ...
+Selecting previously unselected package libdc1394-25:amd64.
+Preparing to unpack .../60-libdc1394-25_2.2.6-4build1_amd64.deb ...
+Unpacking libdc1394-25:amd64 (2.2.6-4build1) ...
+Selecting previously unselected package libjack-jackd2-0:amd64.
+Preparing to unpack .../61-libjack-jackd2-0_1.9.21~dfsg-3ubuntu3_amd64.deb ...
+Unpacking libjack-jackd2-0:amd64 (1.9.21~dfsg-3ubuntu3) ...
+Selecting previously unselected package libopenal-data.
+Preparing to unpack .../62-libopenal-data_1%3a1.23.1-4build1_all.deb ...
+Unpacking libopenal-data (1:1.23.1-4build1) ...
+Selecting previously unselected package libsndio7.0:amd64.
+Preparing to unpack .../63-libsndio7.0_1.9.0-0.3build3_amd64.deb ...
+Unpacking libsndio7.0:amd64 (1.9.0-0.3build3) ...
+Selecting previously unselected package libopenal1:amd64.
+Preparing to unpack .../64-libopenal1_1%3a1.23.1-4build1_amd64.deb ...
+Unpacking libopenal1:amd64 (1:1.23.1-4build1) ...
+Selecting previously unselected package libdecor-0-0:amd64.
+Preparing to unpack .../65-libdecor-0-0_0.2.2-1build2_amd64.deb ...
+Unpacking libdecor-0-0:amd64 (0.2.2-1build2) ...
+Selecting previously unselected package libsdl2-2.0-0:amd64.
+Preparing to unpack .../66-libsdl2-2.0-0_2.30.0+dfsg-1ubuntu3.1_amd64.deb ...
+Unpacking libsdl2-2.0-0:amd64 (2.30.0+dfsg-1ubuntu3.1) ...
+Selecting previously unselected package libxcb-shape0:amd64.
+Preparing to unpack .../67-libxcb-shape0_1.15-1ubuntu2_amd64.deb ...
+Unpacking libxcb-shape0:amd64 (1.15-1ubuntu2) ...
+Selecting previously unselected package libavdevice60:amd64.
+Preparing to unpack .../68-libavdevice60_7%3a6.1.1-3ubuntu5_amd64.deb ...
+Unpacking libavdevice60:amd64 (7:6.1.1-3ubuntu5) ...
+Selecting previously unselected package ffmpeg.
+Preparing to unpack .../69-ffmpeg_7%3a6.1.1-3ubuntu5_amd64.deb ...
+Unpacking ffmpeg (7:6.1.1-3ubuntu5) ...
+Selecting previously unselected package libigdgmm12:amd64.
+Preparing to unpack .../70-libigdgmm12_22.3.17+ds1-1ubuntu1_amd64.deb ...
+Unpacking libigdgmm12:amd64 (22.3.17+ds1-1ubuntu1) ...
+Selecting previously unselected package intel-media-va-driver:amd64.
+Preparing to unpack .../71-intel-media-va-driver_24.1.0+dfsg1-1ubuntu0.2_amd64.deb ...
+Unpacking intel-media-va-driver:amd64 (24.1.0+dfsg1-1ubuntu0.2) ...
+Selecting previously unselected package libaacs0:amd64.
+Preparing to unpack .../72-libaacs0_0.11.1-2build1_amd64.deb ...
+Unpacking libaacs0:amd64 (0.11.1-2build1) ...
+Selecting previously unselected package libbdplus0:amd64.
+Preparing to unpack .../73-libbdplus0_0.2.0-3build1_amd64.deb ...
+Unpacking libbdplus0:amd64 (0.2.0-3build1) ...
+Selecting previously unselected package libdecor-0-plugin-1-gtk:amd64.
+Preparing to unpack .../74-libdecor-0-plugin-1-gtk_0.2.2-1build2_amd64.deb ...
+Unpacking libdecor-0-plugin-1-gtk:amd64 (0.2.2-1build2) ...
+Selecting previously unselected package librsvg2-common:amd64.
+Preparing to unpack .../75-librsvg2-common_2.58.0+dfsg-1build1_amd64.deb ...
+Unpacking librsvg2-common:amd64 (2.58.0+dfsg-1build1) ...
+Selecting previously unselected package libwoff1:amd64.
+Preparing to unpack .../76-libwoff1_1.0.2-2build1_amd64.deb ...
+Unpacking libwoff1:amd64 (1.0.2-2build1) ...
+Selecting previously unselected package mesa-va-drivers:amd64.
+Preparing to unpack .../77-mesa-va-drivers_25.2.8-0ubuntu0.24.04.1_amd64.deb ...
+Unpacking mesa-va-drivers:amd64 (25.2.8-0ubuntu0.24.04.1) ...
+Selecting previously unselected package mesa-vdpau-drivers:amd64.
+Preparing to unpack .../78-mesa-vdpau-drivers_25.2.8-0ubuntu0.24.04.1_amd64.deb ...
+Unpacking mesa-vdpau-drivers:amd64 (25.2.8-0ubuntu0.24.04.1) ...
+Selecting previously unselected package i965-va-driver:amd64.
+Preparing to unpack .../79-i965-va-driver_2.4.1+dfsg1-1ubuntu0.1_amd64.deb ...
+Unpacking i965-va-driver:amd64 (2.4.1+dfsg1-1ubuntu0.1) ...
+Selecting previously unselected package va-driver-all:amd64.
+Preparing to unpack .../80-va-driver-all_2.20.0-2ubuntu0.1_amd64.deb ...
+Unpacking va-driver-all:amd64 (2.20.0-2ubuntu0.1) ...
+Selecting previously unselected package vdpau-driver-all:amd64.
+Preparing to unpack .../81-vdpau-driver-all_1.5-2build1_amd64.deb ...
+Unpacking vdpau-driver-all:amd64 (1.5-2build1) ...
+Selecting previously unselected package pocketsphinx-en-us.
+Preparing to unpack .../82-pocketsphinx-en-us_0.8.0+real5prealpha+1-15ubuntu5_all.deb ...
+Unpacking pocketsphinx-en-us (0.8.0+real5prealpha+1-15ubuntu5) ...
+Setting up libgme0:amd64 (0.6.3-7build1) ...
+Setting up libchromaprint1:amd64 (1.5.1-5) ...
+Setting up libssh-gcrypt-4:amd64 (0.10.6-2ubuntu0.4) ...
+Setting up libhwy1t64:amd64 (1.0.7-8.1build1) ...
+Setting up libudfread0:amd64 (1.1.2-1build1) ...
+Setting up libshine3:amd64 (3.1.1-2build1) ...
+Setting up libvpl2 (2023.3.0-1build1) ...
+Setting up libx264-164:amd64 (2:0.164.3108+git31e19f9-1) ...
+Setting up libmbedcrypto7t64:amd64 (2.28.8-1) ...
+Setting up libwoff1:amd64 (1.0.2-2build1) ...
+Setting up libgsm1:amd64 (1.0.22-1build1) ...
+Setting up libsoxr0:amd64 (0.1.3-4build3) ...
+Setting up libzix-0-0:amd64 (0.4.2-2build1) ...
+Setting up libcodec2-1.2:amd64 (1.2.0-2build1) ...
+Setting up libmysofa1:amd64 (1.3.2+dfsg-2ubuntu2) ...
+Setting up libxcb-shape0:amd64 (1.15-1ubuntu2) ...
+Setting up libcdio19t64:amd64 (2.1.0-4.1ubuntu1.2) ...
+Setting up libsvtav1enc1d1:amd64 (1.7.0+dfsg-2build1) ...
+Setting up libigdgmm12:amd64 (22.3.17+ds1-1ubuntu1) ...
+Setting up libcjson1:amd64 (1.7.17-1) ...
+Setting up libxvidcore4:amd64 (2:1.3.7-1build1) ...
+Setting up librav1e0:amd64 (0.7.1-2) ...
+Setting up libcdio-cdda2t64:amd64 (10.2+2.0.1-1.1build2) ...
+Setting up librist4:amd64 (0.2.10+dfsg-2) ...
+Setting up librsvg2-2:amd64 (2.58.0+dfsg-1build1) ...
+Setting up libblas3:amd64 (3.12.0-3build1.1) ...
+update-alternatives: using /usr/lib/x86_64-linux-gnu/blas/libblas.so.3 to provide /usr/lib/x86_64-linux-gnu/libblas.so.3 (libblas.so.3-x86_64-linux-gnu) in auto mode
+Setting up libplacebo338:amd64 (6.338.2-2build1) ...
+Setting up libva2:amd64 (2.20.0-2ubuntu0.1) ...
+Setting up libcdio-paranoia2t64:amd64 (10.2+2.0.1-1.1build2) ...
+Setting up libdc1394-25:amd64 (2.2.6-4build1) ...
+Setting up intel-media-va-driver:amd64 (24.1.0+dfsg1-1ubuntu0.2) ...
+Setting up libunibreak5:amd64 (5.1-2build1) ...
+Setting up libaacs0:amd64 (0.11.1-2build1) ...
+Setting up libjxl0.7:amd64 (0.7.0-10.2ubuntu6.1) ...
+Setting up librsvg2-common:amd64 (2.58.0+dfsg-1build1) ...
+Setting up pocketsphinx-en-us (0.8.0+real5prealpha+1-15ubuntu5) ...
+Setting up libx265-199:amd64 (3.5-2build1) ...
+Setting up libsndio7.0:amd64 (1.9.0-0.3build3) ...
+Setting up libbdplus0:amd64 (0.2.0-3build1) ...
+Setting up libvidstab1.1:amd64 (1.1.0-2build1) ...
+Setting up libsrt1.5-gnutls:amd64 (1.5.3-1build2) ...
+Setting up libflite1:amd64 (2.2-6build3) ...
+Setting up libdav1d7:amd64 (1.4.1-1build1) ...
+Setting up libva-drm2:amd64 (2.20.0-2ubuntu0.1) ...
+Setting up ocl-icd-libopencl1:amd64 (2.3.2-1build1) ...
+Setting up libvdpau1:amd64 (1.5-2build1) ...
+Setting up libbs2b0:amd64 (3.1.0+dfsg-7build1) ...
+Setting up libdecor-0-0:amd64 (0.2.2-1build2) ...
+Setting up libzimg2:amd64 (3.0.5+ds1-1build1) ...
+Setting up libopenal-data (1:1.23.1-4build1) ...
+Setting up mesa-va-drivers:amd64 (25.2.8-0ubuntu0.24.04.1) ...
+Setting up libbluray2:amd64 (1:1.3.4-1build1) ...
+Setting up libsamplerate0:amd64 (0.2.2-4build1) ...
+Setting up libva-x11-2:amd64 (2.20.0-2ubuntu0.1) ...
+Setting up libdecor-0-plugin-1-gtk:amd64 (0.2.2-1build2) ...
+Setting up libopenmpt0t64:amd64 (0.7.3-1.1build3) ...
+Setting up libzvbi-common (0.2.42-2) ...
+Setting up i965-va-driver:amd64 (2.4.1+dfsg1-1ubuntu0.1) ...
+Setting up libserd-0-0:amd64 (0.32.2-1) ...
+Setting up mesa-vdpau-drivers:amd64 (25.2.8-0ubuntu0.24.04.1) ...
+Setting up liblapack3:amd64 (3.12.0-3build1.1) ...
+update-alternatives: using /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3 to provide /usr/lib/x86_64-linux-gnu/liblapack.so.3 (liblapack.so.3-x86_64-linux-gnu) in auto mode
+Setting up libzvbi0t64:amd64 (0.2.42-2) ...
+Setting up libavutil58:amd64 (7:6.1.1-3ubuntu5) ...
+Setting up libopenal1:amd64 (1:1.23.1-4build1) ...
+Setting up libsphinxbase3t64:amd64 (0.8+5prealpha+1-17build2) ...
+Setting up libass9:amd64 (1:0.17.1-2build1) ...
+Setting up libswresample4:amd64 (7:6.1.1-3ubuntu5) ...
+Setting up va-driver-all:amd64 (2.20.0-2ubuntu0.1) ...
+Setting up libavcodec60:amd64 (7:6.1.1-3ubuntu5) ...
+Setting up librubberband2:amd64 (3.3.0+dfsg-2build1) ...
+Setting up libjack-jackd2-0:amd64 (1.9.21~dfsg-3ubuntu3) ...
+Setting up vdpau-driver-all:amd64 (1.5-2build1) ...
+Setting up libsord-0-0:amd64 (0.16.16-2build1) ...
+Setting up libpostproc57:amd64 (7:6.1.1-3ubuntu5) ...
+Setting up libsratom-0-0:amd64 (0.6.16-1build1) ...
+Setting up libsdl2-2.0-0:amd64 (2.30.0+dfsg-1ubuntu3.1) ...
+Setting up liblilv-0-0:amd64 (0.24.22-1build1) ...
+Setting up libswscale7:amd64 (7:6.1.1-3ubuntu5) ...
+Setting up libavformat60:amd64 (7:6.1.1-3ubuntu5) ...
+Setting up libpocketsphinx3:amd64 (0.8.0+real5prealpha+1-15ubuntu5) ...
+Setting up libavfilter9:amd64 (7:6.1.1-3ubuntu5) ...
+Setting up libavdevice60:amd64 (7:6.1.1-3ubuntu5) ...
+Setting up ffmpeg (7:6.1.1-3ubuntu5) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Not building database; man-db/auto-update is not 'true'.
+Processing triggers for libgdk-pixbuf-2.0-0:amd64 (2.42.10+dfsg-3ubuntu3.3) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.7) ...
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+[14:21:44] Installing Python packages
+Defaulting to user installation because normal site-packages is not writeable
+Collecting yt-dlp
+  Using cached yt_dlp-2026.3.17-py3-none-any.whl.metadata (182 kB)
+Requirement already satisfied: requests in /usr/lib/python3/dist-packages (2.31.0)
+Collecting requests
+  Using cached requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Collecting curl-cffi!=0.6.*,!=0.7.*,!=0.8.*,!=0.9.*,<0.15,>=0.5.10 (from yt-dlp[curl-cffi,default])
+  Using cached curl_cffi-0.14.0-cp39-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl.metadata (15 kB)
+Collecting brotli (from yt-dlp[curl-cffi,default])
+  Using cached brotli-1.2.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.1 kB)
+Requirement already satisfied: certifi in /usr/lib/python3/dist-packages (from yt-dlp[curl-cffi,default]) (2023.11.17)
+Collecting mutagen (from yt-dlp[curl-cffi,default])
+  Using cached mutagen-1.47.0-py3-none-any.whl.metadata (1.7 kB)
+Collecting pycryptodomex (from yt-dlp[curl-cffi,default])
+  Using cached pycryptodomex-3.23.0-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (3.4 kB)
+Requirement already satisfied: urllib3<3,>=2.0.2 in /usr/lib/python3/dist-packages (from yt-dlp[curl-cffi,default]) (2.0.7)
+Collecting websockets>=13.0 (from yt-dlp[curl-cffi,default])
+  Using cached websockets-16.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (6.8 kB)
+Collecting yt-dlp-ejs==0.8.0 (from yt-dlp[curl-cffi,default])
+  Using cached yt_dlp_ejs-0.8.0-py3-none-any.whl.metadata (3.5 kB)
+Collecting charset_normalizer<4,>=2 (from requests)
+  Using cached charset_normalizer-3.4.7-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (40 kB)
+Requirement already satisfied: idna<4,>=2.5 in /usr/lib/python3/dist-packages (from requests) (3.6)
+Collecting cffi>=1.12.0 (from curl-cffi!=0.6.*,!=0.7.*,!=0.8.*,!=0.9.*,<0.15,>=0.5.10->yt-dlp[curl-cffi,default])
+  Using cached cffi-2.0.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.6 kB)
+Collecting certifi (from yt-dlp[curl-cffi,default])
+  Using cached certifi-2026.5.20-py3-none-any.whl.metadata (2.5 kB)
+Collecting pycparser (from cffi>=1.12.0->curl-cffi!=0.6.*,!=0.7.*,!=0.8.*,!=0.9.*,<0.15,>=0.5.10->yt-dlp[curl-cffi,default])
+  Using cached pycparser-3.0-py3-none-any.whl.metadata (8.2 kB)
+Using cached yt_dlp-2026.3.17-py3-none-any.whl (3.3 MB)
+Using cached yt_dlp_ejs-0.8.0-py3-none-any.whl (53 kB)
+Using cached requests-2.34.2-py3-none-any.whl (73 kB)
+Using cached charset_normalizer-3.4.7-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (216 kB)
+Using cached curl_cffi-0.14.0-cp39-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (8.7 MB)
+Using cached certifi-2026.5.20-py3-none-any.whl (134 kB)
+Using cached websockets-16.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (184 kB)
+Using cached brotli-1.2.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.4 MB)
+Using cached mutagen-1.47.0-py3-none-any.whl (194 kB)
+Using cached pycryptodomex-3.23.0-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.3 MB)
+Using cached cffi-2.0.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (219 kB)
+Using cached pycparser-3.0-py3-none-any.whl (48 kB)
+Installing collected packages: brotli, yt-dlp-ejs, yt-dlp, websockets, pycryptodomex, pycparser, mutagen, charset_normalizer, certifi, requests, cffi, curl-cffi
+Successfully installed brotli-1.2.0 certifi-2026.5.20 cffi-2.0.0 charset_normalizer-3.4.7 curl-cffi-0.14.0 mutagen-1.47.0 pycparser-3.0 pycryptodomex-3.23.0 requests-2.34.2 websockets-16.0 yt-dlp-2026.3.17 yt-dlp-ejs-0.8.0
+Defaulting to user installation because normal site-packages is not writeable
+Collecting playwright
+  Downloading playwright-1.60.0-py3-none-manylinux1_x86_64.whl.metadata (3.5 kB)
+Collecting pyee<14,>=13 (from playwright)
+  Downloading pyee-13.0.1-py3-none-any.whl.metadata (3.0 kB)
+Collecting greenlet<4.0.0,>=3.1.1 (from playwright)
+  Downloading greenlet-3.5.1-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)
+Requirement already satisfied: typing-extensions in /usr/lib/python3/dist-packages (from pyee<14,>=13->playwright) (4.10.0)
+Downloading playwright-1.60.0-py3-none-manylinux1_x86_64.whl (47.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 47.5/47.5 MB 76.4 MB/s eta 0:00:00
+Downloading greenlet-3.5.1-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (611 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 611.4/611.4 kB 83.5 MB/s eta 0:00:00
+Downloading pyee-13.0.1-py3-none-any.whl (15 kB)
+Installing collected packages: pyee, greenlet, playwright
+Successfully installed greenlet-3.5.1 playwright-1.60.0 pyee-13.0.1
+Requirement already satisfied: cryptography in /usr/lib/python3/dist-packages (41.0.7)
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+Collecting secretstorage
+  Downloading secretstorage-3.5.0-py3-none-any.whl.metadata (4.0 kB)
+Requirement already satisfied: cryptography>=2.0 in /usr/lib/python3/dist-packages (from secretstorage) (41.0.7)
+Collecting jeepney>=0.6 (from secretstorage)
+  Downloading jeepney-0.9.0-py3-none-any.whl.metadata (1.2 kB)
+Downloading secretstorage-3.5.0-py3-none-any.whl (15 kB)
+Downloading jeepney-0.9.0-py3-none-any.whl (49 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 49.0/49.0 kB 3.2 MB/s eta 0:00:00
+Installing collected packages: jeepney, secretstorage
+Successfully installed jeepney-0.9.0 secretstorage-3.5.0
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+[14:21:53] ✅ Python packages installed
+[14:21:53] Testing YouTube connectivity...
+--- curl YouTube homepage ---
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+x-content-type-options: nosniff
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+pragma: no-cache
+expires: Mon, 01 Jan 1990 00:00:00 GMT
+date: Mon, 01 Jun 2026 14:21:54 GMT
+content-length: 0
+p3p: CP="This is not a P3P policy! See http://support.google.com/accounts/answer/151657?hl=en for more info."
+x-frame-options: SAMEORIGIN
+strict-transport-security: max-age=31536000
+accept-ch: Sec-CH-Viewport-Width, Sec-CH-DPR, Device-Memory
+vary: Sec-CH-Viewport-Width, Sec-CH-DPR, Device-Memory
+permissions-policy: ch-ua-arch=*, ch-ua-bitness=*, ch-ua-full-version=*, ch-ua-full-version-list=*, ch-ua-model=*, ch-ua-wow64=*, ch-ua-form-factors=*, ch-ua-platform=*, ch-ua-platform-version=*
+origin-trial: AmhMBR6zCLzDDxpW+HfpP67BqwIknWnyMOXOQGfzYswFmJe+fgaI6XZgAzcxOrzNtP7hEDsOo1jdjFnVr2IdxQ4AAAB4eyJvcmlnaW4iOiJodHRwczovL3lvdXR1YmUuY29tOjQ0MyIsImZlYXR1cmUiOiJXZWJWaWV3WFJlcXVlc3RlZFdpdGhEZXByZWNhdGlvbiIsImV4cGlyeSI6MTc1ODA2NzE5OSwiaXNTdWJkb21haW4iOnRydWV9
+origin-trial: AiDEBptUfVeO93q48VdVMe/ubupazdAl8AaHP+NBzdnW8quUcHdzJUyGSfrmtpKJu7EOvwRp9ug2rEo3XU+WMAMAAAB2eyJvcmlnaW4iOiJodHRwczovL3lvdXR1YmUuY29tOjQ0MyIsImZlYXR1cmUiOiJEZXZpY2VCb3VuZFNlc3Npb25DcmVkZW50aWFsczIiLCJleHBpcnkiOjE3NzQzMTA0MDAsImlzU3ViZG9tYWluIjp0cnVlfQ==
+cross-origin-opener-policy: same-origin-allow-popups; report-to="youtube_main"
+report-to: {"group":"youtube_main","max_age":2592000,"endpoints":[{"url":"https://csp.withgoogle.com/csp/report-to/youtube_main"}]}
+content-security-policy: require-trusted-types-for 'script'
+content-security-policy: base-uri 'self';object-src 'none';script-src 'nonce-xHKIuVTGqByh844RYc2A4A' 'unsafe-inline' 'strict-dynamic' https: http: 'unsafe-eval';report-uri https://csp.withgoogle.com/csp/youtube_main/strict
+
+--- yt-dlp dry-run with verbose ---
+[debug] Command-line config: ['--verbose', '--no-download', '--print-traffic', 'https://www.youtube.com/watch?v=jNQXAC9IVRw']
+[debug] Encodings: locale UTF-8, fs utf-8, pref UTF-8, out utf-8 (No ANSI), error utf-8 (No ANSI), screen utf-8 (No ANSI)
+[debug] yt-dlp version stable@2026.03.17 from yt-dlp/yt-dlp [04d6974f5] (pip)
+[debug] Python 3.12.3 (CPython x86_64 64bit) - Linux-6.17.0-1015-azure-x86_64-with-glibc2.39 (OpenSSL 3.0.13 30 Jan 2024, glibc 2.39)
+[debug] exe versions: ffmpeg 6.1.1 (setts), ffprobe 6.1.1
+[debug] Optional libraries: Cryptodome-3.23.0, brotli-1.2.0, certifi-2026.05.20, curl_cffi-0.14.0, mutagen-1.47.0, requests-2.34.2, secretstorage-3.5.0, sqlite3-3.45.1, urllib3-2.0.7, websockets-16.0, yt_dlp_ejs-0.8.0
+[debug] JS runtimes: none
+[debug] Proxy map: {}
+[debug] Request Handlers: urllib, requests, websockets, curl_cffi
+[debug] Plugin directories: none
+[debug] Loaded 1864 extractors
+[debug] [youtube] [pot] PO Token Providers: none
+[debug] [youtube] [pot] PO Token Cache Providers: memory
+[debug] [youtube] [pot] PO Token Cache Spec Providers: webpo
+[debug] [youtube] [jsc] JS Challenge Providers: bun (unavailable), deno (unavailable), node (unavailable), quickjs (unavailable)
+[youtube] Extracting URL: https://www.youtube.com/watch?v=jNQXAC9IVRw
+[youtube] jNQXAC9IVRw: Downloading webpage
+director: Handler preferences for this request: urllib=0, requests=100, websockets=0, curl_cffi=-100
+director: Checking if "requests" supports this request.
+director: Sending request via "requests"
+requests: Starting new HTTPS connection (1): www.youtube.com:443
+WARNING: [youtube] No supported JavaScript runtime could be found. Only deno is enabled by default; to use another runtime add  --js-runtimes RUNTIME[:PATH]  to your command/config. YouTube extraction without a JS runtime has been deprecated, and some formats may be missing. See  https://github.com/yt-dlp/yt-dlp/wiki/EJS  for details on installing one
+[debug] [youtube] Forcing "main" player JS variant for player 9fc68080
+        original url = /s/player/9fc68080/player_es6.vflset/en_US/base.js
+[youtube] jNQXAC9IVRw: Downloading android vr player API JSON
+send: b'GET /watch?v=jNQXAC9IVRw&bpctr=9999999999&has_verified=1 HTTP/1.1\r\nHost: www.youtube.com\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15,gzip(gfe)\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-us,en;q=0.5\r\nSec-Fetch-Mode: navigate\r\nAccept-Encoding: gzip, deflate, br\r\nConnection: keep-alive\r\nCookie: PREF=hl=en&tz=UTC; SOCS=CAI\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Content-Type: text/html; charset=utf-8
+header: X-Content-Type-Options: nosniff
+header: Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+header: Pragma: no-cache
+header: Expires: Mon, 01 Jan 1990 00:00:00 GMT
+header: Date: Mon, 01 Jun 2026 14:21:55 GMT
+header: P3P: CP="This is not a P3P policy! See http://support.google.com/accounts/answer/151657?hl=en for more info."
+header: Strict-Transport-Security: max-age=31536000
+header: X-Frame-Options: SAMEORIGIN
+header: Content-Security-Policy: base-uri 'self';object-src 'self';script-src 'nonce-iRPD6RUbbukagyGTA6bZAA' 'unsafe-inline' 'strict-dynamic' https: http: 'unsafe-eval';report-uri https://csp.withgoogle.com/csp/youtube_main/strict
+header: Content-Security-Policy: require-trusted-types-for 'script'
+header: Accept-CH: Sec-CH-Viewport-Width, Sec-CH-DPR, Device-Memory
+header: Vary: Sec-CH-Viewport-Width, Sec-CH-DPR, Device-Memory
+header: Report-To: {"group":"youtube_main","max_age":2592000,"endpoints":[{"url":"https://csp.withgoogle.com/csp/report-to/youtube_main"}]}
+header: Permissions-Policy: ch-ua-arch=*, ch-ua-bitness=*, ch-ua-full-version=*, ch-ua-full-version-list=*, ch-ua-model=*, ch-ua-wow64=*, ch-ua-form-factors=*, ch-ua-platform=*, ch-ua-platform-version=*
+header: Origin-Trial: AmhMBR6zCLzDDxpW+HfpP67BqwIknWnyMOXOQGfzYswFmJe+fgaI6XZgAzcxOrzNtP7hEDsOo1jdjFnVr2IdxQ4AAAB4eyJvcmlnaW4iOiJodHRwczovL3lvdXR1YmUuY29tOjQ0MyIsImZlYXR1cmUiOiJXZWJWaWV3WFJlcXVlc3RlZFdpdGhEZXByZWNhdGlvbiIsImV4cGlyeSI6MTc1ODA2NzE5OSwiaXNTdWJkb21haW4iOnRydWV9
+header: Origin-Trial: AiDEBptUfVeO93q48VdVMe/ubupazdAl8AaHP+NBzdnW8quUcHdzJUyGSfrmtpKJu7EOvwRp9ug2rEo3XU+WMAMAAAB2eyJvcmlnaW4iOiJodHRwczovL3lvdXR1YmUuY29tOjQ0MyIsImZlYXR1cmUiOiJEZXZpY2VCb3VuZFNlc3Npb25DcmVkZW50aWFsczIiLCJleHBpcnkiOjE3NzQzMTA0MDAsImlzU3ViZG9tYWluIjp0cnVlfQ==
+header: reporting-endpoints: crash-reporting="/web-reports?context=eJwNzn9M1HUcx3G_PBdjHHL3ve_3-_m83bVo2rLmjjgWOk3nonSLDWOzNhwZAV7N7eAQ7gimVitlqUjRbEU_lDWXCOMm2dyITLM1WgO0Mzdykmk0htEvKwWJ0eePxz57f7b36_XOfjfzmeUN1obzjVbbxoR16-OE1TeYsKbvbbIqljZZsavN1uFAeUbzH9lUrPBxscTH9CYfp475GPzEx_ikj7zaHB5O5nC6czFV1xfTPZBL2VAuHcbv87msXOenKerH1-TnvX1-Iu_40d_6OX1fgPT7Aa7cDtBeZPPB0zbjlTalL9js2mWzxyhutznTYxNK2ZQP2Nw9ZXN9xmahJEhpRZDJeJD5tiBr02YOOfTmOYSLHGaedMiOO_zyisPnJx02jjkcuunw35zDjhyXA65LmXapTri81Oly6bBLqsvlwlGX6SGXumGX3jGX2ssuHy7yeFx5LBOP8yGPljyPxvs9Ht3scbzVo_Z1j_79HtbbHiMjHgM_eGRc89i74PGZrVjmKB4x5h5SVEUUWZsUb9YohmOK1nrF7UbFuaRiZ4si9rKi-1XFuj0K94gi1a04mFL8ecLs9yvuOWXyjENDitlLip7LivU_KzqnFKFZxT8ZmrMPaobzNSvWa04Wa341-p7QLBizzZpIhybVr9n7hSbrjKbuS82P5zQ3vtJc_EYzNaqZTGvC32t2G7ErmtVXNVt_0hRPmPeGpsOY-E2TvqmZ_1uz6l_NwRnzb1h3TOec2c0QFt0l3MkUWrOEDX6hTIS2kND3gFAbEUaN4GqhcY0wZCxZKzSXCu3G7s2C85TQVS6c3SL4tgrDzwnPRoUew4kL3yVNx05hwnhrn8ncL9S_YeaPhB1HhW3dQtrIOS7kGsc-NRmDpm9E-HpUOJEWjowJa8aFA9fMXdMCfwmPsYSgL-u13lsXMgNds3MlS8Mt8WQiWR3NfzFaHX6-IV6XCEfrtoVrGrYnttdUxSoLCwpXFhQVrsqPFFTWF_wPYLL-XQ"
+header: document-policy: include-js-call-stacks-in-crash-reports
+header: Content-Encoding: br
+header: Transfer-Encoding: chunked
+header: Server: ESF
+header: X-XSS-Protection: 0
+header: Set-Cookie: __Secure-YNID=18.YT=3D-h1Kab1wamtBXSOLpv5ZmIdxetgLYrxyuf61BDGJIsPFGzD1LeRkOFfLpwgsxp-Cu3D2ZeLLi6W_QqlWnSbzLtkTYmEuf_3PTay-VJ77fnH2J_T9-upr-_LHhNVR_i_CopGB6u3U6Q_oTH6mHVSu1cK_Ofq9gA3hCeAX0wDtLI43uECZX3zaWFMDTmpJ731ZyKdgIDt8E4haZ_B4NejbF5C4yK2TLjAgjRUvW26CUmww7rKTSzY1VPZikcLbhDV95RvCLG7s4WkK9kuQp3MPtPhKDm9DCGJ7oCRE78brvdWwmc9MIAhD3RYMGNZffAGsXpwi2HiW3xx7D93Q2u-A; expires=Sat, 28-Nov-2026 14:21:55 GMT; path=/; domain=.youtube.com; Secure; HttpOnly; SameSite=none
+header: Set-Cookie: GPS=1; Domain=.youtube.com; Expires=Mon, 01-Jun-2026 14:51:55 GMT; Path=/; Secure; HttpOnly
+header: Set-Cookie: YSC=QJlMbperCZY; Domain=.youtube.com; Path=/; Secure; HttpOnly; SameSite=none
+header: Set-Cookie: __Secure-YEC=; Domain=.youtube.com; Expires=Tue, 05-Sep-2023 14:21:55 GMT; Path=/; Secure; HttpOnly; SameSite=lax
+header: Set-Cookie: VISITOR_INFO1_LIVE=H-3nGULbAY4; Domain=.youtube.com; Expires=Sat, 28-Nov-2026 14:21:55 GMT; Path=/; Secure; HttpOnly; SameSite=none
+header: Set-Cookie: VISITOR_PRIVACY_METADATA=CgJVUxIEGgAgXg%3D%3D; Domain=.youtube.com; Expires=Sat, 28-Nov-2026 14:21:55 GMT; Path=/; Secure; HttpOnly; SameSite=none
+header: Set-Cookie: __Secure-ROLLOUT_TOKEN=CM3D9uz_0oPDbhD_-f_UnuaUAxj_-f_UnuaUAw%3D%3D; Domain=youtube.com; Expires=Sat, 28-Nov-2026 14:21:55 GMT; Path=/; Secure; HttpOnly; SameSite=none; Partitioned
+header: Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+director: Handler preferences for this request: urllib=0, requests=100, websockets=0, curl_cffi=-100
+director: Checking if "requests" supports this request.
+director: Sending request via "requests"
+[debug] Sort order given by extractor: quality, res, fps, hdr:12, source, vcodec, channels, acodec, lang, proto
+[debug] Formats sorted by: hasvid, ie_pref, quality, res, fps, hdr:12(7), source, vcodec, channels, acodec, lang, proto, size, br, asr, vext, aext, hasaud, id
+[debug] Default format spec: bestvideo*+bestaudio/best
+[info] jNQXAC9IVRw: Downloading 1 format(s): 395+251
+send: b'POST /youtubei/v1/player?prettyPrint=false HTTP/1.1\r\nHost: www.youtube.com\r\nUser-Agent: com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-us,en;q=0.5\r\nSec-Fetch-Mode: navigate\r\nContent-Type: application/json\r\nX-Youtube-Client-Name: 28\r\nX-Youtube-Client-Version: 1.65.10\r\nOrigin: https://www.youtube.com\r\nX-Goog-Visitor-Id: CgtILTNuR1VMYkFZNCiDq_bQBjIKCgJVUxIEGgAgXmLfAgrcAjE4LllUPTNELWgxS2FiMXdhbXRCWFNPTHB2NVptSWR4ZXRnTFlyeHl1ZjYxQkRHSklzUEZHekQxTGVSa09GZkxwd2dzeHAtQ3UzRDJaZUxMaTZXX1FxbFduU2J6THRrVFltRXVmXzNQVGF5LVZKNzdmbkgySl9UOS11cHItX0xIaE5WUl9pX0NvcEdCNnUzVTZRX29USDZtSFZTdTFjS19PZnE5Z0EzaENlQVgwd0R0TEk0M3VFQ1pYM3phV0ZNRFRtcEo3MzFaeUtkZ0lEdDhFNGhhWl9CNE5lamJGNUM0eUsyVExqQWdqUlV2VzI2Q1Vtd3c3cktUU3pZMVZQWmlrY0xiaERWOTVSdkNMRzdzNFdrSzlrdVFwM01QdFBoS0RtOURDR0o3b0NSRTc4YnJ2ZFd3bWM5TUlBaEQzUllNR05aZmZBR3NYcHdpMkhpVzN4eDdEOTNRMnUtQQ%3D%3D\r\nAccept-Encoding: gzip, deflate, br\r\nConnection: keep-alive\r\nCookie: PREF=hl=en&tz=UTC; SOCS=CAI; __Secure-YNID=18.YT=3D-h1Kab1wamtBXSOLpv5ZmIdxetgLYrxyuf61BDGJIsPFGzD1LeRkOFfLpwgsxp-Cu3D2ZeLLi6W_QqlWnSbzLtkTYmEuf_3PTay-VJ77fnH2J_T9-upr-_LHhNVR_i_CopGB6u3U6Q_oTH6mHVSu1cK_Ofq9gA3hCeAX0wDtLI43uECZX3zaWFMDTmpJ731ZyKdgIDt8E4haZ_B4NejbF5C4yK2TLjAgjRUvW26CUmww7rKTSzY1VPZikcLbhDV95RvCLG7s4WkK9kuQp3MPtPhKDm9DCGJ7oCRE78brvdWwmc9MIAhD3RYMGNZffAGsXpwi2HiW3xx7D93Q2u-A; GPS=1; YSC=QJlMbperCZY; VISITOR_INFO1_LIVE=H-3nGULbAY4; VISITOR_PRIVACY_METADATA=CgJVUxIEGgAgXg%3D%3D; __Secure-ROLLOUT_TOKEN=CM3D9uz_0oPDbhD_-f_UnuaUAxj_-f_UnuaUAw%3D%3D\r\nContent-Length: 572\r\n\r\n'
+send: b'{"context": {"client": {"clientName": "ANDROID_VR", "clientVersion": "1.65.10", "deviceMake": "Oculus", "deviceModel": "Quest 3", "androidSdkVersion": 32, "userAgent": "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip", "osName": "Android", "osVersion": "12L", "hl": "en", "timeZone": "UTC", "utcOffsetMinutes": 0}}, "videoId": "jNQXAC9IVRw", "playbackContext": {"contentPlaybackContext": {"html5Preference": "HTML5_PREF_WANTS", "signatureTimestamp": 20594}}, "contentCheckOk": true, "racyCheckOk": true}'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Content-Type: application/json; charset=UTF-8
+header: Vary: Origin
+header: Vary: X-Origin
+header: Vary: Referer
+header: Content-Encoding: br
+header: Date: Mon, 01 Jun 2026 14:21:55 GMT
+header: Server: scaffolding on HTTPServer2
+header: Content-Length: 10323
+header: X-XSS-Protection: 0
+header: X-Frame-Options: SAMEORIGIN
+header: X-Content-Type-Options: nosniff
+header: Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+[14:21:56] YouTube connectivity test finished
+[14:21:56] Downloading latest profile cache from repo...
+Newest cache folder: 20260522_215147
+  Downloaded profile.dat.part0000 (20000000 bytes)
+  Downloaded profile.dat.part0001 (20000000 bytes)
+  Downloaded profile.dat.part0002 (5826744 bytes)
+✅ Profile extracted to /tmp/chrome_profile
+[14:22:01] Profile load completed.
+[14:22:06] Installing Playwright
+Wrote to /home/runner/work/download_to_repo_from_link/download_to_repo_from_link/package.json:
+
+{
+  "name": "download_to_repo_from_link",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/edukadoj/download_to_repo_from_link.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/edukadoj/download_to_repo_from_link/issues"
+  },
+  "homepage": "https://github.com/edukadoj/download_to_repo_from_link#readme"
+}
+
+
+
+
+added 2 packages, and audited 3 packages in 2s
+
+found 0 vulnerabilities
+Installing dependencies...
+Switching to root user to install dependencies...
+Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+Hit:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease
+Hit:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease
+Hit:6 https://packages.microsoft.com/repos/azure-cli noble InRelease
+Hit:7 https://dl.google.com/linux/chrome-stable/deb stable InRelease
+Hit:8 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+libasound2t64 is already the newest version (1.2.11-1ubuntu0.2).
+libasound2t64 set to manually installed.
+libatk-bridge2.0-0t64 is already the newest version (2.52.0-1build1).
+libatk-bridge2.0-0t64 set to manually installed.
+libatk1.0-0t64 is already the newest version (2.52.0-1build1).
+libatk1.0-0t64 set to manually installed.
+libatspi2.0-0t64 is already the newest version (2.52.0-1build1).
+libatspi2.0-0t64 set to manually installed.
+libcairo2 is already the newest version (1.18.0-3build1).
+libcairo2 set to manually installed.
+libcups2t64 is already the newest version (2.4.7-1.2ubuntu7.9).
+libcups2t64 set to manually installed.
+libdbus-1-3 is already the newest version (1.14.10-4ubuntu4.1).
+libdbus-1-3 set to manually installed.
+libdrm2 is already the newest version (2.4.125-1ubuntu0.1~24.04.1).
+libdrm2 set to manually installed.
+libgbm1 is already the newest version (25.2.8-0ubuntu0.24.04.1).
+libglib2.0-0t64 is already the newest version (2.80.0-6ubuntu3.8).
+libglib2.0-0t64 set to manually installed.
+libnspr4 is already the newest version (2:4.35-1.1build1).
+libnspr4 set to manually installed.
+libnss3 is already the newest version (2:3.98-1ubuntu0.1).
+libnss3 set to manually installed.
+libpango-1.0-0 is already the newest version (1.52.1+ds-1build1).
+libpango-1.0-0 set to manually installed.
+libx11-6 is already the newest version (2:1.8.7-1build1).
+libx11-6 set to manually installed.
+libxcb1 is already the newest version (1.15-1ubuntu2).
+libxcb1 set to manually installed.
+libxcomposite1 is already the newest version (1:0.4.5-1build3).
+libxcomposite1 set to manually installed.
+libxdamage1 is already the newest version (1:1.1.6-1build1).
+libxdamage1 set to manually installed.
+libxext6 is already the newest version (2:1.3.4-1build2).
+libxext6 set to manually installed.
+libxfixes3 is already the newest version (1:6.0.0-2build1).
+libxfixes3 set to manually installed.
+libxkbcommon0 is already the newest version (1.6.0-1build1).
+libxkbcommon0 set to manually installed.
+libxrandr2 is already the newest version (2:1.5.2-2build1).
+libxrandr2 set to manually installed.
+xvfb is already the newest version (2:21.1.12-1ubuntu1.5).
+fonts-noto-color-emoji is already the newest version (2.047-0ubuntu0.24.04.1).
+libfontconfig1 is already the newest version (2.15.0-1.1ubuntu2).
+libfontconfig1 set to manually installed.
+libfreetype6 is already the newest version (2.13.2+dfsg-1ubuntu0.1).
+libfreetype6 set to manually installed.
+fonts-liberation is already the newest version (1:2.1.5-3).
+fonts-liberation set to manually installed.
+The following additional packages will be installed:
+  xfonts-encodings xfonts-utils
+Recommended packages:
+  fonts-ipafont-mincho fonts-tlwg-loma
+The following NEW packages will be installed:
+  fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont
+  fonts-wqy-zenhei xfonts-cyrillic xfonts-encodings xfonts-scalable
+  xfonts-utils
+0 upgraded, 9 newly installed, 0 to remove and 48 not upgraded.
+Need to get 21.1 MB of archives.
+After this operation, 79.5 MB of additional disk space will be used.
+Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Get:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-ipafont-gothic all 00303-21ubuntu1 [3513 kB]
+Get:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 fonts-freefont-ttf all 20211204+svn4273-2 [5641 kB]
+Get:4 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-tlwg-loma-otf all 1:0.7.3-1 [107 kB]
+Get:5 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-unifont all 1:15.1.01-1build1 [2993 kB]
+Get:6 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-wqy-zenhei all 0.9.45-8 [7472 kB]
+Get:7 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-encodings all 1:1.0.5-0ubuntu2 [578 kB]
+Get:8 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-utils amd64 1:7.7+6build3 [94.4 kB]
+Get:9 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 xfonts-cyrillic all 1:1.0.5+nmu1 [384 kB]
+Get:10 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-scalable all 1:1.0.3-1.3 [304 kB]
+Fetched 21.1 MB in 2s (14.0 MB/s)
+Selecting previously unselected package fonts-ipafont-gothic.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 204215 files and directories currently installed.)
+Preparing to unpack .../0-fonts-ipafont-gothic_00303-21ubuntu1_all.deb ...
+Unpacking fonts-ipafont-gothic (00303-21ubuntu1) ...
+Selecting previously unselected package fonts-freefont-ttf.
+Preparing to unpack .../1-fonts-freefont-ttf_20211204+svn4273-2_all.deb ...
+Unpacking fonts-freefont-ttf (20211204+svn4273-2) ...
+Selecting previously unselected package fonts-tlwg-loma-otf.
+Preparing to unpack .../2-fonts-tlwg-loma-otf_1%3a0.7.3-1_all.deb ...
+Unpacking fonts-tlwg-loma-otf (1:0.7.3-1) ...
+Selecting previously unselected package fonts-unifont.
+Preparing to unpack .../3-fonts-unifont_1%3a15.1.01-1build1_all.deb ...
+Unpacking fonts-unifont (1:15.1.01-1build1) ...
+Selecting previously unselected package fonts-wqy-zenhei.
+Preparing to unpack .../4-fonts-wqy-zenhei_0.9.45-8_all.deb ...
+Unpacking fonts-wqy-zenhei (0.9.45-8) ...
+Selecting previously unselected package xfonts-encodings.
+Preparing to unpack .../5-xfonts-encodings_1%3a1.0.5-0ubuntu2_all.deb ...
+Unpacking xfonts-encodings (1:1.0.5-0ubuntu2) ...
+Selecting previously unselected package xfonts-utils.
+Preparing to unpack .../6-xfonts-utils_1%3a7.7+6build3_amd64.deb ...
+Unpacking xfonts-utils (1:7.7+6build3) ...
+Selecting previously unselected package xfonts-cyrillic.
+Preparing to unpack .../7-xfonts-cyrillic_1%3a1.0.5+nmu1_all.deb ...
+Unpacking xfonts-cyrillic (1:1.0.5+nmu1) ...
+Selecting previously unselected package xfonts-scalable.
+Preparing to unpack .../8-xfonts-scalable_1%3a1.0.3-1.3_all.deb ...
+Unpacking xfonts-scalable (1:1.0.3-1.3) ...
+Setting up fonts-wqy-zenhei (0.9.45-8) ...
+Setting up fonts-freefont-ttf (20211204+svn4273-2) ...
+Setting up fonts-tlwg-loma-otf (1:0.7.3-1) ...
+Setting up xfonts-encodings (1:1.0.5-0ubuntu2) ...
+Setting up fonts-ipafont-gothic (00303-21ubuntu1) ...
+update-alternatives: using /usr/share/fonts/opentype/ipafont-gothic/ipag.ttf to provide /usr/share/fonts/truetype/fonts-japanese-gothic.ttf (fonts-japanese-gothic.ttf) in auto mode
+Setting up fonts-unifont (1:15.1.01-1build1) ...
+Setting up xfonts-utils (1:7.7+6build3) ...
+Setting up xfonts-cyrillic (1:1.0.5+nmu1) ...
+Setting up xfonts-scalable (1:1.0.3-1.3) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Not building database; man-db/auto-update is not 'true'.
+Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+[14:22:15] Playwright ready
+[14:22:16] Extracting cookies...
+✅ Exported 53 cookies
+[14:22:20] 🚀 Processing 5 URL(s) – Quality: 720p, Subtitles: fa (Persian), Burn: False, Compress: False
+[14:22:20] 
+[14:22:20] ==================================================  URL #1  ==================================================
+[14:22:20] 📥 https://www.youtube.com/watch?v=4YrwOFIILb0
+[14:22:20] 📹 YouTube: https://www.youtube.com/watch?v=4YrwOFIILb0
+[14:22:20] [debug] Command-line config: ['--no-playlist', '--format', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]', '--merge-output-format', 'mp4', '--output', '%(title).150B [%(id)s].%(ext)s', '--js-runtimes', 'node', '--geo-bypass', '--geo-bypass-country', 'US', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', '--retries', '10', '--fragment-retries', '10', '--sleep-requests', '1', '--sleep-interval', '5', '--max-sleep-interval', '15', '--verbose', '--cookies-from-browser', 'chrome:/tmp/chrome_profile/Default', 'https://www.youtube.com/watch?v=4YrwOFIILb0']
+[14:22:20] [debug] Encodings: locale UTF-8, fs utf-8, pref UTF-8, out utf-8 (No ANSI), error utf-8 (No ANSI), screen utf-8 (No ANSI)
+[14:22:20] [debug] yt-dlp version stable@2026.03.17 from yt-dlp/yt-dlp [04d6974f5] (pip)
+[14:22:20] [debug] Python 3.12.3 (CPython x86_64 64bit) - Linux-6.17.0-1015-azure-x86_64-with-glibc2.39 (OpenSSL 3.0.13 30 Jan 2024, glibc 2.39)
+[14:22:20] [debug] exe versions: ffmpeg 6.1.1 (setts), ffprobe 6.1.1
+[14:22:20] [debug] Optional libraries: Cryptodome-3.23.0, brotli-1.2.0, certifi-2026.05.20, curl_cffi-0.14.0, mutagen-1.47.0, requests-2.34.2, secretstorage-3.5.0, sqlite3-3.45.1, urllib3-2.0.7, websockets-16.0, yt_dlp_ejs-0.8.0
+[14:22:20] [debug] JS runtimes: node-22.22.3
+[14:22:20] [debug] Proxy map: {}
+[14:22:20] Extracting cookies from chrome
+[14:22:20] [debug] Extracting cookies from: "/tmp/chrome_profile/Default/Cookies"
+[14:22:20] Extracted 50 cookies from chrome
+[14:22:20] [debug] cookie version breakdown: {'v10': 52, 'v11': 0, 'other': 0, 'unencrypted': 0}
+[14:22:20] [debug] Request Handlers: urllib, requests, websockets, curl_cffi
+[14:22:20] [debug] Plugin directories: none
+[14:22:20] [debug] Loaded 1864 extractors
+[14:22:21] [debug] Using fake IP 6.51.28.51 (US) as X-Forwarded-For
+[14:22:21] [debug] [youtube] Found YouTube account cookies
+[14:22:21] [debug] [youtube] [pot] PO Token Providers: none
+[14:22:21] [debug] [youtube] [pot] PO Token Cache Providers: memory
+[14:22:21] [debug] [youtube] [pot] PO Token Cache Spec Providers: webpo
+[14:22:21] [debug] [youtube] [jsc] JS Challenge Providers: bun (unavailable), deno (unavailable), node, quickjs (unavailable)
+[14:22:21] [youtube] Extracting URL: https://www.youtube.com/watch?v=4YrwOFIILb0
+[14:22:21] [youtube] 4YrwOFIILb0: Downloading webpage
+[14:22:21] [debug] [youtube] Forcing "main" player JS variant for player 9fc68080
+[14:22:21]         original url = /s/player/9fc68080/player_es6_tce.vflset/en_US/base.js
+[14:22:21] [youtube] Sleeping 1.0 seconds ...
+[14:22:22] [youtube] 4YrwOFIILb0: Downloading tv downgraded player API JSON
+[14:22:23] [youtube] Sleeping 1.0 seconds ...
+[14:22:24] [youtube] 4YrwOFIILb0: Downloading player 9fc68080-main
+[14:22:24] [youtube] [jsc:node] Solving JS challenges using node
+[14:22:24] [debug] [youtube] [jsc:node] Using challenge solver lib script v0.8.0 (source: python package, variant: minified)
+[14:22:24] [debug] [youtube] [jsc:node] Using challenge solver core script v0.8.0 (source: python package, variant: minified)
+[14:22:24] [debug] [youtube] [jsc:node] Running node: /usr/local/bin/node --experimental-permission --no-warnings=ExperimentalWarning -
+[14:22:25] [debug] [youtube] 4YrwOFIILb0: Detected experiment to bind GVS PO Token to video ID for web_safari client
+[14:22:25] [youtube] Sleeping 1.0 seconds ...
+[14:22:26] [youtube] 4YrwOFIILb0: Downloading m3u8 information
+[14:22:26] [debug] Sort order given by extractor: quality, res, fps, hdr:12, source, vcodec, channels, acodec, lang, proto
+[14:22:26] [debug] Formats sorted by: hasvid, ie_pref, quality, res, fps, hdr:12(7), source, vcodec, channels, acodec, lang, proto, size, br, asr, vext, aext, hasaud, id
+[14:22:26] [info] 4YrwOFIILb0: Downloading 1 format(s): 398+140
+[14:22:26] [debug] Invoking http downloader on "https://rr4---sn-p5qddn7d.googlevideo.com/videoplayback?expire=1780345343&ei=npUdaofHPOKGr9gPufjb0A0&ip=2a09%3Abac5%3Ac82d%3A2828%3A%3A400%3A23&id=o-ACECCZQqNJUjW99r2cebyn7HMcHjzso_fajmrR5wK6jc&itag=398&aitags=133%2C134%2C135%2C136%2C137%2C160%2C242%2C243%2C244%2C247%2C248%2C278%2C394%2C395%2C396%2C397%2C398%2C399&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&met=1780323743%2C&mh=o3&mm=31%2C29&mn=sn-p5qddn7d%2Csn-p5qlsnd6&ms=au%2Crdu&mv=m&mvi=4&pl=43&rms=au%2Cau&initcwndbps=3753750&siu=1&bui=AbKmrwro1XAyLq91GzpNSp5B-j_FACfOfiYAiZCRA7zynnYcJcZqiscUVToWX2DseLbPv0eCzg&vprv=1&svpuc=1&mime=video%2Fmp4&ns=wSHnrHFFxmS0J62kAC_37yEV&rqh=1&gir=yes&clen=23044632&dur=363.680&lmt=1771041356034621&mt=1780322725&fvip=2&keepalive=yes&lmw=1&fexp=51565116%2C51565681%2C51958250&c=TVHTML5&sefc=1&txp=5537534&n=HRvG4WeUgS1w8A&sparams=expire%2Cei%2Cip%2Cid%2Caitags%2Csource%2Crequiressl%2Cxpc%2Csiu%2Cbui%2Cvprv%2Csvpuc%2Cmime%2Cns%2Crqh%2Cgir%2Cclen%2Cdur%2Clmt&sig=AHEqNM4wRgIhAMXVuGokskvk8iZj91iFUEtH1tROOjzzawAu5u02M1u9AiEA_qqAiccQL4-r2SkPpEKXGetet9yY5_0Ipnjc3iV2UCc%3D&lsparams=met%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms%2Cinitcwndbps&lsig=APaTxxMwRgIhALm_EHgK-shGd7EWsXu1U98GwF9p1ophuS7NML0hX8ypAiEA4fhU-rKqeLfLauxSE4w2pu7ffF5AlyvYnDCQs6iDFeM%3D"
+[14:22:26] [download] Sleeping 8.80 seconds ...
+[14:22:35] [download] Destination: آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].f398.mp4
+[14:22:35] 
+[14:22:35] [download]   0.0% of   21.98MiB at   64.56KiB/s ETA 05:48
+[14:22:35] [download]   0.0% of   21.98MiB at  186.65KiB/s ETA 02:00
+[14:22:35] [download]   0.0% of   21.98MiB at  422.17KiB/s ETA 00:53
+[14:22:35] [download]   0.1% of   21.98MiB at  887.68KiB/s ETA 00:25
+[14:22:35] [download]   0.1% of   21.98MiB at    1.56MiB/s ETA 00:14
+[14:22:35] [download]   0.3% of   21.98MiB at    1.67MiB/s ETA 00:13
+[14:22:35] [download]   0.6% of   21.98MiB at    2.36MiB/s ETA 00:09
+[14:22:35] [download]   1.1% of   21.98MiB at    3.46MiB/s ETA 00:06
+[14:22:35] [download]   2.3% of   21.98MiB at    5.55MiB/s ETA 00:03
+[14:22:35] [download]   4.5% of   21.98MiB at    8.79MiB/s ETA 00:02
+[14:22:35] [download]   9.1% of   21.98MiB at    8.47MiB/s ETA 00:02
+[14:22:36] [download]  18.2% of   21.98MiB at   14.78MiB/s ETA 00:01
+[14:22:36] [download]  36.4% of   21.98MiB at   13.52MiB/s ETA 00:01
+[14:22:36] [download]  45.1% of   21.98MiB at   11.62MiB/s ETA 00:01
+[14:22:36] [download]  45.1% of   21.98MiB at   32.39KiB/s ETA 06:21
+[14:22:36] [download]  45.1% of   21.98MiB at   95.68KiB/s ETA 02:09
+[14:22:36] [download]  45.2% of   21.98MiB at  221.01KiB/s ETA 00:55
+[14:22:36] [download]  45.2% of   21.98MiB at  469.04KiB/s ETA 00:26
+[14:22:36] [download]  45.3% of   21.98MiB at  795.64KiB/s ETA 00:15
+[14:22:36] [download]  45.4% of   21.98MiB at  858.30KiB/s ETA 00:14
+[14:22:36] [download]  45.7% of   21.98MiB at    1.17MiB/s ETA 00:10
+[14:22:36] [download]  46.3% of   21.98MiB at    1.76MiB/s ETA 00:06
+[14:22:37] [download]  47.4% of   21.98MiB at    2.83MiB/s ETA 00:04
+[14:22:37] [download]  49.7% of   21.98MiB at    4.78MiB/s ETA 00:02
+[14:22:37] [download]  54.2% of   21.98MiB at    8.22MiB/s ETA 00:01
+[14:22:37] [download]  63.3% of   21.98MiB at   14.45MiB/s ETA 00:00
+[14:22:37] [download]  81.5% of   21.98MiB at   24.66MiB/s ETA 00:00
+[14:22:37] [download]  90.6% of   21.98MiB at   17.42MiB/s ETA 00:00
+[14:22:37] [download]  90.6% of   21.98MiB at  Unknown B/s ETA Unknown
+[14:22:37] [download]  90.6% of   21.98MiB at  Unknown B/s ETA Unknown
+[14:22:37] [download]  90.6% of   21.98MiB at  Unknown B/s ETA Unknown
+[14:22:37] [download]  90.6% of   21.98MiB at   14.17MiB/s ETA 00:00  
+[14:22:37] [download]  90.7% of   21.98MiB at   23.82MiB/s ETA 00:00
+[14:22:37] [download]  90.8% of   21.98MiB at   40.54MiB/s ETA 00:00
+[14:22:37] [download]  91.1% of   21.98MiB at    5.62MiB/s ETA 00:00
+[14:22:37] [download]  91.7% of   21.98MiB at   10.47MiB/s ETA 00:00
+[14:22:37] [download]  92.8% of   21.98MiB at   19.36MiB/s ETA 00:00
+[14:22:37] [download]  95.1% of   21.98MiB at   25.12MiB/s ETA 00:00
+[14:22:37] [download]  99.6% of   21.98MiB at   44.79MiB/s ETA 00:00
+[14:22:37] [download] 100.0% of   21.98MiB at   45.86MiB/s ETA 00:00
+[14:22:37] [download] 100% of   21.98MiB in 00:00:02 at 10.54MiB/s  
+[14:22:37] [debug] Invoking http downloader on "https://rr4---sn-p5qddn7d.googlevideo.com/videoplayback?expire=1780345343&ei=npUdaofHPOKGr9gPufjb0A0&ip=2a09%3Abac5%3Ac82d%3A2828%3A%3A400%3A23&id=o-ACECCZQqNJUjW99r2cebyn7HMcHjzso_fajmrR5wK6jc&itag=140&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&met=1780323743%2C&mh=o3&mm=31%2C29&mn=sn-p5qddn7d%2Csn-p5qlsnd6&ms=au%2Crdu&mv=m&mvi=4&pl=43&rms=au%2Cau&initcwndbps=3753750&siu=1&bui=AbKmrwro1XAyLq91GzpNSp5B-j_FACfOfiYAiZCRA7zynnYcJcZqiscUVToWX2DseLbPv0eCzg&vprv=1&svpuc=1&mime=audio%2Fmp4&ns=wSHnrHFFxmS0J62kAC_37yEV&rqh=1&gir=yes&clen=5887556&dur=363.740&lmt=1771026488498348&mt=1780322725&fvip=2&keepalive=yes&lmw=1&fexp=51565116%2C51565681%2C51958250&c=TVHTML5&sefc=1&txp=5532534&n=HRvG4WeUgS1w8A&sparams=expire%2Cei%2Cip%2Cid%2Citag%2Csource%2Crequiressl%2Cxpc%2Csiu%2Cbui%2Cvprv%2Csvpuc%2Cmime%2Cns%2Crqh%2Cgir%2Cclen%2Cdur%2Clmt&sig=AHEqNM4wRQIgTX6IZ3oYVT8qDdsyDZQYYiI-Mg3LcHQ7UgTbldB68d8CIQDz5WKnaQUQai2TjMy2gKMKp_FjS231KuX_rjHx8BLXXQ%3D%3D&lsparams=met%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms%2Cinitcwndbps&lsig=APaTxxMwRgIhALm_EHgK-shGd7EWsXu1U98GwF9p1ophuS7NML0hX8ypAiEA4fhU-rKqeLfLauxSE4w2pu7ffF5AlyvYnDCQs6iDFeM%3D"
+[14:22:37] [download] Sleeping 11.01 seconds ...
+[14:22:48] [download] Destination: آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].f140.m4a
+[14:22:48] 
+[14:22:48] [download]   0.0% of    5.61MiB at  177.28KiB/s ETA 00:32
+[14:22:48] [download]   0.1% of    5.61MiB at  489.61KiB/s ETA 00:11
+[14:22:48] [download]   0.1% of    5.61MiB at    1.06MiB/s ETA 00:05
+[14:22:48] [download]   0.3% of    5.61MiB at    2.15MiB/s ETA 00:02
+[14:22:48] [download]   0.5% of    5.61MiB at    4.12MiB/s ETA 00:01
+[14:22:48] [download]   1.1% of    5.61MiB at    4.59MiB/s ETA 00:01
+[14:22:48] [download]   2.2% of    5.61MiB at    6.29MiB/s ETA 00:00
+[14:22:48] [download]   4.4% of    5.61MiB at    6.33MiB/s ETA 00:00
+[14:22:48] [download]   8.9% of    5.61MiB at    8.64MiB/s ETA 00:00
+[14:22:48] [download]  17.8% of    5.61MiB at   11.09MiB/s ETA 00:00
+[14:22:49] [download]  35.6% of    5.61MiB at   12.37MiB/s ETA 00:00
+[14:22:49] [download]  71.2% of    5.61MiB at   11.74MiB/s ETA 00:00
+[14:22:49] [download] 100.0% of    5.61MiB at   11.86MiB/s ETA 00:00
+[14:22:49] [download] 100% of    5.61MiB in 00:00:00 at 8.23MiB/s   
+[14:22:49] [Merger] Merging formats into "آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].mp4"
+[14:22:49] [debug] ffmpeg command line: ffmpeg -y -loglevel repeat+info -i 'file:آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].f398.mp4' -i 'file:آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].f140.m4a' -c copy -map 0:v:0 -map 1:a:0 -movflags +faststart 'file:آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].temp.mp4'
+[14:22:49] Deleting original file آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].f398.mp4 (pass -k to keep)
+[14:22:49] Deleting original file آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].f140.m4a (pass -k to keep)
+[14:22:49]    📦 Downloaded: آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].mp4 (27.7 MB)
+[14:22:49]    📝 Attempting subtitle download for 'fa' ...
+[14:22:49] [debug] Command-line config: ['--no-playlist', '--skip-download', '--write-subs', '--write-auto-subs', '--sub-lang', 'fa', '--convert-subs', 'srt', '--output', 'current_sub.%(ext)s', '--js-runtimes', 'node', '--geo-bypass', '--geo-bypass-country', 'US', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', '--retries', '10', '--fragment-retries', '10', '--sleep-requests', '1', '--sleep-interval', '5', '--max-sleep-interval', '15', '--verbose', '--cookies-from-browser', 'chrome:/tmp/chrome_profile/Default', 'https://www.youtube.com/watch?v=4YrwOFIILb0']
+[14:22:49] [debug] Encodings: locale UTF-8, fs utf-8, pref UTF-8, out utf-8 (No ANSI), error utf-8 (No ANSI), screen utf-8 (No ANSI)
+[14:22:49] [debug] yt-dlp version stable@2026.03.17 from yt-dlp/yt-dlp [04d6974f5] (pip)
+[14:22:49] [debug] Python 3.12.3 (CPython x86_64 64bit) - Linux-6.17.0-1015-azure-x86_64-with-glibc2.39 (OpenSSL 3.0.13 30 Jan 2024, glibc 2.39)
+[14:22:49] [debug] exe versions: ffmpeg 6.1.1 (setts), ffprobe 6.1.1
+[14:22:49] [debug] Optional libraries: Cryptodome-3.23.0, brotli-1.2.0, certifi-2026.05.20, curl_cffi-0.14.0, mutagen-1.47.0, requests-2.34.2, secretstorage-3.5.0, sqlite3-3.45.1, urllib3-2.0.7, websockets-16.0, yt_dlp_ejs-0.8.0
+[14:22:49] [debug] JS runtimes: node-22.22.3
+[14:22:49] [debug] Proxy map: {}
+[14:22:49] Extracting cookies from chrome
+[14:22:49] [debug] Extracting cookies from: "/tmp/chrome_profile/Default/Cookies"
+[14:22:49] Extracted 50 cookies from chrome
+[14:22:49] [debug] cookie version breakdown: {'v10': 52, 'v11': 0, 'other': 0, 'unencrypted': 0}
+[14:22:49] [debug] Request Handlers: urllib, requests, websockets, curl_cffi
+[14:22:49] [debug] Plugin directories: none
+[14:22:49] [debug] Loaded 1864 extractors
+[14:22:50] [debug] Using fake IP 6.215.107.14 (US) as X-Forwarded-For
+[14:22:50] [debug] [youtube] Found YouTube account cookies
+[14:22:50] [debug] [youtube] [pot] PO Token Providers: none
+[14:22:50] [debug] [youtube] [pot] PO Token Cache Providers: memory
+[14:22:50] [debug] [youtube] [pot] PO Token Cache Spec Providers: webpo
+[14:22:50] [debug] [youtube] [jsc] JS Challenge Providers: bun (unavailable), deno (unavailable), node, quickjs (unavailable)
+[14:22:50] [youtube] Extracting URL: https://www.youtube.com/watch?v=4YrwOFIILb0
+[14:22:50] [youtube] 4YrwOFIILb0: Downloading webpage
+[14:22:50] [debug] [youtube] Forcing "main" player JS variant for player 9fc68080
+[14:22:50]         original url = /s/player/9fc68080/player_es6_tce.vflset/en_US/base.js
+[14:22:50] [youtube] Sleeping 1.0 seconds ...
+[14:22:51] [youtube] 4YrwOFIILb0: Downloading tv downgraded player API JSON
+[14:22:52] [youtube] Sleeping 1.0 seconds ...
+[14:22:53] [youtube] 4YrwOFIILb0: Downloading player 9fc68080-main
+[14:22:53] [youtube] [jsc:node] Solving JS challenges using node
+[14:22:53] [debug] [youtube] [jsc:node] Using challenge solver lib script v0.8.0 (source: python package, variant: minified)
+[14:22:53] [debug] [youtube] [jsc:node] Using challenge solver core script v0.8.0 (source: python package, variant: minified)
+[14:22:53] [debug] [youtube] [jsc:node] Running node: /usr/local/bin/node --experimental-permission --no-warnings=ExperimentalWarning -
+[14:22:54] [debug] [youtube] 4YrwOFIILb0: Detected experiment to bind GVS PO Token to video ID for web_safari client
+[14:22:54] [youtube] Sleeping 1.0 seconds ...
+[14:22:55] [youtube] 4YrwOFIILb0: Downloading m3u8 information
+[14:22:55] [info] 4YrwOFIILb0: Downloading subtitles: fa
+[14:22:55] [debug] Sort order given by extractor: quality, res, fps, hdr:12, source, vcodec, channels, acodec, lang, proto
+[14:22:55] [debug] Formats sorted by: hasvid, ie_pref, quality, res, fps, hdr:12(7), source, vcodec, channels, acodec, lang, proto, size, br, asr, vext, aext, hasaud, id
+[14:22:55] [debug] Default format spec: bestvideo*+bestaudio/best
+[14:22:55] [info] 4YrwOFIILb0: Downloading 1 format(s): 399+251
+[14:22:55] [info] Writing video subtitles to: current_sub.fa.vtt
+[14:22:55] [debug] Invoking http downloader on "https://www.youtube.com/api/timedtext?v=4YrwOFIILb0&ei=u5UdaufLOJKLr9gP54i10AI&caps=asr&opi=112496729&xoaf=5&xowf=1&xospf=1&hl=en&ip=0.0.0.0&ipbits=0&expire=1780348971&sparams=ip%2Cipbits%2Cexpire%2Cv%2Cei%2Ccaps%2Copi%2Cxoaf&signature=391C1938E2F1E20D552A2C8A2646AD1BD92671B8.6AC3837827843937E6E787530D07B741415D8405&key=yt8&kind=asr&lang=fa&fmt=vtt"
+[14:22:55] [download] Destination: current_sub.fa.vtt
+[14:22:55] 
+[14:22:55] [download]    1.00KiB at  Unknown B/s (00:00:00)
+[14:22:55] [download]    3.00KiB at  Unknown B/s (00:00:00)
+[14:22:55] [download]    7.00KiB at    5.10MiB/s (00:00:00)
+[14:22:55] [download]   15.00KiB at    7.92MiB/s (00:00:00)
+[14:22:55] [download]   31.00KiB at    5.12MiB/s (00:00:00)
+[14:22:55] [download]   54.13KiB at    5.37MiB/s (00:00:00)
+[14:22:55] [download] 100% of   54.13KiB in 00:00:00 at 396.68KiB/s
+[14:22:55] [SubtitlesConvertor] Converting subtitles
+[14:22:55] [debug] ffmpeg command line: ffmpeg -y -loglevel repeat+info -i file:current_sub.fa.vtt -f srt -movflags +faststart file:current_sub.fa.srt
+[14:22:55] Deleting original file current_sub.fa.vtt (pass -k to keep)
+[14:22:55]    ✅ Subtitle downloaded: آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].srt
+[14:22:55] ⬆️  Uploading آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].srt ...
+[14:22:56]    ✅ Uploaded (HTTP 201)
+[14:22:56] 
+[14:22:56] ==================================================  URL #2  ==================================================
+[14:22:56] 📥 https://www.youtube.com/watch?v=I5bLsSQE5Dk
+[14:22:56] 📹 YouTube: https://www.youtube.com/watch?v=I5bLsSQE5Dk
+[14:22:56] [debug] Command-line config: ['--no-playlist', '--format', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]', '--merge-output-format', 'mp4', '--output', '%(title).150B [%(id)s].%(ext)s', '--js-runtimes', 'node', '--geo-bypass', '--geo-bypass-country', 'US', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', '--retries', '10', '--fragment-retries', '10', '--sleep-requests', '1', '--sleep-interval', '5', '--max-sleep-interval', '15', '--verbose', '--cookies-from-browser', 'chrome:/tmp/chrome_profile/Default', 'https://www.youtube.com/watch?v=I5bLsSQE5Dk']
+[14:22:56] [debug] Encodings: locale UTF-8, fs utf-8, pref UTF-8, out utf-8 (No ANSI), error utf-8 (No ANSI), screen utf-8 (No ANSI)
+[14:22:56] [debug] yt-dlp version stable@2026.03.17 from yt-dlp/yt-dlp [04d6974f5] (pip)
+[14:22:56] [debug] Python 3.12.3 (CPython x86_64 64bit) - Linux-6.17.0-1015-azure-x86_64-with-glibc2.39 (OpenSSL 3.0.13 30 Jan 2024, glibc 2.39)
+[14:22:57] [debug] exe versions: ffmpeg 6.1.1 (setts), ffprobe 6.1.1
+[14:22:57] [debug] Optional libraries: Cryptodome-3.23.0, brotli-1.2.0, certifi-2026.05.20, curl_cffi-0.14.0, mutagen-1.47.0, requests-2.34.2, secretstorage-3.5.0, sqlite3-3.45.1, urllib3-2.0.7, websockets-16.0, yt_dlp_ejs-0.8.0
+[14:22:57] [debug] JS runtimes: node-22.22.3
+[14:22:57] [debug] Proxy map: {}
+[14:22:57] Extracting cookies from chrome
+[14:22:57] [debug] Extracting cookies from: "/tmp/chrome_profile/Default/Cookies"
+[14:22:57] Extracted 50 cookies from chrome
+[14:22:57] [debug] cookie version breakdown: {'v10': 52, 'v11': 0, 'other': 0, 'unencrypted': 0}
+[14:22:57] [debug] Request Handlers: urllib, requests, websockets, curl_cffi
+[14:22:57] [debug] Plugin directories: none
+[14:22:57] [debug] Loaded 1864 extractors
+[14:22:57] [debug] Using fake IP 6.89.38.11 (US) as X-Forwarded-For
+[14:22:57] [debug] [youtube] Found YouTube account cookies
+[14:22:57] [debug] [youtube] [pot] PO Token Providers: none
+[14:22:57] [debug] [youtube] [pot] PO Token Cache Providers: memory
+[14:22:57] [debug] [youtube] [pot] PO Token Cache Spec Providers: webpo
+[14:22:57] [debug] [youtube] [jsc] JS Challenge Providers: bun (unavailable), deno (unavailable), node, quickjs (unavailable)
+[14:22:57] [youtube] Extracting URL: https://www.youtube.com/watch?v=I5bLsSQE5Dk
+[14:22:57] [youtube] I5bLsSQE5Dk: Downloading webpage
+[14:22:57] [debug] [youtube] Forcing "main" player JS variant for player 9fc68080
+[14:22:57]         original url = /s/player/9fc68080/player_es6_tce.vflset/en_US/base.js
+[14:22:57] [youtube] Sleeping 1.0 seconds ...
+[14:22:58] [youtube] I5bLsSQE5Dk: Downloading tv downgraded player API JSON
+[14:22:59] [youtube] Sleeping 1.0 seconds ...
+[14:23:00] [youtube] I5bLsSQE5Dk: Downloading player 9fc68080-main
+[14:23:00] [youtube] [jsc:node] Solving JS challenges using node
+[14:23:00] [debug] [youtube] [jsc:node] Using challenge solver lib script v0.8.0 (source: python package, variant: minified)
+[14:23:00] [debug] [youtube] [jsc:node] Using challenge solver core script v0.8.0 (source: python package, variant: minified)
+[14:23:00] [debug] [youtube] [jsc:node] Running node: /usr/local/bin/node --experimental-permission --no-warnings=ExperimentalWarning -
+[14:23:01] [debug] [youtube] I5bLsSQE5Dk: Detected experiment to bind GVS PO Token to video ID for web_safari client
+[14:23:01] [youtube] Sleeping 1.0 seconds ...
+[14:23:02] [youtube] I5bLsSQE5Dk: Downloading m3u8 information
+[14:23:02] [debug] Sort order given by extractor: quality, res, fps, hdr:12, source, vcodec, channels, acodec, lang, proto
+[14:23:02] [debug] Formats sorted by: hasvid, ie_pref, quality, res, fps, hdr:12(7), source, vcodec, channels, acodec, lang, proto, size, br, asr, vext, aext, hasaud, id
+[14:23:02] [info] I5bLsSQE5Dk: Downloading 1 format(s): 298+140
+[14:23:02] [debug] Invoking http downloader on "https://rr4---sn-ab5sznzy.googlevideo.com/videoplayback?expire=1780345379&ei=w5UdatFC1L-S5w_p7oiIAg&ip=2a09%3Abac1%3A76a1%3A62b0%3A%3A400%3A23&id=o-AMKI5Kr506yx3hf0MSqxl0jbqZ2FMfnq9VulfwSSOYb7&itag=298&aitags=134%2C136%2C160%2C243%2C298&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&met=1780323779%2C&mh=R8&mm=31%2C26&mn=sn-ab5sznzy%2Csn-nx57ynz7&ms=au%2Conr&mv=m&mvi=4&pl=48&rms=au%2Cau&initcwndbps=8433750&siu=1&bui=AbKmrwo-pc4zP71gEMJvm7WuCxIsdbMk0mDmgGxFIe0v2yhIkWjAJYNJ7LBMBMsGkj5OkDwIKQ&vprv=1&svpuc=1&mime=video%2Fmp4&ns=8ZjuMRPD8bc3aEFLrcwLeT4V&rqh=1&gir=yes&clen=52228136&dur=206.422&lmt=1738437387129628&mt=1780322725&fvip=1&keepalive=yes&lmw=1&fexp=51565116%2C51565681%2C51958250&c=TVHTML5&sefc=1&txp=8208224&n=Vv9SVmB6cXWCNg&sparams=expire%2Cei%2Cip%2Cid%2Caitags%2Csource%2Crequiressl%2Cxpc%2Csiu%2Cbui%2Cvprv%2Csvpuc%2Cmime%2Cns%2Crqh%2Cgir%2Cclen%2Cdur%2Clmt&sig=AHEqNM4wRgIhAKfVugIDuknDLaiLuEIco6DYeTXSd6xP_AJkHXfECEnQAiEAnFxZ9lyBWlywlR5Eh9k5HlCvxTcvVSq4poETnZ4eCH4%3D&lsparams=met%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms%2Cinitcwndbps&lsig=APaTxxMwRgIhAKoRb31YxqGijIE3D1EpvdfFO4PezdL1xkkkDK9Ds_efAiEAuJ2bBrGF1u6qXpKlmpw3-hKp1NJdYPjXkrDrrJN_GDM%3D"
+[14:23:02] [download] Sleeping 6.07 seconds ...
+[14:23:08] [download] Destination: Perception - Opening Scene [I5bLsSQE5Dk].f298.mp4
+[14:23:08] 
+[14:23:08] [download]   0.0% of   49.81MiB at  185.95KiB/s ETA 04:35
+[14:23:08] [download]   0.0% of   49.81MiB at  507.03KiB/s ETA 01:40
+[14:23:08] [download]   0.0% of   49.81MiB at    1.10MiB/s ETA 00:45
+[14:23:08] [download]   0.0% of   49.81MiB at    2.23MiB/s ETA 00:22
+[14:23:08] [download]   0.1% of   49.81MiB at    4.19MiB/s ETA 00:11
+[14:23:08] [download]   0.1% of   49.81MiB at    4.77MiB/s ETA 00:10
+[14:23:08] [download]   0.2% of   49.81MiB at    6.27MiB/s ETA 00:07
+[14:23:08] [download]   0.5% of   49.81MiB at    8.62MiB/s ETA 00:05
+[14:23:08] [download]   1.0% of   49.81MiB at    9.73MiB/s ETA 00:05
+[14:23:09] [download]   2.0% of   49.81MiB at    8.84MiB/s ETA 00:05
+[14:23:09] [download]   4.0% of   49.81MiB at    8.43MiB/s ETA 00:05
+[14:23:09] [download]   8.0% of   49.81MiB at   14.71MiB/s ETA 00:03
+[14:23:09] [download]  16.1% of   49.81MiB at   15.28MiB/s ETA 00:02
+[14:23:09] [download]  19.4% of   49.81MiB at   17.15MiB/s ETA 00:02
+[14:23:09] [download]  19.4% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:09] [download]  19.4% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:09] [download]  19.4% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:09] [download]  19.4% of   49.81MiB at   13.01MiB/s ETA 00:03  
+[14:23:09] [download]  19.4% of   49.81MiB at   16.59MiB/s ETA 00:02
+[14:23:09] [download]  19.5% of   49.81MiB at   26.60MiB/s ETA 00:01
+[14:23:09] [download]  19.6% of   49.81MiB at   43.35MiB/s ETA 00:00
+[14:23:09] [download]  19.9% of   49.81MiB at   70.71MiB/s ETA 00:00
+[14:23:09] [download]  20.4% of   49.81MiB at  111.52MiB/s ETA 00:00
+[14:23:09] [download]  21.4% of   49.81MiB at  128.55MiB/s ETA 00:00
+[14:23:09] [download]  23.4% of   49.81MiB at   75.07MiB/s ETA 00:00
+[14:23:09] [download]  27.4% of   49.81MiB at   19.72MiB/s ETA 00:01
+[14:23:09] [download]  35.4% of   49.81MiB at   21.46MiB/s ETA 00:01
+[14:23:09] [download]  38.7% of   49.81MiB at   23.24MiB/s ETA 00:01
+[14:23:09] [download]  38.7% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:09] [download]  38.7% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:09] [download]  38.7% of   49.81MiB at    6.79MiB/s ETA 00:04  
+[14:23:09] [download]  38.7% of   49.81MiB at   10.18MiB/s ETA 00:03
+[14:23:09] [download]  38.7% of   49.81MiB at   16.57MiB/s ETA 00:01
+[14:23:09] [download]  38.8% of   49.81MiB at   25.27MiB/s ETA 00:01
+[14:23:09] [download]  38.9% of   49.81MiB at   41.93MiB/s ETA 00:00
+[14:23:09] [download]  39.2% of   49.81MiB at   69.98MiB/s ETA 00:00
+[14:23:09] [download]  39.7% of   49.81MiB at   78.13MiB/s ETA 00:00
+[14:23:09] [download]  40.7% of   49.81MiB at  104.66MiB/s ETA 00:00
+[14:23:10] [download]  42.7% of   49.81MiB at   36.70MiB/s ETA 00:00
+[14:23:10] [download]  46.7% of   49.81MiB at    8.14MiB/s ETA 00:03
+[14:23:10] [download]  54.7% of   49.81MiB at    9.73MiB/s ETA 00:02
+[14:23:10] [download]  58.2% of   49.81MiB at   10.70MiB/s ETA 00:01
+[14:23:10] [download]  58.2% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:10] [download]  58.2% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:10] [download]  58.2% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:10] [download]  58.2% of   49.81MiB at   12.78MiB/s ETA 00:01  
+[14:23:10] [download]  58.3% of   49.81MiB at   19.57MiB/s ETA 00:01
+[14:23:10] [download]  58.3% of   49.81MiB at   30.21MiB/s ETA 00:00
+[14:23:10] [download]  58.5% of   49.81MiB at   45.74MiB/s ETA 00:00
+[14:23:10] [download]  58.7% of   49.81MiB at   72.87MiB/s ETA 00:00
+[14:23:10] [download]  59.2% of   49.81MiB at   90.96MiB/s ETA 00:00
+[14:23:10] [download]  60.2% of   49.81MiB at  115.26MiB/s ETA 00:00
+[14:23:10] [download]  62.2% of   49.81MiB at  112.56MiB/s ETA 00:00
+[14:23:11] [download]  66.2% of   49.81MiB at  106.33MiB/s ETA 00:00
+[14:23:11] [download]  74.3% of   49.81MiB at   10.16MiB/s ETA 00:01
+[14:23:11] [download]  77.7% of   49.81MiB at   12.16MiB/s ETA 00:00
+[14:23:11] [download]  77.7% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:11] [download]  77.8% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:11] [download]  77.8% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:11] [download]  77.8% of   49.81MiB at   12.72MiB/s ETA 00:00  
+[14:23:11] [download]  77.8% of   49.81MiB at   19.24MiB/s ETA 00:00
+[14:23:11] [download]  77.9% of   49.81MiB at   30.76MiB/s ETA 00:00
+[14:23:11] [download]  78.0% of   49.81MiB at   50.22MiB/s ETA 00:00
+[14:23:11] [download]  78.2% of   49.81MiB at   56.20MiB/s ETA 00:00
+[14:23:11] [download]  78.7% of   49.81MiB at   82.01MiB/s ETA 00:00
+[14:23:11] [download]  79.8% of   49.81MiB at  118.78MiB/s ETA 00:00
+[14:23:11] [download]  81.8% of   49.81MiB at  129.88MiB/s ETA 00:00
+[14:23:11] [download]  85.8% of   49.81MiB at   55.77MiB/s ETA 00:00
+[14:23:12] [download]  93.8% of   49.81MiB at   36.55MiB/s ETA 00:00
+[14:23:12] [download]  97.5% of   49.81MiB at   24.11MiB/s ETA 00:00
+[14:23:12] [download]  97.5% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:12] [download]  97.5% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:12] [download]  97.5% of   49.81MiB at  Unknown B/s ETA Unknown
+[14:23:12] [download]  97.5% of   49.81MiB at   13.36MiB/s ETA 00:00  
+[14:23:12] [download]  97.6% of   49.81MiB at   20.38MiB/s ETA 00:00
+[14:23:12] [download]  97.6% of   49.81MiB at   31.89MiB/s ETA 00:00
+[14:23:12] [download]  97.7% of   49.81MiB at   51.23MiB/s ETA 00:00
+[14:23:12] [download]  98.0% of   49.81MiB at   81.77MiB/s ETA 00:00
+[14:23:12] [download]  98.5% of   49.81MiB at  114.89MiB/s ETA 00:00
+[14:23:12] [download]  99.5% of   49.81MiB at   66.60MiB/s ETA 00:00
+[14:23:12] [download] 100.0% of   49.81MiB at   78.96MiB/s ETA 00:00
+[14:23:12] [download] 100% of   49.81MiB in 00:00:03 at 13.97MiB/s  
+[14:23:12] [debug] Invoking http downloader on "https://rr4---sn-ab5sznzy.googlevideo.com/videoplayback?expire=1780345379&ei=w5UdatFC1L-S5w_p7oiIAg&ip=2a09%3Abac1%3A76a1%3A62b0%3A%3A400%3A23&id=o-AMKI5Kr506yx3hf0MSqxl0jbqZ2FMfnq9VulfwSSOYb7&itag=140&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&met=1780323779%2C&mh=R8&mm=31%2C26&mn=sn-ab5sznzy%2Csn-nx57ynz7&ms=au%2Conr&mv=m&mvi=4&pl=48&rms=au%2Cau&initcwndbps=8433750&siu=1&bui=AbKmrwo-pc4zP71gEMJvm7WuCxIsdbMk0mDmgGxFIe0v2yhIkWjAJYNJ7LBMBMsGkj5OkDwIKQ&vprv=1&svpuc=1&mime=audio%2Fmp4&ns=8ZjuMRPD8bc3aEFLrcwLeT4V&rqh=1&gir=yes&clen=3342709&dur=206.495&lmt=1738436997099609&mt=1780322725&fvip=1&keepalive=yes&lmw=1&fexp=51565116%2C51565681%2C51958250&c=TVHTML5&sefc=1&txp=8208224&n=Vv9SVmB6cXWCNg&sparams=expire%2Cei%2Cip%2Cid%2Citag%2Csource%2Crequiressl%2Cxpc%2Csiu%2Cbui%2Cvprv%2Csvpuc%2Cmime%2Cns%2Crqh%2Cgir%2Cclen%2Cdur%2Clmt&sig=AHEqNM4wRAIgJPwxpZVrCj42h84YJRQ3OsRL-IJdj9cCQ2CO3Ulc_PgCIHdt67tz2HDW8rdkBuRdIy-fyDHAyEYTATZeEeoZ60w7&lsparams=met%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms%2Cinitcwndbps&lsig=APaTxxMwRgIhAKoRb31YxqGijIE3D1EpvdfFO4PezdL1xkkkDK9Ds_efAiEAuJ2bBrGF1u6qXpKlmpw3-hKp1NJdYPjXkrDrrJN_GDM%3D"
+[14:23:12] [download] Sleeping 11.83 seconds ...
+[14:23:24] [download] Destination: Perception - Opening Scene [I5bLsSQE5Dk].f140.m4a
+[14:23:24] 
+[14:23:24] [download]   0.0% of    3.19MiB at  Unknown B/s ETA Unknown
+[14:23:24] [download]   0.1% of    3.19MiB at    2.82MiB/s ETA 00:01  
+[14:23:24] [download]   0.2% of    3.19MiB at    5.11MiB/s ETA 00:00
+[14:23:24] [download]   0.5% of    3.19MiB at    8.88MiB/s ETA 00:00
+[14:23:24] [download]   0.9% of    3.19MiB at   15.00MiB/s ETA 00:00
+[14:23:24] [download]   1.9% of    3.19MiB at   14.27MiB/s ETA 00:00
+[14:23:24] [download]   3.9% of    3.19MiB at   20.55MiB/s ETA 00:00
+[14:23:24] [download]   7.8% of    3.19MiB at   14.08MiB/s ETA 00:00
+[14:23:24] [download]  15.7% of    3.19MiB at   10.67MiB/s ETA 00:00
+[14:23:24] [download]  31.3% of    3.19MiB at    8.82MiB/s ETA 00:00
+[14:23:24] [download]  62.7% of    3.19MiB at    8.56MiB/s ETA 00:00
+[14:23:24] [download] 100.0% of    3.19MiB at   12.49MiB/s ETA 00:00
+[14:23:24] [download] 100% of    3.19MiB in 00:00:00 at 7.19MiB/s   
+[14:23:24] [Merger] Merging formats into "Perception - Opening Scene [I5bLsSQE5Dk].mp4"
+[14:23:24] [debug] ffmpeg command line: ffmpeg -y -loglevel repeat+info -i 'file:Perception - Opening Scene [I5bLsSQE5Dk].f298.mp4' -i 'file:Perception - Opening Scene [I5bLsSQE5Dk].f140.m4a' -c copy -map 0:v:0 -map 1:a:0 -movflags +faststart 'file:Perception - Opening Scene [I5bLsSQE5Dk].temp.mp4'
+[14:23:24] Deleting original file Perception - Opening Scene [I5bLsSQE5Dk].f140.m4a (pass -k to keep)
+[14:23:24] Deleting original file Perception - Opening Scene [I5bLsSQE5Dk].f298.mp4 (pass -k to keep)
+[14:23:24]    📦 Downloaded: Perception - Opening Scene [I5bLsSQE5Dk].mp4 (53.1 MB)
+[14:23:24]    📝 Attempting subtitle download for 'fa' ...
+[14:23:24] [debug] Command-line config: ['--no-playlist', '--skip-download', '--write-subs', '--write-auto-subs', '--sub-lang', 'fa', '--convert-subs', 'srt', '--output', 'current_sub.%(ext)s', '--js-runtimes', 'node', '--geo-bypass', '--geo-bypass-country', 'US', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', '--retries', '10', '--fragment-retries', '10', '--sleep-requests', '1', '--sleep-interval', '5', '--max-sleep-interval', '15', '--verbose', '--cookies-from-browser', 'chrome:/tmp/chrome_profile/Default', 'https://www.youtube.com/watch?v=I5bLsSQE5Dk']
+[14:23:24] [debug] Encodings: locale UTF-8, fs utf-8, pref UTF-8, out utf-8 (No ANSI), error utf-8 (No ANSI), screen utf-8 (No ANSI)
+[14:23:24] [debug] yt-dlp version stable@2026.03.17 from yt-dlp/yt-dlp [04d6974f5] (pip)
+[14:23:24] [debug] Python 3.12.3 (CPython x86_64 64bit) - Linux-6.17.0-1015-azure-x86_64-with-glibc2.39 (OpenSSL 3.0.13 30 Jan 2024, glibc 2.39)
+[14:23:25] [debug] exe versions: ffmpeg 6.1.1 (setts), ffprobe 6.1.1
+[14:23:25] [debug] Optional libraries: Cryptodome-3.23.0, brotli-1.2.0, certifi-2026.05.20, curl_cffi-0.14.0, mutagen-1.47.0, requests-2.34.2, secretstorage-3.5.0, sqlite3-3.45.1, urllib3-2.0.7, websockets-16.0, yt_dlp_ejs-0.8.0
+[14:23:25] [debug] JS runtimes: node-22.22.3
+[14:23:25] [debug] Proxy map: {}
+[14:23:25] Extracting cookies from chrome
+[14:23:25] [debug] Extracting cookies from: "/tmp/chrome_profile/Default/Cookies"
+[14:23:25] Extracted 50 cookies from chrome
+[14:23:25] [debug] cookie version breakdown: {'v10': 52, 'v11': 0, 'other': 0, 'unencrypted': 0}
+[14:23:25] [debug] Request Handlers: urllib, requests, websockets, curl_cffi
+[14:23:25] [debug] Plugin directories: none
+[14:23:25] [debug] Loaded 1864 extractors
+[14:23:25] [debug] Using fake IP 6.145.222.46 (US) as X-Forwarded-For
+[14:23:25] [debug] [youtube] Found YouTube account cookies
+[14:23:25] [debug] [youtube] [pot] PO Token Providers: none
+[14:23:25] [debug] [youtube] [pot] PO Token Cache Providers: memory
+[14:23:25] [debug] [youtube] [pot] PO Token Cache Spec Providers: webpo
+[14:23:25] [debug] [youtube] [jsc] JS Challenge Providers: bun (unavailable), deno (unavailable), node, quickjs (unavailable)
+[14:23:25] [youtube] Extracting URL: https://www.youtube.com/watch?v=I5bLsSQE5Dk
+[14:23:25] [youtube] I5bLsSQE5Dk: Downloading webpage
+[14:23:26] [debug] [youtube] Forcing "main" player JS variant for player 9fc68080
+[14:23:26]         original url = /s/player/9fc68080/player_es6_tce.vflset/en_US/base.js
+[14:23:26] [youtube] Sleeping 1.0 seconds ...
+[14:23:27] [youtube] I5bLsSQE5Dk: Downloading tv downgraded player API JSON
+[14:23:27] [youtube] Sleeping 1.0 seconds ...
+[14:23:28] [youtube] I5bLsSQE5Dk: Downloading player 9fc68080-main
+[14:23:28] [youtube] [jsc:node] Solving JS challenges using node
+[14:23:28] [debug] [youtube] [jsc:node] Using challenge solver lib script v0.8.0 (source: python package, variant: minified)
+[14:23:28] [debug] [youtube] [jsc:node] Using challenge solver core script v0.8.0 (source: python package, variant: minified)
+[14:23:28] [debug] [youtube] [jsc:node] Running node: /usr/local/bin/node --experimental-permission --no-warnings=ExperimentalWarning -
+[14:23:29] [debug] [youtube] I5bLsSQE5Dk: Detected experiment to bind GVS PO Token to video ID for web_safari client
+[14:23:29] [youtube] Sleeping 1.0 seconds ...
+[14:23:30] [youtube] I5bLsSQE5Dk: Downloading m3u8 information
+[14:23:30] [info] I5bLsSQE5Dk: Downloading subtitles: fa
+[14:23:30] [debug] Sort order given by extractor: quality, res, fps, hdr:12, source, vcodec, channels, acodec, lang, proto
+[14:23:30] [debug] Formats sorted by: hasvid, ie_pref, quality, res, fps, hdr:12(7), source, vcodec, channels, acodec, lang, proto, size, br, asr, vext, aext, hasaud, id
+[14:23:30] [debug] Default format spec: bestvideo*+bestaudio/best
+[14:23:30] [info] I5bLsSQE5Dk: Downloading 1 format(s): 298+251
+[14:23:30] [info] Writing video subtitles to: current_sub.fa.vtt
+[14:23:30] [debug] Invoking http downloader on "https://www.youtube.com/api/timedtext?v=I5bLsSQE5Dk&ei=35UdateXD6OLkucPraDFgAo&caps=asr&opi=112496729&xoaf=5&xowf=1&hl=en&ip=0.0.0.0&ipbits=0&expire=1780349007&sparams=ip%2Cipbits%2Cexpire%2Cv%2Cei%2Ccaps%2Copi%2Cxoaf&signature=3EE0C912E510B20A93B0BA2DE121B338964F323D.6F7981F0C5EA98E22A26BEA5F36BCBF62DE33151&key=yt8&kind=asr&lang=en&tlang=fa&fmt=vtt"
+[14:23:30] [download] Destination: current_sub.fa.vtt
+[14:23:30] 
+[14:23:30] [download]    1.00KiB at  Unknown B/s (00:00:00)
+[14:23:30] [download]    3.00KiB at  Unknown B/s (00:00:00)
+[14:23:30] [download]    7.00KiB at    5.08MiB/s (00:00:00)
+[14:23:30] [download]   15.00KiB at    8.42MiB/s (00:00:00)
+[14:23:30] [download]   19.00KiB at    3.88MiB/s (00:00:00)
+[14:23:30] [download] 100% of   19.00KiB in 00:00:00 at 70.80KiB/s
+[14:23:30] [SubtitlesConvertor] Converting subtitles
+[14:23:30] [debug] ffmpeg command line: ffmpeg -y -loglevel repeat+info -i file:current_sub.fa.vtt -f srt -movflags +faststart file:current_sub.fa.srt
+[14:23:31] Deleting original file current_sub.fa.vtt (pass -k to keep)
+[14:23:31]    ✅ Subtitle downloaded: Perception - Opening Scene [I5bLsSQE5Dk].srt
+[14:23:31] ⬆️  Uploading Perception - Opening Scene [I5bLsSQE5Dk].srt ...
+[14:23:32]    ✅ Uploaded (HTTP 201)
+[14:23:32] 
+[14:23:32] ==================================================  URL #3  ==================================================
+[14:23:32] 📥 https://www.youtube.com/watch?v=GNy68692OfA
+[14:23:32] 📹 YouTube: https://www.youtube.com/watch?v=GNy68692OfA
+[14:23:32] [debug] Command-line config: ['--no-playlist', '--format', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]', '--merge-output-format', 'mp4', '--output', '%(title).150B [%(id)s].%(ext)s', '--js-runtimes', 'node', '--geo-bypass', '--geo-bypass-country', 'US', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', '--retries', '10', '--fragment-retries', '10', '--sleep-requests', '1', '--sleep-interval', '5', '--max-sleep-interval', '15', '--verbose', '--cookies-from-browser', 'chrome:/tmp/chrome_profile/Default', 'https://www.youtube.com/watch?v=GNy68692OfA']
+[14:23:32] [debug] Encodings: locale UTF-8, fs utf-8, pref UTF-8, out utf-8 (No ANSI), error utf-8 (No ANSI), screen utf-8 (No ANSI)
+[14:23:32] [debug] yt-dlp version stable@2026.03.17 from yt-dlp/yt-dlp [04d6974f5] (pip)
+[14:23:32] [debug] Python 3.12.3 (CPython x86_64 64bit) - Linux-6.17.0-1015-azure-x86_64-with-glibc2.39 (OpenSSL 3.0.13 30 Jan 2024, glibc 2.39)
+[14:23:32] [debug] exe versions: ffmpeg 6.1.1 (setts), ffprobe 6.1.1
+[14:23:32] [debug] Optional libraries: Cryptodome-3.23.0, brotli-1.2.0, certifi-2026.05.20, curl_cffi-0.14.0, mutagen-1.47.0, requests-2.34.2, secretstorage-3.5.0, sqlite3-3.45.1, urllib3-2.0.7, websockets-16.0, yt_dlp_ejs-0.8.0
+[14:23:32] [debug] JS runtimes: node-22.22.3
+[14:23:32] [debug] Proxy map: {}
+[14:23:32] Extracting cookies from chrome
+[14:23:32] [debug] Extracting cookies from: "/tmp/chrome_profile/Default/Cookies"
+[14:23:32] Extracted 50 cookies from chrome
+[14:23:32] [debug] cookie version breakdown: {'v10': 52, 'v11': 0, 'other': 0, 'unencrypted': 0}
+[14:23:32] [debug] Request Handlers: urllib, requests, websockets, curl_cffi
+[14:23:32] [debug] Plugin directories: none
+[14:23:32] [debug] Loaded 1864 extractors
+[14:23:32] [debug] Using fake IP 6.25.109.194 (US) as X-Forwarded-For
+[14:23:32] [debug] [youtube] Found YouTube account cookies
+[14:23:32] [debug] [youtube] [pot] PO Token Providers: none
+[14:23:32] [debug] [youtube] [pot] PO Token Cache Providers: memory
+[14:23:32] [debug] [youtube] [pot] PO Token Cache Spec Providers: webpo
+[14:23:32] [debug] [youtube] [jsc] JS Challenge Providers: bun (unavailable), deno (unavailable), node, quickjs (unavailable)
+[14:23:32] [youtube] Extracting URL: https://www.youtube.com/watch?v=GNy68692OfA
+[14:23:32] [youtube] GNy68692OfA: Downloading webpage
+[14:23:33] [debug] [youtube] Forcing "main" player JS variant for player 9fc68080
+[14:23:33]         original url = /s/player/9fc68080/player_es6_tce.vflset/en_US/base.js
+[14:23:33] [youtube] Sleeping 1.0 seconds ...
+[14:23:34] [youtube] GNy68692OfA: Downloading tv downgraded player API JSON
+[14:23:34] [youtube] Sleeping 1.0 seconds ...
+[14:23:35] [youtube] GNy68692OfA: Downloading player 9fc68080-main
+[14:23:35] [youtube] [jsc:node] Solving JS challenges using node
+[14:23:35] [debug] [youtube] [jsc:node] Using challenge solver lib script v0.8.0 (source: python package, variant: minified)
+[14:23:35] [debug] [youtube] [jsc:node] Using challenge solver core script v0.8.0 (source: python package, variant: minified)
+[14:23:35] [debug] [youtube] [jsc:node] Running node: /usr/local/bin/node --experimental-permission --no-warnings=ExperimentalWarning -
+[14:23:36] [debug] [youtube] GNy68692OfA: Detected experiment to bind GVS PO Token to video ID for web_safari client
+[14:23:36] [youtube] Sleeping 1.0 seconds ...
+[14:23:37] [youtube] GNy68692OfA: Downloading m3u8 information
+[14:23:38] [debug] Sort order given by extractor: quality, res, fps, hdr:12, source, vcodec, channels, acodec, lang, proto
+[14:23:38] [debug] Formats sorted by: hasvid, ie_pref, quality, res, fps, hdr:12(7), source, vcodec, channels, acodec, lang, proto, size, br, asr, vext, aext, hasaud, id
+[14:23:38] [info] GNy68692OfA: Downloading 1 format(s): 136+140
+[14:23:38] [debug] Invoking http downloader on "https://rr3---sn-p5qddn7d.googlevideo.com/videoplayback?expire=1780345414&ei=5pUdaobYJLSBkucP0rzpoAM&ip=2a09%3Abac5%3Ac82a%3A2828%3A%3A400%3A23&id=o-AADSa-hEM99HfUorPzz5AdRI5pcGeFxi2YemIUQe_n2j&itag=136&aitags=134%2C136%2C160%2C243&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&met=1780323814%2C&mh=sn&mm=31%2C29&mn=sn-p5qddn7d%2Csn-qjp5q5-5q&ms=au%2Crdu&mv=m&mvi=3&pl=43&rms=au%2Cau&gcr=us&initcwndbps=3280000&siu=1&bui=AbKmrwqHGeTz4pwy3QJ_NIDoQURgH6JWJrx3ApWHODBIqKXbc_acwVKPBeUMzbWYtJBl172osg&vprv=1&svpuc=1&mime=video%2Fmp4&ns=hx6Ohj9Ge9X9rLci_8YuLBgV&rqh=1&gir=yes&clen=18526565&dur=98.698&lmt=1721281251190246&mt=1780322725&fvip=2&keepalive=yes&lmw=1&fexp=51565116%2C51565681%2C51958250&c=TVHTML5&sefc=1&txp=1218224&n=DiQ1RBdetqpgcw&sparams=expire%2Cei%2Cip%2Cid%2Caitags%2Csource%2Crequiressl%2Cxpc%2Cgcr%2Csiu%2Cbui%2Cvprv%2Csvpuc%2Cmime%2Cns%2Crqh%2Cgir%2Cclen%2Cdur%2Clmt&sig=AHEqNM4wRQIhAN3kP2S8hWOK00ip1fk-3egOE8xduQYuYZgmm5YCd6iLAiBrsi361LJM5-_vYS47Wgs3jdd_37MUrcHGhnp3lzIObg%3D%3D&lsparams=met%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms%2Cinitcwndbps&lsig=APaTxxMwRAIgObNBhkN7zpoK8I_o6PqcThOtvWSqHjdSekvRjws2eZgCIDv4_n6ZWa7_RSNpUJ6OxrteG2HdB1zQIR6fTPwaJySF"
+[14:23:38] [download] Sleeping 7.44 seconds ...
+[14:23:45] [download] Destination: Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].f136.mp4
+[14:23:45] 
+[14:23:45] [download]   0.0% of   17.67MiB at   64.85KiB/s ETA 04:39
+[14:23:45] [download]   0.0% of   17.67MiB at  187.96KiB/s ETA 01:36
+[14:23:45] [download]   0.0% of   17.67MiB at  431.56KiB/s ETA 00:41
+[14:23:45] [download]   0.1% of   17.67MiB at  911.46KiB/s ETA 00:19
+[14:23:45] [download]   0.2% of   17.67MiB at    1.55MiB/s ETA 00:11
+[14:23:45] [download]   0.3% of   17.67MiB at    1.66MiB/s ETA 00:10
+[14:23:45] [download]   0.7% of   17.67MiB at    2.35MiB/s ETA 00:07
+[14:23:45] [download]   1.4% of   17.67MiB at    3.50MiB/s ETA 00:04
+[14:23:45] [download]   2.8% of   17.67MiB at    5.62MiB/s ETA 00:03
+[14:23:46] [download]   5.7% of   17.67MiB at    8.81MiB/s ETA 00:01
+[14:23:46] [download]  11.3% of   17.67MiB at    7.20MiB/s ETA 00:02
+[14:23:46] [download]  22.6% of   17.67MiB at    7.76MiB/s ETA 00:01
+[14:23:46] [download]  45.3% of   17.67MiB at   13.86MiB/s ETA 00:00
+[14:23:46] [download]  54.7% of   17.67MiB at   13.52MiB/s ETA 00:00
+[14:23:46] [download]  54.7% of   17.67MiB at  192.60KiB/s ETA 00:42
+[14:23:46] [download]  54.7% of   17.67MiB at  534.03KiB/s ETA 00:15
+[14:23:46] [download]  54.8% of   17.67MiB at    1.15MiB/s ETA 00:06
+[14:23:46] [download]  54.8% of   17.67MiB at    2.33MiB/s ETA 00:03
+[14:23:46] [download]  54.9% of   17.67MiB at    3.77MiB/s ETA 00:02
+[14:23:46] [download]  55.1% of   17.67MiB at    4.32MiB/s ETA 00:01
+[14:23:46] [download]  55.4% of   17.67MiB at    5.80MiB/s ETA 00:01
+[14:23:46] [download]  56.1% of   17.67MiB at    7.24MiB/s ETA 00:01
+[14:23:46] [download]  57.5% of   17.67MiB at   12.00MiB/s ETA 00:00
+[14:23:46] [download]  60.4% of   17.67MiB at   16.94MiB/s ETA 00:00
+[14:23:46] [download]  66.0% of   17.67MiB at   26.95MiB/s ETA 00:00
+[14:23:47] [download]  77.4% of   17.67MiB at   42.33MiB/s ETA 00:00
+[14:23:47] [download] 100.0% of   17.67MiB at   16.72MiB/s ETA 00:00
+[14:23:47] [download] 100.0% of   17.67MiB at   16.70MiB/s ETA 00:00
+[14:23:47] [download] 100% of   17.67MiB in 00:00:01 at 10.27MiB/s  
+[14:23:47] [debug] Invoking http downloader on "https://rr3---sn-p5qddn7d.googlevideo.com/videoplayback?expire=1780345414&ei=5pUdaobYJLSBkucP0rzpoAM&ip=2a09%3Abac5%3Ac82a%3A2828%3A%3A400%3A23&id=o-AADSa-hEM99HfUorPzz5AdRI5pcGeFxi2YemIUQe_n2j&itag=140&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&met=1780323814%2C&mh=sn&mm=31%2C29&mn=sn-p5qddn7d%2Csn-qjp5q5-5q&ms=au%2Crdu&mv=m&mvi=3&pl=43&rms=au%2Cau&gcr=us&initcwndbps=3280000&siu=1&bui=AbKmrwqHGeTz4pwy3QJ_NIDoQURgH6JWJrx3ApWHODBIqKXbc_acwVKPBeUMzbWYtJBl172osg&vprv=1&svpuc=1&mime=audio%2Fmp4&ns=hx6Ohj9Ge9X9rLci_8YuLBgV&rqh=1&gir=yes&clen=1599434&dur=98.777&lmt=1721280872883878&mt=1780322725&fvip=2&keepalive=yes&lmw=1&fexp=51565116%2C51565681%2C51958250&c=TVHTML5&sefc=1&txp=1218224&n=DiQ1RBdetqpgcw&sparams=expire%2Cei%2Cip%2Cid%2Citag%2Csource%2Crequiressl%2Cxpc%2Cgcr%2Csiu%2Cbui%2Cvprv%2Csvpuc%2Cmime%2Cns%2Crqh%2Cgir%2Cclen%2Cdur%2Clmt&sig=AHEqNM4wRQIgTCfGGGe_-XbzxfCsG_ZmA_t_voCBSjGjj7mqVQ7Vxg0CIQCd9DEATNTVhVcBK4H3Hl24lxKb93YGj-ANx6WBTsBfoQ%3D%3D&lsparams=met%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms%2Cinitcwndbps&lsig=APaTxxMwRAIgObNBhkN7zpoK8I_o6PqcThOtvWSqHjdSekvRjws2eZgCIDv4_n6ZWa7_RSNpUJ6OxrteG2HdB1zQIR6fTPwaJySF"
+[14:23:47] [download] Sleeping 10.08 seconds ...
+[14:23:57] [download] Destination: Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].f140.m4a
+[14:23:57] 
+[14:23:57] [download]   0.1% of    1.53MiB at  177.51KiB/s ETA 00:08
+[14:23:57] [download]   0.2% of    1.53MiB at  492.00KiB/s ETA 00:03
+[14:23:57] [download]   0.4% of    1.53MiB at    1.07MiB/s ETA 00:01
+[14:23:57] [download]   1.0% of    1.53MiB at    2.17MiB/s ETA 00:00
+[14:23:57] [download]   2.0% of    1.53MiB at    4.07MiB/s ETA 00:00
+[14:23:57] [download]   4.0% of    1.53MiB at    4.38MiB/s ETA 00:00
+[14:23:57] [download]   8.1% of    1.53MiB at    6.25MiB/s ETA 00:00
+[14:23:57] [download]  16.3% of    1.53MiB at    8.93MiB/s ETA 00:00
+[14:23:57] [download]  32.7% of    1.53MiB at   12.58MiB/s ETA 00:00
+[14:23:57] [download]  65.5% of    1.53MiB at   15.55MiB/s ETA 00:00
+[14:23:57] [download] 100.0% of    1.53MiB at   15.46MiB/s ETA 00:00
+[14:23:57] [download] 100% of    1.53MiB in 00:00:00 at 2.56MiB/s   
+[14:23:57] [Merger] Merging formats into "Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].mp4"
+[14:23:57] [debug] ffmpeg command line: ffmpeg -y -loglevel repeat+info -i 'file:Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].f136.mp4' -i 'file:Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].f140.m4a' -c copy -map 0:v:0 -map 1:a:0 -movflags +faststart 'file:Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].temp.mp4'
+[14:23:57] Deleting original file Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].f136.mp4 (pass -k to keep)
+[14:23:57] Deleting original file Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].f140.m4a (pass -k to keep)
+[14:23:58]    📦 Downloaded: Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].mp4 (19.2 MB)
+[14:23:58]    📝 Attempting subtitle download for 'fa' ...
+[14:23:58] [debug] Command-line config: ['--no-playlist', '--skip-download', '--write-subs', '--write-auto-subs', '--sub-lang', 'fa', '--convert-subs', 'srt', '--output', 'current_sub.%(ext)s', '--js-runtimes', 'node', '--geo-bypass', '--geo-bypass-country', 'US', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', '--retries', '10', '--fragment-retries', '10', '--sleep-requests', '1', '--sleep-interval', '5', '--max-sleep-interval', '15', '--verbose', '--cookies-from-browser', 'chrome:/tmp/chrome_profile/Default', 'https://www.youtube.com/watch?v=GNy68692OfA']
+[14:23:58] [debug] Encodings: locale UTF-8, fs utf-8, pref UTF-8, out utf-8 (No ANSI), error utf-8 (No ANSI), screen utf-8 (No ANSI)
+[14:23:58] [debug] yt-dlp version stable@2026.03.17 from yt-dlp/yt-dlp [04d6974f5] (pip)
+[14:23:58] [debug] Python 3.12.3 (CPython x86_64 64bit) - Linux-6.17.0-1015-azure-x86_64-with-glibc2.39 (OpenSSL 3.0.13 30 Jan 2024, glibc 2.39)
+[14:23:58] [debug] exe versions: ffmpeg 6.1.1 (setts), ffprobe 6.1.1
+[14:23:58] [debug] Optional libraries: Cryptodome-3.23.0, brotli-1.2.0, certifi-2026.05.20, curl_cffi-0.14.0, mutagen-1.47.0, requests-2.34.2, secretstorage-3.5.0, sqlite3-3.45.1, urllib3-2.0.7, websockets-16.0, yt_dlp_ejs-0.8.0
+[14:23:58] [debug] JS runtimes: node-22.22.3
+[14:23:58] [debug] Proxy map: {}
+[14:23:58] Extracting cookies from chrome
+[14:23:58] [debug] Extracting cookies from: "/tmp/chrome_profile/Default/Cookies"
+[14:23:58] Extracted 50 cookies from chrome
+[14:23:58] [debug] cookie version breakdown: {'v10': 52, 'v11': 0, 'other': 0, 'unencrypted': 0}
+[14:23:58] [debug] Request Handlers: urllib, requests, websockets, curl_cffi
+[14:23:58] [debug] Plugin directories: none
+[14:23:58] [debug] Loaded 1864 extractors
+[14:23:58] [debug] Using fake IP 6.62.112.143 (US) as X-Forwarded-For
+[14:23:58] [debug] [youtube] Found YouTube account cookies
+[14:23:58] [debug] [youtube] [pot] PO Token Providers: none
+[14:23:58] [debug] [youtube] [pot] PO Token Cache Providers: memory
+[14:23:58] [debug] [youtube] [pot] PO Token Cache Spec Providers: webpo
+[14:23:58] [debug] [youtube] [jsc] JS Challenge Providers: bun (unavailable), deno (unavailable), node, quickjs (unavailable)
+[14:23:58] [youtube] Extracting URL: https://www.youtube.com/watch?v=GNy68692OfA
+[14:23:58] [youtube] GNy68692OfA: Downloading webpage
+[14:23:59] [debug] [youtube] Forcing "main" player JS variant for player 9fc68080
+[14:23:59]         original url = /s/player/9fc68080/player_es6_tce.vflset/en_US/base.js
+[14:23:59] [youtube] Sleeping 1.0 seconds ...
+[14:24:00] [youtube] GNy68692OfA: Downloading tv downgraded player API JSON
+[14:24:00] [youtube] Sleeping 1.0 seconds ...
+[14:24:01] [youtube] GNy68692OfA: Downloading player 9fc68080-main
+[14:24:01] [youtube] [jsc:node] Solving JS challenges using node
+[14:24:01] [debug] [youtube] [jsc:node] Using challenge solver lib script v0.8.0 (source: python package, variant: minified)
+[14:24:01] [debug] [youtube] [jsc:node] Using challenge solver core script v0.8.0 (source: python package, variant: minified)
+[14:24:01] [debug] [youtube] [jsc:node] Running node: /usr/local/bin/node --experimental-permission --no-warnings=ExperimentalWarning -
+[14:24:02] [debug] [youtube] GNy68692OfA: Detected experiment to bind GVS PO Token to video ID for web_safari client
+[14:24:02] [youtube] Sleeping 1.0 seconds ...
+[14:24:03] [youtube] GNy68692OfA: Downloading m3u8 information
+[14:24:04] [info] GNy68692OfA: Downloading subtitles: fa
+[14:24:04] [debug] Sort order given by extractor: quality, res, fps, hdr:12, source, vcodec, channels, acodec, lang, proto
+[14:24:04] [debug] Formats sorted by: hasvid, ie_pref, quality, res, fps, hdr:12(7), source, vcodec, channels, acodec, lang, proto, size, br, asr, vext, aext, hasaud, id
+[14:24:04] [debug] Default format spec: bestvideo*+bestaudio/best
+[14:24:04] [info] GNy68692OfA: Downloading 1 format(s): 136+251
+[14:24:04] [info] Writing video subtitles to: current_sub.fa.vtt
+[14:24:04] [debug] Invoking http downloader on "https://www.youtube.com/api/timedtext?v=GNy68692OfA&ei=AJYdavTCEbCVkucPnLja6QE&caps=asr&opi=112496729&xoaf=5&xowf=1&hl=en&ip=0.0.0.0&ipbits=0&expire=1780349040&sparams=ip%2Cipbits%2Cexpire%2Cv%2Cei%2Ccaps%2Copi%2Cxoaf&signature=F01F4517C150A494093BEB73009630C49F6E686B.C164229A4363FCE4716F3D45221BBF08B096A43B&key=yt8&kind=asr&lang=en&tlang=fa&fmt=vtt"
+[14:24:04] [download] Destination: current_sub.fa.vtt
+[14:24:04] 
+[14:24:04] [download]    1.00KiB at  Unknown B/s (00:00:00)
+[14:24:04] [download]    3.00KiB at  Unknown B/s (00:00:00)
+[14:24:04] [download]    7.00KiB at    6.42MiB/s (00:00:00)
+[14:24:04] [download]   10.12KiB at    1.98MiB/s (00:00:00)
+[14:24:04] [download] 100% of   10.12KiB in 00:00:00 at 35.73KiB/s
+[14:24:04] [SubtitlesConvertor] Converting subtitles
+[14:24:04] [debug] ffmpeg command line: ffmpeg -y -loglevel repeat+info -i file:current_sub.fa.vtt -f srt -movflags +faststart file:current_sub.fa.srt
+[14:24:04] Deleting original file current_sub.fa.vtt (pass -k to keep)
+[14:24:04]    ✅ Subtitle downloaded: Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].srt
+[14:24:04] ⬆️  Uploading Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].mp4 ...
+[14:24:13]    ✅ Uploaded (HTTP 201)
+[14:24:13] ⬆️  Uploading Perception - Rachael Leigh Cook is Agent Kate Moretti [GNy68692OfA].srt ...
+[14:24:14]    ✅ Uploaded (HTTP 201)
+[14:24:14] 
+[14:24:14] ==================================================  URL #4  ==================================================
+[14:24:14] 📥 https://www.youtube.com/watch?v=EIQuE7JGXU8
+[14:24:14] 📹 YouTube: https://www.youtube.com/watch?v=EIQuE7JGXU8
+[14:24:14] [debug] Command-line config: ['--no-playlist', '--format', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]', '--merge-output-format', 'mp4', '--output', '%(title).150B [%(id)s].%(ext)s', '--js-runtimes', 'node', '--geo-bypass', '--geo-bypass-country', 'US', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', '--retries', '10', '--fragment-retries', '10', '--sleep-requests', '1', '--sleep-interval', '5', '--max-sleep-interval', '15', '--verbose', '--cookies-from-browser', 'chrome:/tmp/chrome_profile/Default', 'https://www.youtube.com/watch?v=EIQuE7JGXU8']
+[14:24:14] [debug] Encodings: locale UTF-8, fs utf-8, pref UTF-8, out utf-8 (No ANSI), error utf-8 (No ANSI), screen utf-8 (No ANSI)
+[14:24:14] [debug] yt-dlp version stable@2026.03.17 from yt-dlp/yt-dlp [04d6974f5] (pip)
+[14:24:14] [debug] Python 3.12.3 (CPython x86_64 64bit) - Linux-6.17.0-1015-azure-x86_64-with-glibc2.39 (OpenSSL 3.0.13 30 Jan 2024, glibc 2.39)
+[14:24:14] [debug] exe versions: ffmpeg 6.1.1 (setts), ffprobe 6.1.1
+[14:24:14] [debug] Optional libraries: Cryptodome-3.23.0, brotli-1.2.0, certifi-2026.05.20, curl_cffi-0.14.0, mutagen-1.47.0, requests-2.34.2, secretstorage-3.5.0, sqlite3-3.45.1, urllib3-2.0.7, websockets-16.0, yt_dlp_ejs-0.8.0
+[14:24:14] [debug] JS runtimes: node-22.22.3
+[14:24:14] [debug] Proxy map: {}
+[14:24:14] Extracting cookies from chrome
+[14:24:14] [debug] Extracting cookies from: "/tmp/chrome_profile/Default/Cookies"
+[14:24:14] Extracted 50 cookies from chrome
+[14:24:14] [debug] cookie version breakdown: {'v10': 52, 'v11': 0, 'other': 0, 'unencrypted': 0}
+[14:24:14] [debug] Request Handlers: urllib, requests, websockets, curl_cffi
+[14:24:14] [debug] Plugin directories: none
+[14:24:14] [debug] Loaded 1864 extractors
+[14:24:14] [debug] Using fake IP 6.53.77.62 (US) as X-Forwarded-For
+[14:24:14] [debug] [youtube] Found YouTube account cookies
+[14:24:14] [debug] [youtube] [pot] PO Token Providers: none
+[14:24:14] [debug] [youtube] [pot] PO Token Cache Providers: memory
+[14:24:14] [debug] [youtube] [pot] PO Token Cache Spec Providers: webpo
+[14:24:14] [debug] [youtube] [jsc] JS Challenge Providers: bun (unavailable), deno (unavailable), node, quickjs (unavailable)
+[14:24:14] [youtube] Extracting URL: https://www.youtube.com/watch?v=EIQuE7JGXU8
+[14:24:14] [youtube] EIQuE7JGXU8: Downloading webpage
+[14:24:15] [debug] [youtube] Forcing "main" player JS variant for player 9fc68080
+[14:24:15]         original url = /s/player/9fc68080/player_es6_tce.vflset/en_US/base.js
+[14:24:15] [youtube] Sleeping 1.0 seconds ...
+[14:24:16] [youtube] EIQuE7JGXU8: Downloading tv downgraded player API JSON
+[14:24:16] [youtube] Sleeping 1.0 seconds ...
+[14:24:17] [youtube] EIQuE7JGXU8: Downloading player 9fc68080-main
+[14:24:18] [youtube] [jsc:node] Solving JS challenges using node
+[14:24:18] [debug] [youtube] [jsc:node] Using challenge solver lib script v0.8.0 (source: python package, variant: minified)
+[14:24:18] [debug] [youtube] [jsc:node] Using challenge solver core script v0.8.0 (source: python package, variant: minified)
+[14:24:18] [debug] [youtube] [jsc:node] Running node: /usr/local/bin/node --experimental-permission --no-warnings=ExperimentalWarning -
+[14:24:19] [debug] [youtube] EIQuE7JGXU8: Detected experiment to bind GVS PO Token to video ID for web_safari client
+[14:24:19] [youtube] Sleeping 1.0 seconds ...
+[14:24:20] [youtube] EIQuE7JGXU8: Downloading m3u8 information
+[14:24:20] [debug] Sort order given by extractor: quality, res, fps, hdr:12, source, vcodec, channels, acodec, lang, proto
+[14:24:20] [debug] Formats sorted by: hasvid, ie_pref, quality, res, fps, hdr:12(7), source, vcodec, channels, acodec, lang, proto, size, br, asr, vext, aext, hasaud, id
+[14:24:20] [info] EIQuE7JGXU8: Downloading 1 format(s): 398+140
+[14:24:20] [debug] Invoking http downloader on "https://rr1---sn-p5qs7n6d.googlevideo.com/videoplayback?expire=1780345456&ei=EJYdauifNaOLkucPraDFgAo&ip=2a09%3Abac5%3Ac82f%3A2828%3A%3A400%3A23&id=o-AKU8K8aeOp7nbq-kwQhd2EyBv_ZJs8OVcmNmdCgaPBBo&itag=398&aitags=133%2C134%2C135%2C136%2C137%2C160%2C242%2C243%2C244%2C247%2C248%2C278%2C394%2C395%2C396%2C397%2C398%2C399&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&met=1780323856%2C&mh=2k&mm=31%2C29&mn=sn-p5qs7n6d%2Csn-p5qlsn76&ms=au%2Crdu&mv=m&mvi=1&pl=43&rms=au%2Cau&initcwndbps=3280000&siu=1&bui=AbKmrwrCFDIsymzVrE_iSd_0Q9t2cizWcoYnHkm5XoSDlc0RCrjv0P81L-93Jctb9X_Nfyx4uw&vprv=1&svpuc=1&mime=video%2Fmp4&ns=ONQbgV4G_eA31O5dCRiFyTgV&rqh=1&gir=yes&clen=7101897&dur=142.267&lmt=1745309121556332&mt=1780322725&fvip=2&keepalive=yes&lmw=1&fexp=51565116%2C51565681%2C51958250&c=TVHTML5&sefc=1&txp=4537534&n=HHs7J82mq9PxVw&sparams=expire%2Cei%2Cip%2Cid%2Caitags%2Csource%2Crequiressl%2Cxpc%2Csiu%2Cbui%2Cvprv%2Csvpuc%2Cmime%2Cns%2Crqh%2Cgir%2Cclen%2Cdur%2Clmt&sig=AHEqNM4wRAIgSscbY2doYzepixbipxXaHeYtS4OC9rE7wuY0aTH844sCIBEir8LdEhAknRy9YdKLaE5LcYTEynreJhoT3cGeJsKO&lsparams=met%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms%2Cinitcwndbps&lsig=APaTxxMwRQIgRlTHSGYu6aVYcyYzLlvVvA-TxNHHNxypUgNM38771O0CIQC1bKlrdKAu5Q0sd-LtEthoIT4wCKokawlvO79oTFPRAg%3D%3D"
+[14:24:20] [download] Sleeping 5.92 seconds ...
+[14:24:26] [download] Destination: The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].f398.mp4
+[14:24:26] 
+[14:24:26] [download]   0.0% of    6.77MiB at  181.23KiB/s ETA 00:38
+[14:24:26] [download]   0.0% of    6.77MiB at  496.82KiB/s ETA 00:13
+[14:24:26] [download]   0.1% of    6.77MiB at    1.04MiB/s ETA 00:06
+[14:24:26] [download]   0.2% of    6.77MiB at    2.13MiB/s ETA 00:03
+[14:24:26] [download]   0.4% of    6.77MiB at    4.12MiB/s ETA 00:01
+[14:24:26] [download]   0.9% of    6.77MiB at    4.46MiB/s ETA 00:01
+[14:24:26] [download]   1.8% of    6.77MiB at    6.17MiB/s ETA 00:01
+[14:24:26] [download]   3.7% of    6.77MiB at    8.42MiB/s ETA 00:00
+[14:24:26] [download]   7.4% of    6.77MiB at   12.12MiB/s ETA 00:00
+[14:24:26] [download]  14.8% of    6.77MiB at   16.05MiB/s ETA 00:00
+[14:24:26] [download]  29.5% of    6.77MiB at   25.48MiB/s ETA 00:00
+[14:24:26] [download]  59.0% of    6.77MiB at   26.80MiB/s ETA 00:00
+[14:24:26] [download] 100.0% of    6.77MiB at   33.67MiB/s ETA 00:00
+[14:24:26] [download] 100% of    6.77MiB in 00:00:00 at 22.23MiB/s  
+[14:24:26] [debug] Invoking http downloader on "https://rr1---sn-p5qs7n6d.googlevideo.com/videoplayback?expire=1780345456&ei=EJYdauifNaOLkucPraDFgAo&ip=2a09%3Abac5%3Ac82f%3A2828%3A%3A400%3A23&id=o-AKU8K8aeOp7nbq-kwQhd2EyBv_ZJs8OVcmNmdCgaPBBo&itag=140&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&met=1780323856%2C&mh=2k&mm=31%2C29&mn=sn-p5qs7n6d%2Csn-p5qlsn76&ms=au%2Crdu&mv=m&mvi=1&pl=43&rms=au%2Cau&initcwndbps=3280000&siu=1&bui=AbKmrwrCFDIsymzVrE_iSd_0Q9t2cizWcoYnHkm5XoSDlc0RCrjv0P81L-93Jctb9X_Nfyx4uw&vprv=1&svpuc=1&mime=audio%2Fmp4&ns=ONQbgV4G_eA31O5dCRiFyTgV&rqh=1&gir=yes&clen=2304052&dur=142.315&lmt=1740614400497114&mt=1780322725&fvip=2&keepalive=yes&lmw=1&fexp=51565116%2C51565681%2C51958250&c=TVHTML5&sefc=1&txp=4532534&n=HHs7J82mq9PxVw&sparams=expire%2Cei%2Cip%2Cid%2Citag%2Csource%2Crequiressl%2Cxpc%2Csiu%2Cbui%2Cvprv%2Csvpuc%2Cmime%2Cns%2Crqh%2Cgir%2Cclen%2Cdur%2Clmt&sig=AHEqNM4wRAIgX2gnzTWZOscz8vrVTGZ2gbYJFu3gP7hLchhen4301XcCIB2Rks8KUHregdrz_mmzrxxK-Pnek-uD0v7n9J3rwoNA&lsparams=met%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms%2Cinitcwndbps&lsig=APaTxxMwRQIgRlTHSGYu6aVYcyYzLlvVvA-TxNHHNxypUgNM38771O0CIQC1bKlrdKAu5Q0sd-LtEthoIT4wCKokawlvO79oTFPRAg%3D%3D"
+[14:24:26] [download] Sleeping 14.81 seconds ...
+[14:24:41] [download] Destination: The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].f140.m4a
+[14:24:41] 
+[14:24:41] [download]   0.0% of    2.20MiB at  Unknown B/s ETA Unknown
+[14:24:41] [download]   0.1% of    2.20MiB at  Unknown B/s ETA Unknown
+[14:24:41] [download]   0.3% of    2.20MiB at    5.15MiB/s ETA 00:00  
+[14:24:41] [download]   0.7% of    2.20MiB at    8.89MiB/s ETA 00:00
+[14:24:41] [download]   1.4% of    2.20MiB at   15.60MiB/s ETA 00:00
+[14:24:41] [download]   2.8% of    2.20MiB at   27.23MiB/s ETA 00:00
+[14:24:41] [download]   5.6% of    2.20MiB at   21.00MiB/s ETA 00:00
+[14:24:41] [download]  11.3% of    2.20MiB at   19.91MiB/s ETA 00:00
+[14:24:41] [download]  22.7% of    2.20MiB at   17.03MiB/s ETA 00:00
+[14:24:41] [download]  45.5% of    2.20MiB at   16.02MiB/s ETA 00:00
+[14:24:41] [download]  91.0% of    2.20MiB at   15.36MiB/s ETA 00:00
+[14:24:41] [download] 100.0% of    2.20MiB at   12.73MiB/s ETA 00:00
+[14:24:41] [download] 100% of    2.20MiB in 00:00:00 at 8.82MiB/s   
+[14:24:41] [Merger] Merging formats into "The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].mp4"
+[14:24:41] [debug] ffmpeg command line: ffmpeg -y -loglevel repeat+info -i 'file:The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].f398.mp4' -i 'file:The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].f140.m4a' -c copy -map 0:v:0 -map 1:a:0 -movflags +faststart 'file:The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].temp.mp4'
+[14:24:41] Deleting original file The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].f398.mp4 (pass -k to keep)
+[14:24:41] Deleting original file The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].f140.m4a (pass -k to keep)
+[14:24:41]    📦 Downloaded: The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].mp4 (9.0 MB)
+[14:24:41]    📝 Attempting subtitle download for 'fa' ...
+[14:24:41] [debug] Command-line config: ['--no-playlist', '--skip-download', '--write-subs', '--write-auto-subs', '--sub-lang', 'fa', '--convert-subs', 'srt', '--output', 'current_sub.%(ext)s', '--js-runtimes', 'node', '--geo-bypass', '--geo-bypass-country', 'US', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', '--retries', '10', '--fragment-retries', '10', '--sleep-requests', '1', '--sleep-interval', '5', '--max-sleep-interval', '15', '--verbose', '--cookies-from-browser', 'chrome:/tmp/chrome_profile/Default', 'https://www.youtube.com/watch?v=EIQuE7JGXU8']
+[14:24:41] [debug] Encodings: locale UTF-8, fs utf-8, pref UTF-8, out utf-8 (No ANSI), error utf-8 (No ANSI), screen utf-8 (No ANSI)
+[14:24:41] [debug] yt-dlp version stable@2026.03.17 from yt-dlp/yt-dlp [04d6974f5] (pip)
+[14:24:42] [debug] Python 3.12.3 (CPython x86_64 64bit) - Linux-6.17.0-1015-azure-x86_64-with-glibc2.39 (OpenSSL 3.0.13 30 Jan 2024, glibc 2.39)
+[14:24:42] [debug] exe versions: ffmpeg 6.1.1 (setts), ffprobe 6.1.1
+[14:24:42] [debug] Optional libraries: Cryptodome-3.23.0, brotli-1.2.0, certifi-2026.05.20, curl_cffi-0.14.0, mutagen-1.47.0, requests-2.34.2, secretstorage-3.5.0, sqlite3-3.45.1, urllib3-2.0.7, websockets-16.0, yt_dlp_ejs-0.8.0
+[14:24:42] [debug] JS runtimes: node-22.22.3
+[14:24:42] [debug] Proxy map: {}
+[14:24:42] Extracting cookies from chrome
+[14:24:42] [debug] Extracting cookies from: "/tmp/chrome_profile/Default/Cookies"
+[14:24:42] Extracted 50 cookies from chrome
+[14:24:42] [debug] cookie version breakdown: {'v10': 52, 'v11': 0, 'other': 0, 'unencrypted': 0}
+[14:24:42] [debug] Request Handlers: urllib, requests, websockets, curl_cffi
+[14:24:42] [debug] Plugin directories: none
+[14:24:42] [debug] Loaded 1864 extractors
+[14:24:42] [debug] Using fake IP 6.172.88.241 (US) as X-Forwarded-For
+[14:24:42] [debug] [youtube] Found YouTube account cookies
+[14:24:42] [debug] [youtube] [pot] PO Token Providers: none
+[14:24:42] [debug] [youtube] [pot] PO Token Cache Providers: memory
+[14:24:42] [debug] [youtube] [pot] PO Token Cache Spec Providers: webpo
+[14:24:42] [debug] [youtube] [jsc] JS Challenge Providers: bun (unavailable), deno (unavailable), node, quickjs (unavailable)
+[14:24:42] [youtube] Extracting URL: https://www.youtube.com/watch?v=EIQuE7JGXU8
+[14:24:42] [youtube] EIQuE7JGXU8: Downloading webpage
+[14:24:43] [debug] [youtube] Forcing "main" player JS variant for player 9fc68080
+[14:24:43]         original url = /s/player/9fc68080/player_es6_tce.vflset/en_US/base.js
+[14:24:43] [youtube] Sleeping 1.0 seconds ...
+[14:24:44] [youtube] EIQuE7JGXU8: Downloading tv downgraded player API JSON
+[14:24:44] [youtube] Sleeping 1.0 seconds ...
+[14:24:45] [youtube] EIQuE7JGXU8: Downloading player 9fc68080-main
+[14:24:45] [youtube] [jsc:node] Solving JS challenges using node
+[14:24:45] [debug] [youtube] [jsc:node] Using challenge solver lib script v0.8.0 (source: python package, variant: minified)
+[14:24:45] [debug] [youtube] [jsc:node] Using challenge solver core script v0.8.0 (source: python package, variant: minified)
+[14:24:45] [debug] [youtube] [jsc:node] Running node: /usr/local/bin/node --experimental-permission --no-warnings=ExperimentalWarning -
+[14:24:46] [debug] [youtube] EIQuE7JGXU8: Detected experiment to bind GVS PO Token to video ID for web_safari client
+[14:24:46] [youtube] Sleeping 1.0 seconds ...
+[14:24:47] [youtube] EIQuE7JGXU8: Downloading m3u8 information
+[14:24:47] [info] EIQuE7JGXU8: Downloading subtitles: fa
+[14:24:47] [debug] Sort order given by extractor: quality, res, fps, hdr:12, source, vcodec, channels, acodec, lang, proto
+[14:24:47] [debug] Formats sorted by: hasvid, ie_pref, quality, res, fps, hdr:12(7), source, vcodec, channels, acodec, lang, proto, size, br, asr, vext, aext, hasaud, id
+[14:24:47] [debug] Default format spec: bestvideo*+bestaudio/best
+[14:24:47] [info] EIQuE7JGXU8: Downloading 1 format(s): 399+251
+[14:24:47] [info] Writing video subtitles to: current_sub.fa.vtt
+[14:24:47] [debug] Invoking http downloader on "https://www.youtube.com/api/timedtext?v=EIQuE7JGXU8&ei=LJYdas-tGdCKkucPx6zCEA&caps=asr&opi=112496729&xoaf=5&xowf=1&hl=en&ip=0.0.0.0&ipbits=0&expire=1780349084&sparams=ip%2Cipbits%2Cexpire%2Cv%2Cei%2Ccaps%2Copi%2Cxoaf&signature=01CF856ABE3BC060BB7FA909245439C56D21EFC9.C8430F6EFF1023B1E439AA5064B988E2F4A6199F&key=yt8&kind=asr&lang=en&tlang=fa&fmt=vtt"
+[14:24:48] [download] Destination: current_sub.fa.vtt
+[14:24:48] 
+[14:24:48] [download]    1.00KiB at  Unknown B/s (00:00:00)
+[14:24:48] [download]    3.00KiB at  Unknown B/s (00:00:00)
+[14:24:48] [download]    7.00KiB at    6.42MiB/s (00:00:00)
+[14:24:48] [download]   15.00KiB at   10.52MiB/s (00:00:00)
+[14:24:48] [download]   15.40KiB at    2.92MiB/s (00:00:00)
+[14:24:48] [download] 100% of   15.40KiB in 00:00:00 at 47.90KiB/s
+[14:24:48] [SubtitlesConvertor] Converting subtitles
+[14:24:48] [debug] ffmpeg command line: ffmpeg -y -loglevel repeat+info -i file:current_sub.fa.vtt -f srt -movflags +faststart file:current_sub.fa.srt
+[14:24:48] Deleting original file current_sub.fa.vtt (pass -k to keep)
+[14:24:48]    ✅ Subtitle downloaded: The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].srt
+[14:24:48] ⬆️  Uploading The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].mp4 ...
+[14:24:53]    ✅ Uploaded (HTTP 201)
+[14:24:53] ⬆️  Uploading The Studio — Official Trailer ｜ Apple TV [EIQuE7JGXU8].srt ...
+[14:24:53]    ✅ Uploaded (HTTP 201)
+[14:24:53] 
+[14:24:53] ==================================================  URL #5  ==================================================
+[14:24:53] 📥 https://www.youtube.com/watch?v=a6lzvWby9UE
+[14:24:53] 📹 YouTube: https://www.youtube.com/watch?v=a6lzvWby9UE
+[14:24:54] [debug] Command-line config: ['--no-playlist', '--format', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]', '--merge-output-format', 'mp4', '--output', '%(title).150B [%(id)s].%(ext)s', '--js-runtimes', 'node', '--geo-bypass', '--geo-bypass-country', 'US', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', '--retries', '10', '--fragment-retries', '10', '--sleep-requests', '1', '--sleep-interval', '5', '--max-sleep-interval', '15', '--verbose', '--cookies-from-browser', 'chrome:/tmp/chrome_profile/Default', 'https://www.youtube.com/watch?v=a6lzvWby9UE']
+[14:24:54] [debug] Encodings: locale UTF-8, fs utf-8, pref UTF-8, out utf-8 (No ANSI), error utf-8 (No ANSI), screen utf-8 (No ANSI)
+[14:24:54] [debug] yt-dlp version stable@2026.03.17 from yt-dlp/yt-dlp [04d6974f5] (pip)
+[14:24:54] [debug] Python 3.12.3 (CPython x86_64 64bit) - Linux-6.17.0-1015-azure-x86_64-with-glibc2.39 (OpenSSL 3.0.13 30 Jan 2024, glibc 2.39)
+[14:24:54] [debug] exe versions: ffmpeg 6.1.1 (setts), ffprobe 6.1.1
+[14:24:54] [debug] Optional libraries: Cryptodome-3.23.0, brotli-1.2.0, certifi-2026.05.20, curl_cffi-0.14.0, mutagen-1.47.0, requests-2.34.2, secretstorage-3.5.0, sqlite3-3.45.1, urllib3-2.0.7, websockets-16.0, yt_dlp_ejs-0.8.0
+[14:24:54] [debug] JS runtimes: node-22.22.3
+[14:24:54] [debug] Proxy map: {}
+[14:24:54] Extracting cookies from chrome
+[14:24:54] [debug] Extracting cookies from: "/tmp/chrome_profile/Default/Cookies"
+[14:24:54] Extracted 50 cookies from chrome
+[14:24:54] [debug] cookie version breakdown: {'v10': 52, 'v11': 0, 'other': 0, 'unencrypted': 0}
+[14:24:54] [debug] Request Handlers: urllib, requests, websockets, curl_cffi
+[14:24:54] [debug] Plugin directories: none
+[14:24:54] [debug] Loaded 1864 extractors
+[14:24:54] [debug] Using fake IP 6.161.170.145 (US) as X-Forwarded-For
+[14:24:54] [debug] [youtube] Found YouTube account cookies
+[14:24:54] [debug] [youtube] [pot] PO Token Providers: none
+[14:24:54] [debug] [youtube] [pot] PO Token Cache Providers: memory
+[14:24:54] [debug] [youtube] [pot] PO Token Cache Spec Providers: webpo
+[14:24:54] [debug] [youtube] [jsc] JS Challenge Providers: bun (unavailable), deno (unavailable), node, quickjs (unavailable)
+[14:24:54] [youtube] Extracting URL: https://www.youtube.com/watch?v=a6lzvWby9UE
+[14:24:54] [youtube] a6lzvWby9UE: Downloading webpage
+[14:24:55] [debug] [youtube] Forcing "main" player JS variant for player 9fc68080
+[14:24:55]         original url = /s/player/9fc68080/player_es6_tce.vflset/en_US/base.js
+[14:24:55] [youtube] Sleeping 1.0 seconds ...
+[14:24:56] [youtube] a6lzvWby9UE: Downloading tv downgraded player API JSON
+[14:24:56] [youtube] Sleeping 1.0 seconds ...
+[14:24:57] [youtube] a6lzvWby9UE: Downloading player 9fc68080-main
+[14:24:57] [youtube] [jsc:node] Solving JS challenges using node
+[14:24:57] [debug] [youtube] [jsc:node] Using challenge solver lib script v0.8.0 (source: python package, variant: minified)
+[14:24:57] [debug] [youtube] [jsc:node] Using challenge solver core script v0.8.0 (source: python package, variant: minified)
+[14:24:57] [debug] [youtube] [jsc:node] Running node: /usr/local/bin/node --experimental-permission --no-warnings=ExperimentalWarning -
+[14:24:58] [debug] [youtube] a6lzvWby9UE: Detected experiment to bind GVS PO Token to video ID for web_safari client
+[14:24:58] [youtube] Sleeping 1.0 seconds ...
+[14:24:59] [youtube] a6lzvWby9UE: Downloading m3u8 information
+[14:24:59] [debug] Sort order given by extractor: quality, res, fps, hdr:12, source, vcodec, channels, acodec, lang, proto
+[14:24:59] [debug] Formats sorted by: hasvid, ie_pref, quality, res, fps, hdr:12(7), source, vcodec, channels, acodec, lang, proto, size, br, asr, vext, aext, hasaud, id
+[14:24:59] [info] a6lzvWby9UE: Downloading 1 format(s): 398+140
+[14:24:59] [debug] Invoking http downloader on "https://rr2---sn-p5qs7nzy.googlevideo.com/videoplayback?expire=1780345496&ei=OJYdaqqSJNCakucPj6PNuQY&ip=2a09%3Abac5%3Ac82d%3A2828%3A%3A400%3A23&id=o-AOfk180ssn3kV1VTPY0gGSv1vw0-PBIRbnQubQ2-lE6F&itag=398&aitags=133%2C134%2C135%2C136%2C137%2C160%2C242%2C243%2C244%2C247%2C248%2C278%2C394%2C395%2C396%2C397%2C398%2C399&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&met=1780323896%2C&mh=NU&mm=31%2C26&mn=sn-p5qs7nzy%2Csn-ajab55-55&ms=au%2Conr&mv=m&mvi=2&pl=43&rms=au%2Cau&initcwndbps=3168750&siu=1&bui=AbKmrwrpZp4WcMlK7sV9bNbJ--iyOn1yMeBn-qYieykwxUCQN_zcFT9MmrI_DlRYodYEgRvVMA&vprv=1&svpuc=1&mime=video%2Fmp4&ns=1QfRrwWb66_mhfvo1W5SGG8V&rqh=1&gir=yes&clen=6132479&dur=122.539&lmt=1761145132822233&mt=1780323686&fvip=4&keepalive=yes&lmw=1&fexp=51565116%2C51565681%2C51958250&c=TVHTML5&sefc=1&txp=4537534&n=bffRHYMz3G6FLQ&sparams=expire%2Cei%2Cip%2Cid%2Caitags%2Csource%2Crequiressl%2Cxpc%2Csiu%2Cbui%2Cvprv%2Csvpuc%2Cmime%2Cns%2Crqh%2Cgir%2Cclen%2Cdur%2Clmt&sig=AHEqNM4wRgIhALeEt9lC9-q7KiK5dQWYWvBb9h3XN_N6spwIw5POSiqpAiEA01__0KxmA61h341WD9lnyTJlFxdyBBkPCn4svTOW_n8%3D&lsparams=met%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms%2Cinitcwndbps&lsig=APaTxxMwRQIgCIedckv5GC9OOZigbx0bpIsfmUiQjieIe8I-nOL_OqUCIQCzZGxpvulDJ9nBMVFprPAXGU8LDynll8fUthHOblbqyQ%3D%3D"
+[14:24:59] [download] Sleeping 14.41 seconds ...
+[14:25:14] [download] Destination: Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].f398.mp4
+[14:25:14] 
+[14:25:14] [download]   0.0% of    5.85MiB at  177.82KiB/s ETA 00:33
+[14:25:14] [download]   0.1% of    5.85MiB at  489.86KiB/s ETA 00:12
+[14:25:14] [download]   0.1% of    5.85MiB at    1.05MiB/s ETA 00:05
+[14:25:14] [download]   0.3% of    5.85MiB at    2.14MiB/s ETA 00:02
+[14:25:14] [download]   0.5% of    5.85MiB at    4.11MiB/s ETA 00:01
+[14:25:14] [download]   1.1% of    5.85MiB at    4.48MiB/s ETA 00:01
+[14:25:14] [download]   2.1% of    5.85MiB at    5.84MiB/s ETA 00:00
+[14:25:14] [download]   4.3% of    5.85MiB at    8.42MiB/s ETA 00:00
+[14:25:14] [download]   8.5% of    5.85MiB at   11.91MiB/s ETA 00:00
+[14:25:14] [download]  17.1% of    5.85MiB at   17.98MiB/s ETA 00:00
+[14:25:14] [download]  34.2% of    5.85MiB at   27.62MiB/s ETA 00:00
+[14:25:14] [download]  68.4% of    5.85MiB at   25.91MiB/s ETA 00:00
+[14:25:14] [download] 100.0% of    5.85MiB at   25.85MiB/s ETA 00:00
+[14:25:14] [download] 100% of    5.85MiB in 00:00:00 at 17.39MiB/s  
+[14:25:14] [debug] Invoking http downloader on "https://rr2---sn-p5qs7nzy.googlevideo.com/videoplayback?expire=1780345496&ei=OJYdaqqSJNCakucPj6PNuQY&ip=2a09%3Abac5%3Ac82d%3A2828%3A%3A400%3A23&id=o-AOfk180ssn3kV1VTPY0gGSv1vw0-PBIRbnQubQ2-lE6F&itag=140&source=youtube&requiressl=yes&xpc=EgVo2aDSNQ%3D%3D&met=1780323896%2C&mh=NU&mm=31%2C26&mn=sn-p5qs7nzy%2Csn-ajab55-55&ms=au%2Conr&mv=m&mvi=2&pl=43&rms=au%2Cau&initcwndbps=3168750&siu=1&bui=AbKmrwrpZp4WcMlK7sV9bNbJ--iyOn1yMeBn-qYieykwxUCQN_zcFT9MmrI_DlRYodYEgRvVMA&vprv=1&svpuc=1&mime=audio%2Fmp4&ns=1QfRrwWb66_mhfvo1W5SGG8V&rqh=1&gir=yes&clen=1985004&dur=122.601&lmt=1761143885823869&mt=1780323686&fvip=4&keepalive=yes&lmw=1&fexp=51565116%2C51565681%2C51958250&c=TVHTML5&sefc=1&txp=4532534&n=bffRHYMz3G6FLQ&sparams=expire%2Cei%2Cip%2Cid%2Citag%2Csource%2Crequiressl%2Cxpc%2Csiu%2Cbui%2Cvprv%2Csvpuc%2Cmime%2Cns%2Crqh%2Cgir%2Cclen%2Cdur%2Clmt&sig=AHEqNM4wRQIhAOFr1k8P3TXJzC-XyVrmL9z2gw6nWPFTC4Y0kpDU2n0IAiAWT6ySdk6KxgvF76YO-twf45TCboFe8chvUUkhoEaDQQ%3D%3D&lsparams=met%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms%2Cinitcwndbps&lsig=APaTxxMwRQIgCIedckv5GC9OOZigbx0bpIsfmUiQjieIe8I-nOL_OqUCIQCzZGxpvulDJ9nBMVFprPAXGU8LDynll8fUthHOblbqyQ%3D%3D"
+[14:25:14] [download] Sleeping 9.88 seconds ...
+[14:25:24] [download] Destination: Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].f140.m4a
+[14:25:24] 
+[14:25:24] [download]   0.1% of    1.89MiB at  Unknown B/s ETA Unknown
+[14:25:24] [download]   0.2% of    1.89MiB at  Unknown B/s ETA Unknown
+[14:25:24] [download]   0.4% of    1.89MiB at    6.20MiB/s ETA 00:00  
+[14:25:24] [download]   0.8% of    1.89MiB at   10.11MiB/s ETA 00:00
+[14:25:24] [download]   1.6% of    1.89MiB at   17.03MiB/s ETA 00:00
+[14:25:24] [download]   3.2% of    1.89MiB at   27.67MiB/s ETA 00:00
+[14:25:24] [download]   6.6% of    1.89MiB at   46.20MiB/s ETA 00:00
+[14:25:24] [download]  13.2% of    1.89MiB at   75.28MiB/s ETA 00:00
+[14:25:24] [download]  26.4% of    1.89MiB at   83.72MiB/s ETA 00:00
+[14:25:24] [download]  52.8% of    1.89MiB at   85.41MiB/s ETA 00:00
+[14:25:24] [download] 100.0% of    1.89MiB at   72.63MiB/s ETA 00:00
+[14:25:24] [download] 100% of    1.89MiB in 00:00:00 at 29.39MiB/s  
+[14:25:24] [Merger] Merging formats into "Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].mp4"
+[14:25:24] [debug] ffmpeg command line: ffmpeg -y -loglevel repeat+info -i 'file:Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].f398.mp4' -i 'file:Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].f140.m4a' -c copy -map 0:v:0 -map 1:a:0 -movflags +faststart 'file:Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].temp.mp4'
+[14:25:24] Deleting original file Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].f398.mp4 (pass -k to keep)
+[14:25:24] Deleting original file Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].f140.m4a (pass -k to keep)
+[14:25:24]    📦 Downloaded: Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].mp4 (7.8 MB)
+[14:25:24]    📝 Attempting subtitle download for 'fa' ...
+[14:25:25] [debug] Command-line config: ['--no-playlist', '--skip-download', '--write-subs', '--write-auto-subs', '--sub-lang', 'fa', '--convert-subs', 'srt', '--output', 'current_sub.%(ext)s', '--js-runtimes', 'node', '--geo-bypass', '--geo-bypass-country', 'US', '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', '--retries', '10', '--fragment-retries', '10', '--sleep-requests', '1', '--sleep-interval', '5', '--max-sleep-interval', '15', '--verbose', '--cookies-from-browser', 'chrome:/tmp/chrome_profile/Default', 'https://www.youtube.com/watch?v=a6lzvWby9UE']
+[14:25:25] [debug] Encodings: locale UTF-8, fs utf-8, pref UTF-8, out utf-8 (No ANSI), error utf-8 (No ANSI), screen utf-8 (No ANSI)
+[14:25:25] [debug] yt-dlp version stable@2026.03.17 from yt-dlp/yt-dlp [04d6974f5] (pip)
+[14:25:25] [debug] Python 3.12.3 (CPython x86_64 64bit) - Linux-6.17.0-1015-azure-x86_64-with-glibc2.39 (OpenSSL 3.0.13 30 Jan 2024, glibc 2.39)
+[14:25:25] [debug] exe versions: ffmpeg 6.1.1 (setts), ffprobe 6.1.1
+[14:25:25] [debug] Optional libraries: Cryptodome-3.23.0, brotli-1.2.0, certifi-2026.05.20, curl_cffi-0.14.0, mutagen-1.47.0, requests-2.34.2, secretstorage-3.5.0, sqlite3-3.45.1, urllib3-2.0.7, websockets-16.0, yt_dlp_ejs-0.8.0
+[14:25:25] [debug] JS runtimes: node-22.22.3
+[14:25:25] [debug] Proxy map: {}
+[14:25:25] Extracting cookies from chrome
+[14:25:25] [debug] Extracting cookies from: "/tmp/chrome_profile/Default/Cookies"
+[14:25:25] Extracted 50 cookies from chrome
+[14:25:25] [debug] cookie version breakdown: {'v10': 52, 'v11': 0, 'other': 0, 'unencrypted': 0}
+[14:25:25] [debug] Request Handlers: urllib, requests, websockets, curl_cffi
+[14:25:25] [debug] Plugin directories: none
+[14:25:25] [debug] Loaded 1864 extractors
+[14:25:25] [debug] Using fake IP 6.38.63.12 (US) as X-Forwarded-For
+[14:25:25] [debug] [youtube] Found YouTube account cookies
+[14:25:25] [debug] [youtube] [pot] PO Token Providers: none
+[14:25:25] [debug] [youtube] [pot] PO Token Cache Providers: memory
+[14:25:25] [debug] [youtube] [pot] PO Token Cache Spec Providers: webpo
+[14:25:25] [debug] [youtube] [jsc] JS Challenge Providers: bun (unavailable), deno (unavailable), node, quickjs (unavailable)
+[14:25:25] [youtube] Extracting URL: https://www.youtube.com/watch?v=a6lzvWby9UE
+[14:25:25] [youtube] a6lzvWby9UE: Downloading webpage
+[14:25:26] [debug] [youtube] Forcing "main" player JS variant for player 9fc68080
+[14:25:26]         original url = /s/player/9fc68080/player_es6_tce.vflset/en_US/base.js
+[14:25:26] [youtube] Sleeping 1.0 seconds ...
+[14:25:27] [youtube] a6lzvWby9UE: Downloading tv downgraded player API JSON
+[14:25:27] [youtube] Sleeping 1.0 seconds ...
+[14:25:28] [youtube] a6lzvWby9UE: Downloading player 9fc68080-main
+[14:25:28] [youtube] [jsc:node] Solving JS challenges using node
+[14:25:28] [debug] [youtube] [jsc:node] Using challenge solver lib script v0.8.0 (source: python package, variant: minified)
+[14:25:28] [debug] [youtube] [jsc:node] Using challenge solver core script v0.8.0 (source: python package, variant: minified)
+[14:25:28] [debug] [youtube] [jsc:node] Running node: /usr/local/bin/node --experimental-permission --no-warnings=ExperimentalWarning -
+[14:25:29] [debug] [youtube] a6lzvWby9UE: Detected experiment to bind GVS PO Token to video ID for web_safari client
+[14:25:29] [youtube] Sleeping 1.0 seconds ...
+[14:25:30] [youtube] a6lzvWby9UE: Downloading m3u8 information
+[14:25:30] [info] a6lzvWby9UE: Downloading subtitles: fa
+[14:25:30] [debug] Sort order given by extractor: quality, res, fps, hdr:12, source, vcodec, channels, acodec, lang, proto
+[14:25:30] [debug] Formats sorted by: hasvid, ie_pref, quality, res, fps, hdr:12(7), source, vcodec, channels, acodec, lang, proto, size, br, asr, vext, aext, hasaud, id
+[14:25:30] [debug] Default format spec: bestvideo*+bestaudio/best
+[14:25:30] [info] a6lzvWby9UE: Downloading 1 format(s): 399+251
+[14:25:30] [info] Writing video subtitles to: current_sub.fa.vtt
+[14:25:30] [debug] Invoking http downloader on "https://www.youtube.com/api/timedtext?v=a6lzvWby9UE&ei=V5YdaqLkHOzDkucP3aHf4A0&caps=asr&opi=112496729&xoaf=5&xowf=1&xospf=1&hl=en&ip=0.0.0.0&ipbits=0&expire=1780349127&sparams=ip%2Cipbits%2Cexpire%2Cv%2Cei%2Ccaps%2Copi%2Cxoaf&signature=C0BD3CD8873A551EA8CCB70A5725CF376F1E0B22.A5437364CAB5A178CC4A9AD84C647200CBFBA3E7&key=yt8&kind=asr&lang=en&variant=gemini&tlang=fa&fmt=vtt"
+[14:25:31] [download] Destination: current_sub.fa.vtt
+[14:25:31] 
+[14:25:31] [download]    1.00KiB at  Unknown B/s (00:00:00)
+[14:25:31] [download]    3.00KiB at  Unknown B/s (00:00:00)
+[14:25:31] [download]    5.73KiB at    1.07MiB/s (00:00:00)
+[14:25:31] [download] 100% of    5.73KiB in 00:00:00 at 29.35KiB/s
+[14:25:31] [SubtitlesConvertor] Converting subtitles
+[14:25:31] [debug] ffmpeg command line: ffmpeg -y -loglevel repeat+info -i file:current_sub.fa.vtt -f srt -movflags +faststart file:current_sub.fa.srt
+[14:25:31] Deleting original file current_sub.fa.vtt (pass -k to keep)
+[14:25:31]    ✅ Subtitle downloaded: Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].srt
+[14:25:31] ⬆️  Uploading Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].mp4 ...
+[14:25:36]    ✅ Uploaded (HTTP 201)
+[14:25:36] ⬆️  Uploading Pluribus — Official Trailer ｜ Apple TV [a6lzvWby9UE].srt ...
+[14:25:37]    ✅ Uploaded (HTTP 201)
+[14:25:37] 
+📦 Splitting 2 large file(s) with chunker.py
+[14:25:37] Splitting آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].mp4 (28999325 bytes) into 2 chunk(s) of 20000000 bytes each
+  Created آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].mp4.part0000 (20000000 bytes)
+  Created آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].mp4.part0001 (8999325 bytes)
+Splitting Perception - Opening Scene [I5bLsSQE5Dk].mp4 (55695181 bytes) into 3 chunk(s) of 20000000 bytes each
+  Created Perception - Opening Scene [I5bLsSQE5Dk].mp4.part0000 (20000000 bytes)
+  Created Perception - Opening Scene [I5bLsSQE5Dk].mp4.part0001 (20000000 bytes)
+  Created Perception - Opening Scene [I5bLsSQE5Dk].mp4.part0002 (15695181 bytes)
+Generated reassembly script: Download/reassemble.bat
+Done.
+
+[14:25:37] ⬆️  Uploading آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].mp4.part0001 ...
+[14:25:42]    ✅ Uploaded (HTTP 201)
+[14:25:42] ⬆️  Uploading reassemble.bat ...
+[14:25:43]    ✅ Uploaded (HTTP 201)
+[14:25:43] ⬆️  Uploading Perception - Opening Scene [I5bLsSQE5Dk].mp4.part0001 ...
+[14:25:53]    ✅ Uploaded (HTTP 201)
+[14:25:53] ⬆️  Uploading Perception - Opening Scene [I5bLsSQE5Dk].mp4.part0002 ...
+[14:26:00]    ✅ Uploaded (HTTP 201)
+[14:26:00] ⬆️  Uploading آمریکا بزرگ‌ترین ناو هواپیمابر جهان را راهی خاورمیانه می‌کند [4YrwOFIILb0].mp4.part0000 ...
+[14:26:15]    ✅ Uploaded (HTTP 201)
+[14:26:15] ⬆️  Uploading Perception - Opening Scene [I5bLsSQE5Dk].mp4.part0000 ...
+[14:26:26]    ✅ Uploaded (HTTP 201)
+[14:26:26] 
+📊 Total uploaded items: 14
+[14:26:26] ✅ All done.
