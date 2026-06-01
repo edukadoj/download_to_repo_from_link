@@ -171,3 +171,7 @@
 [10:04:17] Screenshot capture failed – will retry after interval.
 [10:04:17] Executed APP-59357-20260601100155 -> OK click(0.8930,0.2083)
 [10:04:17] New autonomous report: AUT-7-1780308257 -> navigate(https://studio.youtube.com/channel/UCvqPy-BS9Wb6LzaRfkW4j8w)
+[10:04:19] Taking screenshot: screenshots/0013_1780308259251826_auto.png
+[10:04:19] Uploading screenshot synchronously: screenshots/0013_1780308259251826_auto.png
+[10:04:21] Screenshot screenshots/0013_1780308259251826_auto.png uploaded successfully.
+[10:04:22] Sender published response comment.
