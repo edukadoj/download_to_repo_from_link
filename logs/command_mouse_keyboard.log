@@ -488,3 +488,7 @@
 [10:06:49] Skipping duplicate in‑progress command APP-59378-20260601100426
 [10:06:49] Browser health check failed – skipping screenshot.
 [10:06:49] Screenshot capture failed – will retry after interval.
+[10:06:51] Taking screenshot: screenshots/0036_1780308411363148_auto.png
+[10:06:52] Drag completed from (1911,54) to (1908,703)
+[10:06:52] Executed APP-59378-20260601100426 -> OK drag(1911,54)->(1908,703)
+[10:06:52] Uploading screenshot synchronously: screenshots/0036_1780308411363148_auto.png
