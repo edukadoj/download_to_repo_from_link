@@ -812,3 +812,30 @@
 [10:10:11] Taking screenshot: screenshots/0062_1780308611814727_auto.png
 [10:10:12] Uploading screenshot synchronously: screenshots/0062_1780308611814727_auto.png
 [10:10:14] Screenshot screenshots/0062_1780308611814727_auto.png uploaded successfully.
+[10:10:16] Taking screenshot: screenshots/0063_1780308616814860_auto.png
+[10:10:17] Uploading screenshot synchronously: screenshots/0063_1780308616814860_auto.png
+[10:10:19] gh api failed: Upload screenshots/0063_1780308616814860_auto.png (404868 bytes) (attempt 1/20): gh: is at 98e1b39bdec3b4592e7a03cfc936b1c4484a7496 but expected 2f036b64167a909eb185c39e67aef57e4e704fad (HTTP 409)
+[10:10:22] Screenshot screenshots/0063_1780308616814860_auto.png uploaded successfully.
+[10:10:22] Taking screenshot: screenshots/0064_1780308622157964_auto.png
+[10:10:22] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 1/20): gh: Not Found (HTTP 404)
+[10:10:22] Uploading screenshot synchronously: screenshots/0064_1780308622157964_auto.png
+[10:10:23] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 2/20): gh: Not Found (HTTP 404)
+[10:10:25] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 3/20): gh: Not Found (HTTP 404)
+[10:10:26] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 4/20): gh: Not Found (HTTP 404)
+[10:10:27] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 5/20): gh: Not Found (HTTP 404)
+[10:10:28] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 6/20): gh: Not Found (HTTP 404)
+[10:10:30] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 7/20): gh: Not Found (HTTP 404)
+[10:10:31] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 8/20): gh: Not Found (HTTP 404)
+[10:10:32] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 9/20): gh: Not Found (HTTP 404)
+[10:10:33] Agent alive
+[10:10:33] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 10/20): gh: Not Found (HTTP 404)
+[10:10:35] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 11/20): gh: Not Found (HTTP 404)
+[10:10:36] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 12/20): gh: Not Found (HTTP 404)
+[10:10:37] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 13/20): gh: Not Found (HTTP 404)
+[10:10:39] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 14/20): gh: Not Found (HTTP 404)
+[10:10:40] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 15/20): gh: Not Found (HTTP 404)
+[10:10:41] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 16/20): gh: Not Found (HTTP 404)
+[10:10:42] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 17/20): gh: Not Found (HTTP 404)
+[10:10:44] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 18/20): gh: Not Found (HTTP 404)
+[10:10:45] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 19/20): gh: Not Found (HTTP 404)
+[10:10:46] gh api failed: Delete screenshots/0057_1780308563215398_auto.png (attempt 20/20): gh: Not Found (HTTP 404)
