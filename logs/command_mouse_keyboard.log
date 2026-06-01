@@ -799,3 +799,8 @@
 [10:09:55] gh api failed: Delete screenshots/0053_1780308496365174_auto.png (attempt 18/20): gh: Not Found (HTTP 404)
 [10:09:56] gh api failed: Delete screenshots/0053_1780308496365174_auto.png (attempt 19/20): gh: Not Found (HTTP 404)
 [10:09:58] gh api failed: Delete screenshots/0053_1780308496365174_auto.png (attempt 20/20): gh: Not Found (HTTP 404)
+[10:09:59] gh api failed: Upload screenshots/0059_1780308573215630_auto.png (404808 bytes) (attempt 1/20): gh: is at 8e72c476662feb0e4504fc49f831c3711d98d32b but expected 69fcc772470a84d837488c2f590249b1e1c56018 (HTTP 409)
+[10:10:01] Screenshot screenshots/0059_1780308573215630_auto.png uploaded successfully.
+[10:10:01] Taking screenshot: screenshots/0060_1780308601814446_auto.png
+[10:10:02] Uploading screenshot synchronously: screenshots/0060_1780308601814446_auto.png
+[10:10:03] Agent alive
