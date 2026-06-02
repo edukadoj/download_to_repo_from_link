@@ -1631,3 +1631,5 @@
 [12:34:20] Screenshot screenshots/0255_1780403658348565_auto.png uploaded successfully.
 [12:34:22] Agent alive
 [12:34:23] Taking screenshot: screenshots/0256_1780403663348709_auto.png
+[12:34:23] Uploading screenshot synchronously: screenshots/0256_1780403663348709_auto.png
+[12:34:25] Sender published response comment.
