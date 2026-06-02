@@ -4229,3 +4229,33 @@
 [13:10:58] gh api failed: Upload logs/command_mouse_keyboard.log (994781 bytes) (attempt 20/20): gh: logs/command_mouse_keyboard.log does not match 0749fcaedba65aba458857cfd64720d5af5f5f33 (HTTP 409)
 [13:10:58] _upload_via_contents_api FAILED (logs/command_mouse_keyboard.log): gh: logs/command_mouse_keyboard.log does not match 0749fcaedba65aba458857cfd64720d5af5f5f33 (HTTP 409)
 
+[13:10:59] gh api failed: Upload screenshots/0391_1780405778721979_auto.png (71476 bytes) (attempt 1/20): gh: is at 78a09662bf386f86c420230dfed9684adea96ebf but expected 1544502153012f6a321659d202a9a8b6645148c9 (HTTP 409)
+[13:11:00] Sender published response comment.
+[13:11:02] Screenshot screenshots/0391_1780405778721979_auto.png uploaded successfully.
+[13:11:05] Sender published response comment.
+[13:11:05] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 1/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:07] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 2/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:08] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 3/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:10] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 4/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:11] Sender published response comment.
+[13:11:11] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 5/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:12] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 6/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:14] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 7/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:15] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 8/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:16] Sender published response comment.
+[13:11:16] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 9/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:18] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 10/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:19] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 11/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:20] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 12/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:21] Sender published response comment.
+[13:11:22] Agent alive
+[13:11:22] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 13/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:23] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 14/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:25] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 15/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:26] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 16/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:27] Sender published response comment.
+[13:11:27] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 17/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:29] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 18/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:30] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 19/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:31] gh api failed: Update ref for logs/command_mouse_keyboard.log (attempt 20/20): gh: Update is not a fast forward (HTTP 422)
+[13:11:32] Sender published response comment.
