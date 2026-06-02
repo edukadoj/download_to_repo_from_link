@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_loops.py – Version 1.0.11
-#   - Wrapped _in_progress_ids.discard() in finally blocks to ensure cleanup
-#     even if a command crashes.
-#   - All other functionality unchanged.
+# agent_loops.py – Version 1.0.12
+#   - Increased heavy executor timeout from 300 s to 3600 s (1 hour) to handle
+#     large uploads (e.g. 1100+ chunks reassembly) without being killed prematurely.
 # ==============================================================================
 
 import time, re, hashlib, json, threading, traceback, queue as queue_module
@@ -324,7 +323,7 @@ def executor_loop(
     executor_pool.shutdown(wait=False)
 
 
-# ---------- Heavy Execution Loop (300-second timeout) ----------
+# ---------- Heavy Execution Loop (3600-second timeout) ----------
 def heavy_executor_loop(
     heavy_execution_queue, _heavy_executor_stop, safe_log, parse_single_command, agent_state,
     driver, driver_lock, DOWNLOAD_DIR, LOG_FILENAME, KEY_SECRET, REPO, ISSUE_NUMBER,
@@ -342,7 +341,7 @@ def heavy_executor_loop(
     save_lock, upload_lock,
     rw   # RepoWrapper instance
 ):
-    safe_log("Heavy execution loop started (timeout=300s).")
+    safe_log("Heavy execution loop started (timeout=3600s).")
     executor_pool = ThreadPoolExecutor(max_workers=1)
     while not _heavy_executor_stop.is_set():
         try:
@@ -353,7 +352,7 @@ def heavy_executor_loop(
         safe_log(f"Heavy execution loop: processing {cid}: {ctext}")
 
         cmd_type, _ = parse_single_command(ctext)
-        timeout = 300
+        timeout = 3600   # increased from 300s to 3600s for large uploads
 
         def run_command():
             lock_acquired = False
