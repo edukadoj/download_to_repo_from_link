@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ============================================================
   Remote Control v39.39.13 started at 2026-06-02 12:04:14 UTC
 ============================================================
@@ -4333,50 +4332,74 @@
 [13:13:41] Sender published response comment.
 [13:13:41] Taking screenshot: screenshots/0404_1780406021745491_auto.png
 [13:13:41] Uploading screenshot synchronously: screenshots/0404_1780406021745491_auto.png
-=======
->>>>>>> 57a2055 (Clean start)
-============================================================
-  Remote Control v39.39.13 started at 2026-06-02 13:14:45 UTC
-============================================================
-[13:14:45] Downloading latest profile cache from repo...
-[13:14:47] Newest cache folder: 20260522_215147
-[13:14:49]   Downloaded profile.dat.part0000 (20000000 bytes)
-[13:14:50]   Downloaded profile.dat.part0001 (20000000 bytes)
-[13:14:50]   Downloaded profile.dat.part0002 (5826744 bytes)
-[13:14:50] Profile cache download finished – 3 files.
-[13:14:55] Virtual display started.
-[13:14:58] Stealth JS injected.
-[13:14:58] CDP download behavior set to allow (silent).
-[13:14:58] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
-[13:14:58] Browser launched.
-[13:14:58] CDP tab monitor started (raw HTTP polling).
-[13:14:58] Download folder watcher started.
-[13:14:58] STEP 1: Loading start URL...
-[13:14:58] New autonomous report: AUT-1-1780406098 -> Files: (empty)
-[13:15:03] STEP 2: Start URL loaded – sleeping 5s
-[13:15:08] Detecting actual viewport size...
-[13:15:08] Probing clickable bounds...
-[13:15:08] Rough guess: 1918x991
-[13:15:08] Cursor moved to (1913, 1)
-[13:15:08] Cursor moved to (1914, 1)
-[13:15:09] Cursor moved to (1915, 1)
-[13:15:09] Cursor moved to (1916, 1)
-[13:15:09] Cursor moved to (1917, 1)
-[13:15:09] Cursor moved to (1917, 1)
-[13:15:09] Max clickable X (incrementing) = 1917
-[13:15:10] Cursor moved to (1, 986)
-[13:15:10] Cursor moved to (1, 987)
-[13:15:10] Cursor moved to (1, 988)
-[13:15:10] Cursor moved to (1, 989)
-[13:15:11] Cursor moved to (1, 990)
-[13:15:11] Cursor moved to (1, 990)
-[13:15:11] Max clickable Y (incrementing) = 990
-[13:15:11] Final clickable bounds: 1917x990
-[13:15:11] New autonomous report: AUT-2-1780406111 -> viewsize:1917x990
-[13:15:11] Cursor moved to (958, 495)
-[13:15:11] Clickable dimensions set to 1917x990
-[13:15:11] Cursor moved to (958, 495)
-[13:15:11] STEP 3: Scrolling to top
-[13:15:11] STEP 4: Taking first screenshot
-[13:15:11] STEP 5: First screenshot saved – pushing logs
-[13:15:11] STEP 6: refresh_known_handles()
+[13:13:46] Screenshot screenshots/0404_1780406021745491_auto.png uploaded successfully.
+[13:13:46] Sender published response comment.
+[13:13:47] Taking screenshot: screenshots/0405_1780406027013799_auto.png
+[13:13:47] Uploading screenshot synchronously: screenshots/0405_1780406027013799_auto.png
+[13:13:51] Screenshot screenshots/0405_1780406027013799_auto.png uploaded successfully.
+[13:13:52] Sender published response comment.
+[13:13:52] Agent alive
+[13:13:56] Taking screenshot: screenshots/0406_1780406036477532_auto.png
+[13:13:56] Uploading screenshot synchronously: screenshots/0406_1780406036477532_auto.png
+[13:13:57] Sender published response comment.
+[13:14:01] Screenshot screenshots/0406_1780406036477532_auto.png uploaded successfully.
+[13:14:02] Sender published response comment.
+[13:14:06] Taking screenshot: screenshots/0407_1780406046095013_auto.png
+[13:14:06] Uploading screenshot synchronously: screenshots/0407_1780406046095013_auto.png
+[13:14:08] Sender published response comment.
+[13:14:11] Screenshot screenshots/0407_1780406046095013_auto.png uploaded successfully.
+[13:14:13] Sender published response comment.
+[13:14:16] Taking screenshot: screenshots/0408_1780406056320919_auto.png
+[13:14:16] Uploading screenshot synchronously: screenshots/0408_1780406056320919_auto.png
+[13:14:18] Sender published response comment.
+[13:14:22] Screenshot screenshots/0408_1780406056320919_auto.png uploaded successfully.
+[13:14:22] Agent alive
+[13:14:24] Sender published response comment.
+[13:14:27] Taking screenshot: screenshots/0409_1780406067281355_auto.png
+[13:14:27] Uploading screenshot synchronously: screenshots/0409_1780406067281355_auto.png
+[13:14:29] Sender published response comment.
+[13:14:33] Screenshot screenshots/0409_1780406067281355_auto.png uploaded successfully.
+[13:14:35] Sender published response comment.
+[13:14:38] Taking screenshot: screenshots/0410_1780406078140869_auto.png
+[13:14:38] Uploading screenshot synchronously: screenshots/0410_1780406078140869_auto.png
+[13:14:40] Sender published response comment.
+[13:14:43] Screenshot screenshots/0410_1780406078140869_auto.png uploaded successfully.
+[13:14:45] Sender published response comment.
+[13:14:48] Taking screenshot: screenshots/0411_1780406088892145_auto.png
+[13:14:49] Uploading screenshot synchronously: screenshots/0411_1780406088892145_auto.png
+[13:14:51] Sender published response comment.
+[13:14:52] Agent alive
+[13:14:52] New autonomous report: AUT-49-1780406092 -> Available memory: 14622 MB
+[13:14:52] Fetcher detected new App Commands comment.
+[13:14:52] Re‑enqueued existing report for APP-60081-20260602131110
+[13:14:52] Execution loop: processing APP-60082-20260602131233: tabs
+[13:14:52] Enqueued for execution: APP-60082-20260602131233
+[13:14:52] Enqueued for execution: APP-60083-20260602131233
+[13:14:52] Acknowledged autonomous report AUT-48-1780406007
+[13:14:52] Acknowledged autonomous report AUT-47-1780405972
+[13:14:52] Acknowledged autonomous report AUT-46-1780405852
+[13:14:52] New autonomous report: AUT-50-1780406092 -> Tabs: active=1 | 1: YouTube
+[13:14:52] Executed APP-60082-20260602131233 -> Tabs: 1: YouTube
+[13:14:52] Execution loop: processing APP-60083-20260602131233: dir
+[13:14:53] Executed APP-60083-20260602131233 -> Files: (empty)
+[13:14:54] Screenshot screenshots/0411_1780406088892145_auto.png uploaded successfully.
+[13:14:56] Sender culled 1 timed‑out reports.
+[13:14:56] Sender published response comment.
+[13:14:59] Taking screenshot: screenshots/0412_1780406099263272_auto.png
+[13:14:59] Uploading screenshot synchronously: screenshots/0412_1780406099263272_auto.png
+[13:15:02] Sender published response comment.
+[13:15:03] Fetcher detected new App Commands comment.
+[13:15:03] Re‑enqueued existing report for APP-60081-20260602131110
+[13:15:03] Acknowledged autonomous report AUT-48-1780406007
+[13:15:03] Acknowledged autonomous report AUT-47-1780405972
+[13:15:03] Acknowledged autonomous report AUT-46-1780405852
+[13:15:03] Acknowledged autonomous report AUT-50-1780406092
+[13:15:03] Acknowledged autonomous report AUT-49-1780406092
+[13:15:04] Screenshot screenshots/0412_1780406099263272_auto.png uploaded successfully.
+[13:15:07] Sender culled 1 timed‑out reports.
+[13:15:09] Taking screenshot: screenshots/0413_1780406109061474_auto.png
+[13:15:09] Uploading screenshot synchronously: screenshots/0413_1780406109061474_auto.png
+[13:15:14] Fetcher detected new App Commands comment.
+[13:15:14] Screenshot screenshots/0413_1780406109061474_auto.png uploaded successfully.
+[13:15:15] Taking screenshot: screenshots/0414_1780406115264309_auto.png
+[13:15:15] Uploading screenshot synchronously: screenshots/0414_1780406115264309_auto.png
