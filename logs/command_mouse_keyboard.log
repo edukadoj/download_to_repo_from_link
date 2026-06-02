@@ -414,3 +414,5 @@
 [09:25:33] Agent alive
 [09:25:34] Screenshot screenshots/0072_1780392331892241_auto.png uploaded successfully.
 [09:25:34] New autonomous report: AUT-12-1780392334 -> Available memory: 14363 MB
+[09:25:36] Taking screenshot: screenshots/0073_1780392336892379_auto.png
+[09:25:37] Uploading screenshot synchronously: screenshots/0073_1780392336892379_auto.png
