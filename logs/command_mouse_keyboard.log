@@ -55,3 +55,9 @@
 [01:21:51] Execution loop started (light, timeout=15s).
 [01:21:51] Heavy execution loop started (timeout=300s).
 [01:21:51] Sender loop started.
+[01:21:53] Fetcher detected new App Commands comment.
+[01:21:53] Sender using response comment: 4462185082
+[01:21:53] Taking screenshot: screenshots/0001_1780363313836013_auto.png
+[01:21:54] Uploading screenshot synchronously: screenshots/0001_1780363313836013_auto.png
+[01:21:54] _upload_via_contents_api: size mismatch for logs/command_mouse_keyboard.log
+[01:21:57] Screenshot screenshots/0001_1780363313836013_auto.png uploaded successfully.
