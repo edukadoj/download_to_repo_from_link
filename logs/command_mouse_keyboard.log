@@ -253,3 +253,8 @@
 [10:19:08] Executed APP-59679-20260602101647 -> OK click(0.9358,0.4540)
 [10:19:08] Uploading screenshot synchronously: screenshots/0017_1780395548124171_auto.png
 [10:19:09] Sender published response comment.
+[10:19:10]   ✅ Downloaded chunks/Clip 85.mp4.part0091 (1000000 bytes)
+[10:19:11] Screenshot screenshots/0017_1780395548124171_auto.png uploaded successfully.
+[10:19:13]   ✅ Downloaded chunks/Clip 85.mp4.part0092 (1000000 bytes)
+[10:19:14]   ✅ Downloaded chunks/Clip 85.mp4.part0093 (1000000 bytes)
+[10:19:14] Taking screenshot: screenshots/0018_1780395554276612_auto.png
