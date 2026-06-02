@@ -1753,3 +1753,6 @@
 [12:36:52] Agent alive
 [12:36:52] New autonomous report: AUT-26-1780403812 -> Available memory: 14651 MB
 [12:36:53] Taking screenshot: screenshots/0285_1780403813760455_auto.png
+[12:36:53] Uploading screenshot synchronously: screenshots/0285_1780403813760455_auto.png
+[12:36:55] _upload_via_contents_api: size mismatch for logs/command_mouse_keyboard.log
+[12:36:56] Sender published response comment.
