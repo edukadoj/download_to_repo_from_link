@@ -186,3 +186,5 @@
 [09:42:10] Skipping duplicate in‑progress command APP-59645-20260602093901
 [09:42:10] Acknowledged autonomous report AUT-7-1780393319
 [09:42:10] _upload_via_contents_api: size mismatch for logs/command_mouse_keyboard.log
+[09:42:13] Taking screenshot: screenshots/0017_1780393333696984_auto.png
+[09:42:14] Uploading screenshot synchronously: screenshots/0017_1780393333696984_auto.png
