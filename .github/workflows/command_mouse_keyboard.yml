@@ -1,7 +1,6 @@
 # ==============================================================================
-# command_mouse_keyboard.yml – version 37.0
-#   - Replaced old WARP proxy setup with VPN mode (mode warp) + fast check.
-#   - All traffic during the Agent step now goes through WARP VPN.
+# command_mouse_keyboard.yml – version 37.1
+#   - Added xsel to APT packages to fix "pyperclip not installed" error.
 # ==============================================================================
 name: Remote Mouse & Keyboard (Full Command Set + File I/O)
 
@@ -93,7 +92,7 @@ jobs:
           echo "[$(date +%H:%M:%S)] Quick warp status:"
           curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E "warp|ip|loc" || true
 
-      # ---------- APT packages (system + Chrome + ffmpeg) ----------
+      # ---------- APT packages (system + Chrome + ffmpeg + xclip + xsel) ----------
       - name: "Add Google Chrome key"
         run: |
           sudo rm -f /usr/share/keyrings/google-chrome.gpg
@@ -103,10 +102,10 @@ jobs:
             http://dl.google.com/linux/chrome/deb/ stable main" \
             | sudo tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
 
-      - name: "Install & cache APT packages (system + Chrome + ffmpeg)"
+      - name: "Install & cache APT packages (system + Chrome + ffmpeg + xclip + xsel)"
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: wget gnupg python3-pip ffmpeg xclip xvfb google-chrome-stable
+          packages: wget gnupg python3-pip ffmpeg xclip xsel xvfb google-chrome-stable
           version: 1.0
 
       # ---------- pip packages ----------
