@@ -336,3 +336,7 @@
 [01:26:38] Taking screenshot: screenshots/0054_1780363598765848_auto.png
 [01:26:39] Uploading screenshot synchronously: screenshots/0054_1780363598765848_auto.png
 [01:26:41] Screenshot screenshots/0054_1780363598765848_auto.png uploaded successfully.
+[01:26:43] Taking screenshot: screenshots/0055_1780363603765966_auto.png
+[01:26:44] Uploading screenshot synchronously: screenshots/0055_1780363603765966_auto.png
+[01:26:44] _upload_via_contents_api: size mismatch for logs/command_mouse_keyboard.log
+[01:26:47] Screenshot screenshots/0055_1780363603765966_auto.png uploaded successfully.
