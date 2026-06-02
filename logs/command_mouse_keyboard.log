@@ -301,3 +301,6 @@
 [02:11:35] gh api failed: Delete screenshots/0013_1780366168146681_auto.png (attempt 18/20): gh: Not Found (HTTP 404)
 [02:11:37] gh api failed: Delete screenshots/0013_1780366168146681_auto.png (attempt 19/20): gh: Not Found (HTTP 404)
 [02:11:38] gh api failed: Delete screenshots/0013_1780366168146681_auto.png (attempt 20/20): gh: Not Found (HTTP 404)
+[02:11:40] Screenshot screenshots/0020_1780366273479795_auto.png uploaded successfully.
+[02:11:40] Taking screenshot: screenshots/0021_1780366300143851_auto.png
+[02:11:40] Uploading screenshot synchronously: screenshots/0021_1780366300143851_auto.png
