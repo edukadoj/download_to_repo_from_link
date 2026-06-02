@@ -358,3 +358,7 @@
 [09:24:39] Heavy execution loop: processing APP-59629-20260602092224: upload
 [09:24:39] Enqueued for execution: APP-59629-20260602092224
 [09:24:40] gh api failed: Delete screenshots/0054_1780392223519682_auto.png (attempt 20/20): gh: Not Found (HTTP 404)
+[09:24:41] Screenshot screenshots/0061_1780392258520508_auto.png uploaded successfully.
+[09:24:41] Taking screenshot: screenshots/0062_1780392281891057_auto.png
+[09:24:42] Uploading screenshot synchronously: screenshots/0062_1780392281891057_auto.png
+[09:24:45] Screenshot screenshots/0062_1780392281891057_auto.png uploaded successfully.
