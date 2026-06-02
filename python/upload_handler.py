@@ -1,9 +1,9 @@
-# python/upload_handler.py (full content)
+# python/upload_handler.py (full updated content)
 #!/usr/bin/env python3
 # ==============================================================================
-# upload_handler.py – Version 2.2.3
-#   - Increased per‑chunk download timeout from 15s to 60s to avoid failures
-#     when the slow queue is temporarily busy (purge now runs outside queue).
+# upload_handler.py – Version 2.2.4
+#   - Increased listing callback wait to 300s and per‑chunk download to 120s.
+#   - Added log when listing is received.
 # ==============================================================================
 import os, re, shutil, tempfile, time, json, threading
 from urllib.request import urlopen, Request
@@ -71,20 +71,26 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
         return "ERR upload: RepoWrapper not available"
 
     # ── List remote chunks directory ──
+    if log_func:
+        log_func("📋 Requesting listing of remote 'chunks' directory...")
     event = threading.Event()
     listing_result = []
     def callback(lst):
         listing_result.extend(lst)
         event.set()
     rw.list_directory("chunks", callback)
-    if not event.wait(timeout=120):   # increased from 10 to 120 seconds
+    if not event.wait(timeout=300):   # increased to 300s for very large repos
         return "ERR upload: timed out listing chunks dir"
     all_entries = listing_result
+    if log_func:
+        log_func(f"📋 Received listing: {len(all_entries)} total entries in chunks/")
 
     # Filter to .part files
     part_entries = [(p, sha) for p, sha in all_entries if ".part" in os.path.basename(p)]
     if not part_entries:
         return "ERR upload: no .part files in chunks/"
+    if log_func:
+        log_func(f"📋 Found {len(part_entries)} .part files")
 
     # Group by base name (everything before .part####)
     groups = {}
@@ -97,6 +103,8 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
 
     if not groups:
         return "ERR upload: could not parse part filenames"
+    if log_func:
+        log_func(f"📋 Grouped into {len(groups)} file(s)")
 
     flat_temp = tempfile.mkdtemp(prefix="chunks_flat_")
     try:
@@ -109,7 +117,7 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
                     data_holder.append(data)
                     event.set()
                 rw.download_file(rel_path, download_callback)
-                if not event.wait(timeout=60):   # increased from 15 to 60 seconds
+                if not event.wait(timeout=120):   # increased to 120s per chunk
                     shutil.rmtree(flat_temp, ignore_errors=True)
                     return f"ERR upload: timeout downloading {rel_path}"
                 if not data_holder:
@@ -120,7 +128,7 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
                 with open(dest_path, "wb") as f:
                     f.write(data_holder[0])
                 if log_func:
-                    log_func(f"  Downloaded {rel_path} ({len(data_holder[0])} bytes)")
+                    log_func(f"  ✅ Downloaded {rel_path} ({len(data_holder[0])} bytes)")
 
         # ── Reassemble using flat method ──
         count = reassemble_flat(flat_temp, DOWNLOAD_DIR)
