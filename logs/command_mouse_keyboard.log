@@ -2703,3 +2703,7 @@
 [11:08:10] Execution loop: processing APP-59781-20260602110550: decode:YTbQLEHJBbVGAchHCgCkjluSqp9ilfjKBZh+O5vuJI0hWyZIS24=
 [11:08:10] Executed APP-59781-20260602110550 -> OK decode
 [11:08:10] Taking screenshot: screenshots/0198_1780398490886000_auto.png
+[11:08:11] Uploading screenshot synchronously: screenshots/0198_1780398490886000_auto.png
+[11:08:13] Sender published response comment.
+[11:08:14] Screenshot screenshots/0198_1780398490886000_auto.png uploaded successfully.
+[11:08:16] Taking screenshot: screenshots/0199_1780398496106761_auto.png
