@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# repo_wrapper.py – Version 2.3.1
-#   - Added upload_file_direct() for atomic per‑chunk uploads that re‑fetch
-#     the latest commit on every retry, avoiding fast‑forward rejections.
-#   - All other functionality unchanged.
+# repo_wrapper.py – Version 2.3.2
+#   - Increased timeout of the recursive tree API call in _list_directory_api
+#     from the default 30s to 120s to handle repositories with many files
+#     (e.g. 1100+ chunks).
 # ==============================================================================
 
 import os, time, base64, json, hashlib, threading, queue as queue_module, subprocess, tempfile, shutil, re
@@ -271,7 +271,7 @@ class RepoWrapper:
                     return False
         return False
 
-    # ── gh api helper (unchanged) ─────────────────────────────────
+    # ── gh api helper (unchanged except timeout usage) ─────────────────
     def _gh_api(self, *args: str, input_data: Optional[bytes] = None,
                 env_extra: Optional[Dict[str, str]] = None,
                 timeout: int = 30,
@@ -493,7 +493,10 @@ class RepoWrapper:
             return []
 
         try:
-            tree_resp = self._gh_api(f"repos/{self.repo}/git/trees/{tree_sha}?recursive=1", description="List tree")
+            # Increased timeout from default 30s to 120s to handle large repos
+            tree_resp = self._gh_api(f"repos/{self.repo}/git/trees/{tree_sha}?recursive=1",
+                                     timeout=120,
+                                     description="List tree")
             tree_data = json.loads(tree_resp)
             entries = []
             for item in tree_data.get("tree", []):
