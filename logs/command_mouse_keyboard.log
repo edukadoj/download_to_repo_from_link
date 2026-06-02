@@ -7597,3 +7597,6 @@
 [14:12:58] Sender published response comment.
 [14:12:58] gh api failed: Create blob for logs/command_mouse_keyboard.log (attempt 1/20): gh: Server Error (HTTP 502)
 [14:13:03] Sender published response comment.
+[14:13:06] Taking screenshot: screenshots/0617_1780409586436310_auto.png
+[14:13:06] Uploading screenshot synchronously: screenshots/0617_1780409586436310_auto.png
+[14:13:08] Sender published response comment.
