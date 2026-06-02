@@ -1,9 +1,9 @@
+# python/screenshot_manager.py (full content)
 #!/usr/bin/env python3
 # ==============================================================================
-# screenshot_manager.py – Version 1.6.3
-#   - Health check now uses driver.execute_script("return true") instead of
-#     driver.title, so it never blocks on slow‑loading pages (e.g. MediaFire).
-#   - All other functionality unchanged.
+# screenshot_manager.py – Version 1.6.4
+#   - Purge old screenshots now called directly after upload instead of
+#     queuing into the slow worker, avoiding blockage of download/upload tasks.
 # ==============================================================================
 
 import os, time, threading, traceback, base64, hashlib
@@ -151,8 +151,8 @@ class ScreenshotWorker:
             ok = self._rw.upload_screenshot_sync(filename)
             if ok:
                 self._log(f"Screenshot {filename} uploaded successfully.")
-                # Request purge (runs through slow queue, no blocking)
-                self._rw.request_screenshot_purge()
+                # Purge old screenshots directly (no slow queue)
+                self._rw.purge_old_screenshots_now()
             else:
                 self._log(f"Screenshot push failed for {filename}.")
             return filename
