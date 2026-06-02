@@ -404,3 +404,7 @@
 [09:25:21] Taking screenshot: screenshots/0070_1780392321892042_auto.png
 [09:25:22] Uploading screenshot synchronously: screenshots/0070_1780392321892042_auto.png
 [09:25:24] Screenshot screenshots/0070_1780392321892042_auto.png uploaded successfully.
+[09:25:26] Taking screenshot: screenshots/0071_1780392326892124_auto.png
+[09:25:27] Uploading screenshot synchronously: screenshots/0071_1780392326892124_auto.png
+[09:25:28] Executed APP-59629-20260602092224 -> ERR upload: timeout downloading chunks/Clip 85.mp4.part0000
+[09:25:28] Screenshot screenshots/0071_1780392326892124_auto.png uploaded successfully.
