@@ -1266,3 +1266,10 @@
 [02:27:25] Screenshot screenshots/0158_1780367243383787_auto.png uploaded successfully.
 [02:27:28] Taking screenshot: screenshots/0159_1780367248383902_auto.png
 [02:27:28] Uploading screenshot synchronously: screenshots/0159_1780367248383902_auto.png
+[02:27:31] Screenshot screenshots/0159_1780367248383902_auto.png uploaded successfully.
+[02:27:32] Command APP-59518-20260602022015 timed out.
+[02:27:32] Executed APP-59518-20260602022015 -> ERR timeout: command exceeded 300 seconds
+[02:27:32] Heavy execution loop: processing APP-59524-20260602022301: upload
+[02:27:32] upload_file_now timed out
+[02:27:33] Taking screenshot: screenshots/0160_1780367253384014_auto.png
+[02:27:33] Uploading screenshot synchronously: screenshots/0160_1780367253384014_auto.png
