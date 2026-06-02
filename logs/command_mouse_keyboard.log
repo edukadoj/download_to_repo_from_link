@@ -848,3 +848,6 @@
 [01:33:57] Skipping duplicate in‑progress command APP-59451-20260602013134
 [01:33:57] Acknowledged autonomous report AUT-19-1780364023
 [01:33:57] Screenshot screenshots/0125_1780364035842932_auto.png uploaded successfully.
+[01:34:00] Taking screenshot: screenshots/0126_1780364040843130_auto.png
+[01:34:01] Uploading screenshot synchronously: screenshots/0126_1780364040843130_auto.png
+[01:34:02] Screenshot screenshots/0126_1780364040843130_auto.png uploaded successfully.
