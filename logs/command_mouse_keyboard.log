@@ -1268,3 +1268,4 @@
 [01:41:39] Execution loop: processing APP-59469-20260602013921: dir
 [01:41:39] Executed APP-59469-20260602013921 -> Files: (empty)
 [01:41:40] Taking screenshot: screenshots/0214_1780364500575071_auto.png
+[01:41:41] Uploading screenshot synchronously: screenshots/0214_1780364500575071_auto.png
