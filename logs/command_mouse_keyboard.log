@@ -1281,3 +1281,5 @@
 [02:27:42] Executed APP-59524-20260602022301 -> ERR upload: timed out listing chunks dir
 [02:27:43] Taking screenshot: screenshots/0162_1780367263384229_auto.png
 [02:27:43] Uploading screenshot synchronously: screenshots/0162_1780367263384229_auto.png
+[02:27:45] Screenshot screenshots/0162_1780367263384229_auto.png uploaded successfully.
+[02:27:46] Sender published response comment.
