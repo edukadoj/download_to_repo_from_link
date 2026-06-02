@@ -162,3 +162,6 @@
 [09:20:59] Executed APP-59622-20260602091843 -> Files: (empty)
 [09:21:00] Screenshot screenshots/0021_1780392058515566_auto.png uploaded successfully.
 [09:21:03] Taking screenshot: screenshots/0022_1780392063515682_auto.png
+[09:21:03] Uploading screenshot synchronously: screenshots/0022_1780392063515682_auto.png
+[09:21:03] Agent alive
+[09:21:04] Sender published response comment.
