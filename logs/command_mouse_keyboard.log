@@ -77,16 +77,47 @@
 [10:48:43] Screenshot screenshots/0003_1780397318915598_auto.png uploaded successfully.
 [10:48:43] Taking screenshot: screenshots/0004_1780397323915696_auto.png
 [10:48:44] Uploading screenshot synchronously: screenshots/0004_1780397323915696_auto.png
-[10:48:45] Sender published response comment.
-[10:48:47] Screenshot screenshots/0004_1780397323915696_auto.png uploaded successfully.
-[10:48:48] Taking screenshot: screenshots/0005_1780397328915801_auto.png
-[10:48:49] Uploading screenshot synchronously: screenshots/0005_1780397328915801_auto.png
-[10:48:51] Sender published response comment.
-[10:48:52] Screenshot screenshots/0005_1780397328915801_auto.png uploaded successfully.
-[10:48:53] Taking screenshot: screenshots/0006_1780397333944434_auto.png
-[10:48:54] Uploading screenshot synchronously: screenshots/0006_1780397333944434_auto.png
-[10:48:56] Sender published response comment.
-[10:48:56] Screenshot screenshots/0006_1780397333944434_auto.png uploaded successfully.
-[10:49:00] Taking screenshot: screenshots/0007_1780397340168829_auto.png
-[10:49:00] Uploading screenshot synchronously: screenshots/0007_1780397340168829_auto.png
-[10:49:02] Sender published response comment.
+============================================================
+  Remote Control v39.39.13 started at 2026-06-02 10:49:42 UTC
+============================================================
+[10:49:42] Downloading latest profile cache from repo...
+[10:49:43] Newest cache folder: 20260522_215147
+[10:49:44]   Downloaded profile.dat.part0000 (20000000 bytes)
+[10:49:45]   Downloaded profile.dat.part0001 (20000000 bytes)
+[10:49:46]   Downloaded profile.dat.part0002 (5826744 bytes)
+[10:49:46] Profile cache download finished – 3 files.
+[10:49:49] Virtual display started.
+[10:49:52] Stealth JS injected.
+[10:49:52] CDP download behavior set to allow (silent).
+[10:49:52] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[10:49:52] Browser launched.
+[10:49:52] CDP tab monitor started (raw HTTP polling).
+[10:49:52] Download folder watcher started.
+[10:49:52] STEP 1: Loading start URL...
+[10:49:52] New autonomous report: AUT-1-1780397392 -> Files: (empty)
+[10:49:55] STEP 2: Start URL loaded – sleeping 5s
+[10:50:00] Detecting actual viewport size...
+[10:50:00] Probing clickable bounds...
+[10:50:00] Rough guess: 1918x991
+[10:50:00] Cursor moved to (1913, 1)
+[10:50:01] Cursor moved to (1914, 1)
+[10:50:01] Cursor moved to (1915, 1)
+[10:50:01] Cursor moved to (1916, 1)
+[10:50:02] Cursor moved to (1917, 1)
+[10:50:02] Cursor moved to (1917, 1)
+[10:50:02] Max clickable X (incrementing) = 1917
+[10:50:02] Cursor moved to (1, 986)
+[10:50:02] Cursor moved to (1, 987)
+[10:50:03] Cursor moved to (1, 988)
+[10:50:03] Cursor moved to (1, 989)
+[10:50:03] Cursor moved to (1, 990)
+[10:50:04] Cursor moved to (1, 990)
+[10:50:04] Max clickable Y (incrementing) = 990
+[10:50:04] Final clickable bounds: 1917x990
+[10:50:04] New autonomous report: AUT-2-1780397404 -> viewsize:1917x990
+[10:50:04] Cursor moved to (958, 495)
+[10:50:04] Clickable dimensions set to 1917x990
+[10:50:05] Cursor moved to (958, 495)
+[10:50:05] STEP 3: Scrolling to top
+[10:50:05] STEP 4: Taking first screenshot
+[10:50:05] STEP 5: First screenshot saved – pushing logs
