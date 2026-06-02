@@ -1,10 +1,9 @@
+# python/command_handlers.py (full updated content)
 #!/usr/bin/env python3
 # ==============================================================================
-# command_handlers.py – Version 1.23.5
-#   - tabs: non‑blocking title fetch via execute_script (no timeouts)
-#   - download: per‑chunk upload using RepoWrapper.upload_file_direct
-#     with "Chunk X/Y uploaded" reports after each successful upload.
-#   - All other functionality unchanged.
+# command_handlers.py – Version 1.23.6
+#   - Fixed log_func retrieval for upload/download commands to use safe_log.
+#   - Added immediate "Upload started" log line.
 # ==============================================================================
 import os, time, subprocess, glob, shutil, re, tempfile, random
 from uploader import reassemble
@@ -13,6 +12,17 @@ from upload_injector import upload_to_youtube
 import agent_state
 
 _CHUNKER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chunker.py")
+
+# ── Helper to get a logging function from the main module ──
+def _get_log_func():
+    try:
+        import sys
+        main_mod = sys.modules.get("__main__")
+        if main_mod and hasattr(main_mod, "safe_log"):
+            return main_mod.safe_log
+    except Exception:
+        pass
+    return None
 
 def _ensure_selection(_file_registry, _upload_file_paths):
     if not _upload_file_paths and _file_registry:
@@ -316,9 +326,9 @@ def execute_one_command(
             refresh_file_registry()
             result = f"OK deleteselected({count} files deleted)"
     elif cmd == "upload":
-        log_func = None
-        try: log_func = __import__("sys").modules["__main__"].log
-        except Exception: pass
+        log_func = _get_log_func()
+        if log_func:
+            log_func("Upload started")
         result = perform_upload(
             DOWNLOAD_DIR, LOG_FILENAME,
             refresh_file_registry, add_autonomous_report,
@@ -339,9 +349,7 @@ def execute_one_command(
         paths = get_upload_paths()
         if not paths: result = "ERR uploadtoyoutube: no file selected"
         else:
-            log_func = None
-            try: log_func = __import__("sys").modules["__main__"].log
-            except Exception: pass
+            log_func = _get_log_func()
             if upload_to_youtube(driver, paths[0], log_func): result = "OK uploadtoyoutube (injected)"
             else: result = "ERR uploadtoyoutube: injection failed"
     elif cmd == "paste":
