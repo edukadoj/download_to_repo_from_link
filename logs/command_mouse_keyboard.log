@@ -1952,3 +1952,6 @@
 [11:00:21] Screenshot screenshots/0119_1780398017729848_auto.png uploaded successfully.
 [11:00:22] Agent alive
 [11:00:22] New autonomous report: AUT-36-1780398022 -> Available memory: 14282 MB
+[11:00:22]   ✅ Downloaded chunks/Clip 85.mp4.part0906 (1000000 bytes)
+[11:00:23] Taking screenshot: screenshots/0120_1780398023661483_auto.png
+[11:00:24] Uploading screenshot synchronously: screenshots/0120_1780398023661483_auto.png
