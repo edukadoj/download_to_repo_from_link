@@ -1,9 +1,10 @@
+# python/repo_wrapper.py (full content)
 #!/usr/bin/env python3
 # ==============================================================================
-# repo_wrapper.py – Version 2.3.2
-#   - Increased timeout of the recursive tree API call in _list_directory_api
-#     from the default 30s to 120s to handle repositories with many files
-#     (e.g. 1100+ chunks).
+# repo_wrapper.py – Version 2.3.3
+#   - Treat HTTP 404 on delete as success (file already gone) – no retry.
+#   - Added public purge_old_screenshots_now() so the screenshot worker
+#     can call it directly, avoiding the slow queue.
 # ==============================================================================
 
 import os, time, base64, json, hashlib, threading, queue as queue_module, subprocess, tempfile, shutil, re
@@ -135,6 +136,10 @@ class RepoWrapper:
     def request_screenshot_purge(self) -> None:
         self._slow_queue.put(("purge_old_screenshots", (), None))
 
+    def purge_old_screenshots_now(self) -> None:
+        """Direct call from screenshot worker – does not use slow queue."""
+        self._purge_old_screenshots()
+
     def push_log_file(self) -> None:
         self._slow_queue.put(("push_log_file", (), None))
 
@@ -239,39 +244,33 @@ class RepoWrapper:
 
             return False
 
-    # ── Deletion via GitHub Contents API (unchanged) ──────────────
+    # ── Deletion via GitHub Contents API ─────────────────────────
     def _delete_file_via_contents_api(self, rel_path: str, sha: str) -> bool:
         with self._write_lock:
-            for attempt in range(1, 4):
-                try:
-                    encoded_path = "/".join(Uri.EscapeDataString(seg) for seg in rel_path.split("/"))
-                    url = f"repos/{self.repo}/contents/{encoded_path}"
-                    body = json.dumps({
-                        "message": f"sync: delete {rel_path}",
-                        "sha": sha,
-                        "branch": self._branch
-                    }).encode("utf-8")
-                    args = [url, "--method", "DELETE", "--input", "-"]
-                    self._gh_api(*args, input_data=body,
-                                 description=f"Delete {rel_path}")
+            # Single attempt – if the file is already gone (404) that's a success.
+            try:
+                encoded_path = "/".join(Uri.EscapeDataString(seg) for seg in rel_path.split("/"))
+                url = f"repos/{self.repo}/contents/{encoded_path}"
+                body = json.dumps({
+                    "message": f"sync: delete {rel_path}",
+                    "sha": sha,
+                    "branch": self._branch
+                }).encode("utf-8")
+                args = [url, "--method", "DELETE", "--input", "-"]
+                self._gh_api(*args, input_data=body,
+                             description=f"Delete {rel_path}",
+                             max_retries=1)   # no retry for delete
+                return True
+            except subprocess.CalledProcessError as e:
+                err = e.stderr or e.output or ""
+                if "404" in err or "Not Found" in err:
+                    # Already deleted – success
                     return True
-                except subprocess.CalledProcessError as e:
-                    err = e.stderr or e.output or ""
-                    if "404" in err or "Not Found" in err:
-                        return True
-                    if "409" in err or "conflict" in err.lower():
-                        if attempt < 3:
-                            time.sleep(1)
-                            new_sha = self._get_file_sha(rel_path)
-                            if new_sha is not None:
-                                sha = new_sha
-                            continue
-                    if self.error_log:
-                        self.error_log(f"_delete_file_via_contents_api FAILED ({rel_path}): {err}")
-                    return False
-        return False
+                if self.error_log:
+                    self.error_log(f"_delete_file_via_contents_api FAILED ({rel_path}): {err}")
+                return False
 
-    # ── gh api helper (unchanged except timeout usage) ─────────────────
+    # ── gh api helper ────────────────────────────────────────────
     def _gh_api(self, *args: str, input_data: Optional[bytes] = None,
                 env_extra: Optional[Dict[str, str]] = None,
                 timeout: int = 30,
