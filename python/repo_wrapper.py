@@ -1,10 +1,8 @@
-# python/repo_wrapper.py (full content)
+# python/repo_wrapper.py (full updated content)
 #!/usr/bin/env python3
 # ==============================================================================
-# repo_wrapper.py – Version 2.3.3
-#   - Treat HTTP 404 on delete as success (file already gone) – no retry.
-#   - Added public purge_old_screenshots_now() so the screenshot worker
-#     can call it directly, avoiding the slow queue.
+# repo_wrapper.py – Version 2.3.4
+#   - Slow worker now always invokes callbacks on error to prevent hang.
 # ==============================================================================
 
 import os, time, base64, json, hashlib, threading, queue as queue_module, subprocess, tempfile, shutil, re
@@ -507,7 +505,7 @@ class RepoWrapper:
                 self.error_log(f"_list_directory_api: failed to list tree: {e}")
             return []
 
-    # ── Slow worker serialiser ───────────────────────────────────
+    # ── Slow worker serialiser (NOW ALWAYS INVOKES CALLBACKS ON ERROR) ──
     def _slow_worker_loop(self) -> None:
         while not self._slow_stop.is_set():
             try:
@@ -561,15 +559,23 @@ class RepoWrapper:
                 err_msg = f"RepoWrapper slow error ({action}): {e}"
                 if self.error_log:
                     self.error_log(err_msg)
+                # Always invoke callback with failure value to prevent hang
+                if callback:
+                    try:
+                        if action == "upload_file":
+                            callback(False)
+                        elif action == "download_file":
+                            callback(b"")
+                        elif action == "list_directory":
+                            callback([])
+                        elif action in ("delete_file", "delete_file_by_name"):
+                            callback(False)
+                    except Exception:
+                        pass
                 try:
                     self._do_push_log_file()
                 except Exception:
                     pass
-                if callback:
-                    try:
-                        callback(False if action in ("upload_file",) else None)
-                    except Exception:
-                        pass
 
     def _do_push_log_file(self):
         if not os.path.exists(self.log_filename):
