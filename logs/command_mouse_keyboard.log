@@ -2784,3 +2784,4 @@
 [11:09:20] Execution loop: processing APP-59788-20260602110705: scroll:-120
 [11:09:20] Executed APP-59788-20260602110705 -> OK scroll(down,120) [element]
 [11:09:20] Taking screenshot: screenshots/0210_1780398560518516_auto.png
+[11:09:21] Uploading screenshot synchronously: screenshots/0210_1780398560518516_auto.png
