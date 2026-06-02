@@ -2584,3 +2584,7 @@
 [11:06:31] Cursor moved to (1748, 73)
 [11:06:32] Executed APP-59772-20260602110416 -> OK click(0.9123,0.0738)
 [11:06:33] Taking screenshot: screenshots/0182_1780398393044658_auto.png
+[11:06:33] Uploading screenshot synchronously: screenshots/0182_1780398393044658_auto.png
+[11:06:34] Sender published response comment.
+[11:06:37] Screenshot screenshots/0182_1780398393044658_auto.png uploaded successfully.
+[11:06:38] Taking screenshot: screenshots/0183_1780398398475296_auto.png
