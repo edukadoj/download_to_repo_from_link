@@ -108,3 +108,17 @@
 [10:18:09] Upload started
 [10:18:09] 📋 Requesting listing of remote 'chunks' directory...
 [10:18:10] Screenshot screenshots/0005_1780395487763174_auto.png uploaded successfully.
+[10:18:12] 📋 Received listing: 1102 total entries in chunks/
+[10:18:12] 📋 Found 1101 .part files
+[10:18:12] 📋 Grouped into 2 file(s)
+[10:18:12] Taking screenshot: screenshots/0006_1780395492763285_auto.png
+[10:18:13] Uploading screenshot synchronously: screenshots/0006_1780395492763285_auto.png
+[10:18:14]   ✅ Downloaded chunks/Clip 85.mp4.part0000 (1000000 bytes)
+[10:18:14]   ✅ Downloaded chunks/Clip 85.mp4.part0001 (1000000 bytes)
+[10:18:15]   ✅ Downloaded chunks/Clip 85.mp4.part0002 (1000000 bytes)
+[10:18:15] Screenshot screenshots/0006_1780395492763285_auto.png uploaded successfully.
+[10:18:15]   ✅ Downloaded chunks/Clip 85.mp4.part0003 (1000000 bytes)
+[10:18:15]   ✅ Downloaded chunks/Clip 85.mp4.part0004 (1000000 bytes)
+[10:18:16]   ✅ Downloaded chunks/Clip 85.mp4.part0005 (1000000 bytes)
+[10:18:16]   ✅ Downloaded chunks/Clip 85.mp4.part0006 (1000000 bytes)
+[10:18:16]   ✅ Downloaded chunks/Clip 85.mp4.part0007 (1000000 bytes)
