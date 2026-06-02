@@ -1,8 +1,9 @@
+# python/upload_handler.py (full content)
 #!/usr/bin/env python3
 # ==============================================================================
-# upload_handler.py – Version 2.2.2
-#   - Increased chunks-directory listing timeout from 10s to 120s to handle
-#     repositories with many chunk files.
+# upload_handler.py – Version 2.2.3
+#   - Increased per‑chunk download timeout from 15s to 60s to avoid failures
+#     when the slow queue is temporarily busy (purge now runs outside queue).
 # ==============================================================================
 import os, re, shutil, tempfile, time, json, threading
 from urllib.request import urlopen, Request
@@ -108,7 +109,7 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
                     data_holder.append(data)
                     event.set()
                 rw.download_file(rel_path, download_callback)
-                if not event.wait(timeout=15):
+                if not event.wait(timeout=60):   # increased from 15 to 60 seconds
                     shutil.rmtree(flat_temp, ignore_errors=True)
                     return f"ERR upload: timeout downloading {rel_path}"
                 if not data_holder:
