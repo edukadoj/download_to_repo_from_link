@@ -1382,3 +1382,8 @@
 [10:57:22]   ✅ Downloaded chunks/Clip 85.mp4.part0584 (1000000 bytes)
 [10:57:22] Uploading screenshot synchronously: screenshots/0086_1780397842257781_auto.png
 [10:57:24] _upload_via_contents_api: size mismatch for logs/command_mouse_keyboard.log
+[10:57:27] Screenshot screenshots/0086_1780397842257781_auto.png uploaded successfully.
+[10:57:29]   ✅ Downloaded chunks/Clip 85.mp4.part0585 (1000000 bytes)
+[10:57:29]   ✅ Downloaded chunks/Clip 85.mp4.part0586 (1000000 bytes)
+[10:57:29]   ✅ Downloaded chunks/Clip 85.mp4.part0587 (1000000 bytes)
+[10:57:30] Taking screenshot: screenshots/0087_1780397850013996_auto.png
