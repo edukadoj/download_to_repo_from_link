@@ -55,3 +55,8 @@
 [02:08:04] Heavy execution loop started (timeout=300s).
 [02:08:04] Fetcher loop started.
 [02:08:04] Sender loop started.
+[02:08:06] Fetcher detected new App Commands comment.
+[02:08:06] Taking screenshot: screenshots/0001_1780366086570553_auto.png
+[02:08:06] Sender using response comment: 4462185082
+[02:08:07] Uploading screenshot synchronously: screenshots/0001_1780366086570553_auto.png
+[02:08:10] Screenshot screenshots/0001_1780366086570553_auto.png uploaded successfully.
