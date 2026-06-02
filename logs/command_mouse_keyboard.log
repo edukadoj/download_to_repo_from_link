@@ -1120,3 +1120,5 @@
 [01:38:51] Executed APP-59451-20260602013134 -> ERR timeout: command exceeded 300 seconds
 [01:38:52] Screenshot screenshots/0184_1780364330850948_auto.png uploaded successfully.
 [01:38:53] Sender published response comment.
+[01:38:55] Taking screenshot: screenshots/0185_1780364335851063_auto.png
+[01:38:56] Uploading screenshot synchronously: screenshots/0185_1780364335851063_auto.png
