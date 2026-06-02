@@ -1,0 +1,44 @@
+============================================================
+  Remote Control v39.39.13 started at 2026-06-02 09:39:49 UTC
+============================================================
+[09:39:49] Downloading latest profile cache from repo...
+[09:39:50] Newest cache folder: 20260522_215147
+[09:39:51]   Downloaded profile.dat.part0000 (20000000 bytes)
+[09:39:53]   Downloaded profile.dat.part0001 (20000000 bytes)
+[09:39:54]   Downloaded profile.dat.part0002 (5826744 bytes)
+[09:39:54] Profile cache download finished – 3 files.
+[09:39:59] Virtual display started.
+[09:40:04] Stealth JS injected.
+[09:40:04] CDP download behavior set to allow (silent).
+[09:40:04] CDP unavailable (cannot import name 'devtools' from 'selenium.webdriver.common.devtools' (unknown location)) – using send_keys fallback.
+[09:40:04] Browser launched.
+[09:40:04] CDP tab monitor started (raw HTTP polling).
+[09:40:04] Download folder watcher started.
+[09:40:04] New autonomous report: AUT-1-1780393204 -> Files: (empty)
+[09:40:04] STEP 1: Loading start URL...
+[09:40:07] STEP 2: Start URL loaded – sleeping 5s
+[09:40:12] Detecting actual viewport size...
+[09:40:12] Probing clickable bounds...
+[09:40:12] Rough guess: 1918x991
+[09:40:13] Cursor moved to (1913, 1)
+[09:40:13] Cursor moved to (1914, 1)
+[09:40:13] Cursor moved to (1915, 1)
+[09:40:13] Cursor moved to (1916, 1)
+[09:40:14] Cursor moved to (1917, 1)
+[09:40:14] Cursor moved to (1917, 1)
+[09:40:14] Max clickable X (incrementing) = 1917
+[09:40:14] Cursor moved to (1, 986)
+[09:40:14] Cursor moved to (1, 987)
+[09:40:15] Cursor moved to (1, 988)
+[09:40:15] Cursor moved to (1, 989)
+[09:40:15] Cursor moved to (1, 990)
+[09:40:16] Cursor moved to (1, 990)
+[09:40:16] Max clickable Y (incrementing) = 990
+[09:40:16] Final clickable bounds: 1917x990
+[09:40:16] New autonomous report: AUT-2-1780393216 -> viewsize:1917x990
+[09:40:16] Cursor moved to (958, 495)
+[09:40:16] Clickable dimensions set to 1917x990
+[09:40:16] Cursor moved to (958, 495)
+[09:40:16] STEP 3: Scrolling to top
+[09:40:16] STEP 4: Taking first screenshot
+[09:40:16] STEP 5: First screenshot saved – pushing logs
