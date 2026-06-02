@@ -2320,3 +2320,19 @@
 [11:03:04]   ✅ Downloaded chunks/اثری ازم مونده باشه.mp4.part0027 (1000000 bytes)
 [11:03:05]   ✅ Downloaded chunks/اثری ازم مونده باشه.mp4.part0028 (1000000 bytes)
 [11:03:05] Taking screenshot: screenshots/0146_1780398185538120_auto.png
+[11:03:05]   ✅ Downloaded chunks/اثری ازم مونده باشه.mp4.part0029 (1000000 bytes)
+[11:03:06] Uploading screenshot synchronously: screenshots/0146_1780398185538120_auto.png
+[11:03:07]   ✅ Downloaded chunks/اثری ازم مونده باشه.mp4.part0030 (1000000 bytes)
+[11:03:08]   ✅ Downloaded chunks/اثری ازم مونده باشه.mp4.part0031 (1000000 bytes)
+[11:03:08]   ✅ Downloaded chunks/اثری ازم مونده باشه.mp4.part0032 (1000000 bytes)
+[11:03:08]   ✅ Downloaded chunks/اثری ازم مونده باشه.mp4.part0033 (10901 bytes)
+[11:03:08] New autonomous report: AUT-43-1780398188 -> Chunk 34/34 of اثری ازم مونده باشه.mp4 downloaded
+[11:03:08] New autonomous report: AUT-44-1780398188 -> New file: اثری ازم مونده باشه.mp4
+[11:03:08] New autonomous report: AUT-45-1780398188 -> New file: Clip 85.mp4
+[11:03:08] New autonomous report: AUT-46-1780398188 -> selectfiles(1,2)
+[11:03:08] New autonomous report: AUT-47-1780398188 -> Files: 1: Clip 85.mp4 (1016.8 MB) | 2: اثری ازم مونده باشه.mp4 (31.5 MB)
+[11:03:08] File registry after refresh: {1: 'Clip 85.mp4', 2: 'اثری ازم مونده باشه.mp4'}
+[11:03:09] Executed APP-59706-20260602104914 -> OK upload(2 files) (ready – use 'uploadtoyoutube')
+[11:03:09] Screenshot screenshots/0146_1780398185538120_auto.png uploaded successfully.
+[11:03:10] Sender published response comment.
+[11:03:11] Taking screenshot: screenshots/0147_1780398191477213_auto.png
