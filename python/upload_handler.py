@@ -1,8 +1,7 @@
-# python/upload_handler.py (full updated content)
 #!/usr/bin/env python3
 # ==============================================================================
-# upload_handler.py – Version 2.2.5
-#   - Added chunk progress autonomous reports every 50 chunks.
+# upload_handler.py – Version 2.2.6
+#   - Progress reports now sent for every downloaded chunk.
 # ==============================================================================
 import os, re, shutil, tempfile, time, json, threading
 from urllib.request import urlopen, Request
@@ -78,7 +77,7 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
         listing_result.extend(lst)
         event.set()
     rw.list_directory("chunks", callback)
-    if not event.wait(timeout=300):   # increased to 300s for very large repos
+    if not event.wait(timeout=300):
         return "ERR upload: timed out listing chunks dir"
     all_entries = listing_result
     if log_func:
@@ -117,7 +116,7 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
                     data_holder.append(data)
                     event.set()
                 rw.download_file(rel_path, download_callback)
-                if not event.wait(timeout=120):   # increased to 120s per chunk
+                if not event.wait(timeout=120):
                     shutil.rmtree(flat_temp, ignore_errors=True)
                     return f"ERR upload: timeout downloading {rel_path}"
                 if not data_holder:
@@ -130,10 +129,9 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
                 if log_func:
                     log_func(f"  ✅ Downloaded {rel_path} ({len(data_holder[0])} bytes)")
 
-                # ── Progress report every 50 chunks ──
-                if idx % 50 == 0 or idx == total_chunks:
-                    add_autonomous_report("upload-progress",
-                                          f"Chunk {idx}/{total_chunks} of {base} downloaded")
+                # ── Send autonomous progress report for every chunk ──
+                add_autonomous_report("upload-progress",
+                                      f"Chunk {idx}/{total_chunks} of {base} downloaded")
 
         # ── Reassemble using flat method ──
         count = reassemble_flat(flat_temp, DOWNLOAD_DIR)
