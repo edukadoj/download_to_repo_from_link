@@ -4765,3 +4765,7 @@
 [11:39:28] Taking screenshot: screenshots/0538_1780400368298687_auto.png
 [11:39:28] Uploading screenshot synchronously: screenshots/0538_1780400368298687_auto.png
 [11:39:29] Sender published response comment.
+[11:39:31] gh api failed: Upload screenshots/0538_1780400368298687_auto.png (436200 bytes) (attempt 1/20): gh: is at a0b3247e1a1adc79b651586a1b70a8fc121a4edc but expected 7488ed9ddc929e9762195d7798594e62e40f1227 (HTTP 409)
+[11:39:34] Screenshot screenshots/0538_1780400368298687_auto.png uploaded successfully.
+[11:39:35] Sender published response comment.
+[11:39:37] Taking screenshot: screenshots/0539_1780400377172813_auto.png
