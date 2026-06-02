@@ -2798,3 +2798,5 @@
 [11:09:25] Enqueued for execution: APP-59789-20260602110708
 [11:09:25] Execution loop: processing APP-59789-20260602110708: scroll:-120
 [11:09:25] Executed APP-59789-20260602110708 -> OK scroll(down,120) [element]
+[11:09:27] Taking screenshot: screenshots/0211_1780398567371512_auto.png
+[11:09:27] Uploading screenshot synchronously: screenshots/0211_1780398567371512_auto.png
