@@ -41,3 +41,17 @@
 [10:48:25] Cursor moved to (958, 495)
 [10:48:25] STEP 3: Scrolling to top
 [10:48:25] STEP 4: Taking first screenshot
+[10:48:25] STEP 5: First screenshot saved – pushing logs
+[10:48:25] STEP 6: refresh_known_handles()
+[10:48:25] New autonomous report: AUT-3-1780397305 -> New tab/window handle: 3BE07260F1B7700FB7D220F1461DA1DB
+[10:48:25] New autonomous report: AUT-4-1780397305 -> Tabs: active=1 | 1: Channel dashboard - YouTube Studio
+[10:48:25] STEP 7: Set last known URL
+[10:48:25] STEP 8: Start URL monitor
+[10:48:25] STEP 9: URL monitor started
+[10:48:25] Blanking old App Commands comment...
+[10:48:25] Emptying old response comment 4462185082...
+[10:48:25] Screenshot worker started.
+[10:48:25] Fetcher loop started.
+[10:48:25] Execution loop started (light, timeout=15s).
+[10:48:25] Heavy execution loop started (timeout=3600s).
+[10:48:25] Sender loop started.
