@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# agent_loops.py – Version 1.0.12
-#   - Increased heavy executor timeout from 300 s to 3600 s (1 hour) to handle
-#     large uploads (e.g. 1100+ chunks reassembly) without being killed prematurely.
+# agent_loops.py – Version 1.0.14
+#   - Heavy executor immediately sends a "started" command response so
+#     the client knows the command was accepted and stops re‑sending.
 # ==============================================================================
 
 import time, re, hashlib, json, threading, traceback, queue as queue_module
@@ -217,7 +217,7 @@ def executor_loop(
     get_upload_paths, save_profile_func, _file_registry, _upload_file_paths,
     pyperclip, encrypt_string, sync_repo, COMM_INTERVAL, slow_mode,
     report_history, _report_history_lock, save_report_history, add_to_report_queue,
-    rw=None   # RepoWrapper instance (required for download/downselected)
+    rw=None
 ):
     safe_log("Execution loop started (light, timeout=15s).")
     executor_pool = ThreadPoolExecutor(max_workers=1)
@@ -285,7 +285,6 @@ def executor_loop(
             result = f"ERR unexpected: {ex}"
             safe_log(f"Command {cid} crashed: {ex}")
         finally:
-            # Ensure the in‑progress flag is always removed
             with _in_progress_lock:
                 _in_progress_ids.discard(cid)
 
@@ -339,7 +338,7 @@ def heavy_executor_loop(
     report_history, _report_history_lock, save_report_history, add_to_report_queue,
     CACHE_DIR, PROFILE_DIR, ENCRYPTION_KEY_PROFILE, PAT, CHUNK_SIZE_MB,
     save_lock, upload_lock,
-    rw   # RepoWrapper instance
+    rw
 ):
     safe_log("Heavy execution loop started (timeout=3600s).")
     executor_pool = ThreadPoolExecutor(max_workers=1)
@@ -352,7 +351,23 @@ def heavy_executor_loop(
         safe_log(f"Heavy execution loop: processing {cid}: {ctext}")
 
         cmd_type, _ = parse_single_command(ctext)
-        timeout = 3600   # increased from 300s to 3600s for large uploads
+        timeout = 3600
+
+        # Extract sequence number for the immediate response
+        seq_num = 0
+        if cid.startswith("APP-"):
+            parts_cid = cid.split('-')
+            if len(parts_cid) >= 2:
+                try: seq_num = int(parts_cid[1])
+                except: pass
+
+        # ── IMMEDIATELY tell the client this command has started ──
+        started_result = f"OK {cmd_type}: started"
+        ts_started = int(time.time() * 1_000_000)
+        with _report_history_lock:
+            report_history[cid] = (ts_started, seq_num, started_result)
+        save_report_history()
+        add_to_report_queue(cid, ts_started, seq_num, started_result)
 
         def run_command():
             lock_acquired = False
@@ -426,22 +441,15 @@ def heavy_executor_loop(
             result = f"ERR unexpected: {ex}"
             safe_log(f"Command {cid} crashed: {ex}")
         finally:
-            # Ensure the in‑progress flag is always removed
             with _in_progress_lock:
                 _in_progress_ids.discard(cid)
 
-        ts = int(time.time() * 1_000_000)
-        seq_num = 0
-        if cid.startswith("APP-"):
-            parts_cid = cid.split('-')
-            if len(parts_cid) >= 2:
-                try: seq_num = int(parts_cid[1])
-                except: pass
-
+        # ── Update the report with the real result ──
+        ts_final = int(time.time() * 1_000_000)
         with _report_history_lock:
-            report_history[cid] = (ts, seq_num, result)
+            report_history[cid] = (ts_final, seq_num, result)
         save_report_history()
-        add_to_report_queue(cid, ts, seq_num, result)
+        add_to_report_queue(cid, ts_final, seq_num, result)
         safe_log(f"Executed {cid} -> {result}")
 
         if ctext.strip().lower() == "exit":
