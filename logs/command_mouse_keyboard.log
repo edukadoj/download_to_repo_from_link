@@ -2654,3 +2654,7 @@
 [11:07:32] Execution loop: processing APP-59776-20260602110513: combo:ctrl+a
 [11:07:32] Executed APP-59776-20260602110513 -> OK combo(ctrl+a)
 [11:07:34] Taking screenshot: screenshots/0192_1780398454647483_auto.png
+[11:07:35] Uploading screenshot synchronously: screenshots/0192_1780398454647483_auto.png
+[11:07:36] Sender published response comment.
+[11:07:39] Screenshot screenshots/0192_1780398454647483_auto.png uploaded successfully.
+[11:07:40] Taking screenshot: screenshots/0193_1780398460379196_auto.png
