@@ -1,9 +1,8 @@
 # python/upload_handler.py (full updated content)
 #!/usr/bin/env python3
 # ==============================================================================
-# upload_handler.py – Version 2.2.4
-#   - Increased listing callback wait to 300s and per‑chunk download to 120s.
-#   - Added log when listing is received.
+# upload_handler.py – Version 2.2.5
+#   - Added chunk progress autonomous reports every 50 chunks.
 # ==============================================================================
 import os, re, shutil, tempfile, time, json, threading
 from urllib.request import urlopen, Request
@@ -110,7 +109,8 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
     try:
         # Download each .part file and place directly in flat_temp
         for base, entries in groups.items():
-            for rel_path, sha in entries:
+            total_chunks = len(entries)
+            for idx, (rel_path, sha) in enumerate(entries, start=1):
                 event.clear()
                 data_holder = []
                 def download_callback(data):
@@ -129,6 +129,11 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
                     f.write(data_holder[0])
                 if log_func:
                     log_func(f"  ✅ Downloaded {rel_path} ({len(data_holder[0])} bytes)")
+
+                # ── Progress report every 50 chunks ──
+                if idx % 50 == 0 or idx == total_chunks:
+                    add_autonomous_report("upload-progress",
+                                          f"Chunk {idx}/{total_chunks} of {base} downloaded")
 
         # ── Reassemble using flat method ──
         count = reassemble_flat(flat_temp, DOWNLOAD_DIR)
