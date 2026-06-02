@@ -491,3 +491,6 @@
 [01:29:36] Execution loop: processing APP-59430-20260602012721: dir
 [01:29:36] Executed APP-59430-20260602012721 -> Files: (empty)
 [01:29:38] Sender published response comment.
+[01:29:38] Agent alive
+[01:29:38] Taking screenshot: screenshots/0086_1780363778971099_auto.png
+[01:29:39] Uploading screenshot synchronously: screenshots/0086_1780363778971099_auto.png
