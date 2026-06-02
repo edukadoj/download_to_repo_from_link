@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# upload_handler.py – Version 2.2.1
-#   - Downloads raw .part files (no .basechunk conversion) and reassembles.
-#   - Uses RepoWrapper for all repo access.
+# upload_handler.py – Version 2.2.2
+#   - Increased chunks-directory listing timeout from 10s to 120s to handle
+#     repositories with many chunk files.
 # ==============================================================================
 import os, re, shutil, tempfile, time, json, threading
 from urllib.request import urlopen, Request
@@ -76,7 +76,7 @@ def perform_upload(DOWNLOAD_DIR, LOG_FILENAME,
         listing_result.extend(lst)
         event.set()
     rw.list_directory("chunks", callback)
-    if not event.wait(timeout=10):
+    if not event.wait(timeout=120):   # increased from 10 to 120 seconds
         return "ERR upload: timed out listing chunks dir"
     all_entries = listing_result
 
